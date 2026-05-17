@@ -133,22 +133,22 @@ export function createBot(env: Env): Bot<BotContext> {
   // or timeout). They answer the callback so Telegram stops the
   // loading spinner and inform the user the action expired.
   bot.callbackQuery(/^cycle:/, async (ctx) => {
-    await ctx.answerCallbackQuery(
-      "This selection has expired. Use /add to start again.",
-    );
+    await ctx.answerCallbackQuery("这次选择已过期，请发送 /add 重新开始。");
   });
   bot.callbackQuery(/^editcycle:/, async (ctx) => {
-    await ctx.answerCallbackQuery(
-      "This selection has expired. Use /edit to start again.",
-    );
+    await ctx.answerCallbackQuery("这次选择已过期，请发送 /edit 重新开始。");
+  });
+  bot.callbackQuery(/^addcurrency:/, async (ctx) => {
+    await ctx.answerCallbackQuery("这次选择已过期，请发送 /add 重新开始。");
+  });
+  bot.callbackQuery(/^adddate:/, async (ctx) => {
+    await ctx.answerCallbackQuery("这次选择已过期，请发送 /add 重新开始。");
   });
   bot.callbackQuery(/^add:confirm$/, async (ctx) => {
-    await ctx.answerCallbackQuery(
-      "This confirmation has expired. Use /add to start again.",
-    );
+    await ctx.answerCallbackQuery("这次确认已过期，请发送 /add 重新开始。");
   });
   bot.callbackQuery(/^add:cancel$/, async (ctx) => {
-    await ctx.answerCallbackQuery("This confirmation has expired.");
+    await ctx.answerCallbackQuery("这次确认已过期。");
   });
 
   return bot;

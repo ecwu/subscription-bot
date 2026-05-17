@@ -10,7 +10,7 @@ export async function listCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("Unable to identify user. Please try again.");
+    await ctx.reply("无法识别用户，请稍后再试。");
     logger.warn("List command without userKey");
     return;
   }
@@ -22,9 +22,7 @@ export async function listCommand(ctx: BotContext): Promise<void> {
   const subs = await service.list(ctx.userKey, ctx.env.ENCRYPTION_KEY);
 
   if (subs.length === 0) {
-    await ctx.reply(
-      "You have no subscriptions yet.\nUse /add to create your first one.",
-    );
+    await ctx.reply("你还没有添加任何订阅。\n发送 /add 添加第一个订阅。");
     return;
   }
 
@@ -35,7 +33,7 @@ export async function listCommand(ctx: BotContext): Promise<void> {
       new Date(b.nextBillingDate).getTime(),
   );
 
-  await ctx.reply("Your subscriptions:");
+  await ctx.reply("你的订阅：");
 
   for (let i = 0; i < sorted.length; i++) {
     const sub = sorted[i];

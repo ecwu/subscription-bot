@@ -22,14 +22,14 @@ function getReminderDaysAhead(env: Env): number {
 
 function formatReminderMessage(sub: Subscription): string {
   const lines: string[] = [
-    `Renewal reminder:\n${sub.name} renews on ${sub.nextBillingDate}.`,
+    `扣款提醒：\n${sub.name} 将在 ${sub.nextBillingDate} 扣款。`,
   ];
 
   if (sub.price !== undefined) {
-    lines.push(`Price: ${sub.price} ${sub.currency ?? ""}`.trim());
+    lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
   }
 
-  lines.push(`\nUse /view ${sub.id.slice(0, 8)} for details.`);
+  lines.push(`\n发送 /view ${sub.id.slice(0, 8)} 查看详情。`);
   return lines.join("\n");
 }
 

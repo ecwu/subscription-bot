@@ -35,7 +35,7 @@ describe("rateLimiter", () => {
 
     expect(next).toHaveBeenCalledTimes(2);
     expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Too many requests"),
+      expect.stringContaining("请求过于频繁"),
     );
   });
 

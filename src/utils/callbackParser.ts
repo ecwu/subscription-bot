@@ -107,6 +107,76 @@ export function parseAddConfirmCallbackData(
   return null;
 }
 
+export type AddCurrencyCallbackData =
+  | { action: "select"; currency: string }
+  | { action: "skip" }
+  | { action: "other" }
+  | { action: "cancel" };
+
+/**
+ * Parse add currency callback data.
+ *
+ * Expected formats:
+ *   addcurrency:<currency>
+ *   addcurrency:skip
+ *   addcurrency:other
+ *   addcurrency:cancel
+ */
+export function parseAddCurrencyCallbackData(
+  callbackData: string,
+): AddCurrencyCallbackData | null {
+  const prefix = "addcurrency:";
+  if (!callbackData.startsWith(prefix)) return null;
+  const value = callbackData.slice(prefix.length);
+
+  if (value === "skip") return { action: "skip" };
+  if (value === "other") return { action: "other" };
+  if (value === "cancel") return { action: "cancel" };
+  if (/^[A-Z]{3}$/.test(value)) return { action: "select", currency: value };
+  return null;
+}
+
+export type AddDateCallbackData =
+  | { action: "pick"; date: string }
+  | { action: "month"; month: string }
+  | { action: "noop" }
+  | { action: "cancel" };
+
+/**
+ * Parse add date callback data.
+ *
+ * Expected formats:
+ *   adddate:pick:<YYYY-MM-DD>
+ *   adddate:month:<YYYY-MM>
+ *   adddate:noop
+ *   adddate:cancel
+ */
+export function parseAddDateCallbackData(
+  callbackData: string,
+): AddDateCallbackData | null {
+  if (callbackData === "adddate:noop") return { action: "noop" };
+  if (callbackData === "adddate:cancel") return { action: "cancel" };
+
+  const pickPrefix = "adddate:pick:";
+  if (callbackData.startsWith(pickPrefix)) {
+    const date = callbackData.slice(pickPrefix.length);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return { action: "pick", date };
+    }
+    return null;
+  }
+
+  const monthPrefix = "adddate:month:";
+  if (callbackData.startsWith(monthPrefix)) {
+    const month = callbackData.slice(monthPrefix.length);
+    if (/^\d{4}-\d{2}$/.test(month)) {
+      return { action: "month", month };
+    }
+  }
+
+  return null;
+}
+
 /**
  * Parse edit cycle callback data.
  *

@@ -12,6 +12,7 @@ export interface ParsedAddArgs {
 const VALID_CYCLES: readonly BillingCycle[] = [
   "weekly",
   "monthly",
+  "quarterly",
   "yearly",
   "custom",
 ];
@@ -33,8 +34,8 @@ export function parseAddArgs(args: string[]): ParsedAddArgs {
   // args[0] is the command itself (e.g. "/add"), so we need at least 6 elements
   if (args.length < 6) {
     throw new ValidationError(
-      "Usage: /add <name> <price> <currency> <cycle> <nextBillingDate>\n" +
-        "Example: /add Netflix 12.99 EUR monthly 2026-06-01",
+      "用法：/add <名称> <价格> <币种> <周期> <下次扣款日期>\n" +
+        "示例：/add Netflix 12.99 CNY monthly 2026-06-01",
     );
   }
 
@@ -45,33 +46,34 @@ export function parseAddArgs(args: string[]): ParsedAddArgs {
   const nextBillingDate = args[5];
 
   if (!name || name.trim().length === 0) {
-    throw new ValidationError("Subscription name is required.");
+    throw new ValidationError("订阅名称不能为空。");
   }
 
   const price = Number(priceStr);
   if (!Number.isFinite(price) || price < 0) {
-    throw new ValidationError(
-      `Invalid price: "${priceStr}". Price must be a non-negative number.`,
-    );
+    throw new ValidationError(`价格无效：“${priceStr}”。价格必须是非负数字。`);
   }
 
   if (!VALID_CYCLES.includes(cycle as BillingCycle)) {
     throw new ValidationError(
-      `Invalid cycle: "${cycle}". Allowed: ${VALID_CYCLES.join(", ")}.`,
+      `周期无效：“${cycle}”。可选值：${VALID_CYCLES.join(", ")}。`,
     );
   }
 
   if (!DATE_REGEX.test(nextBillingDate)) {
     throw new ValidationError(
-      `Invalid date: "${nextBillingDate}". Use YYYY-MM-DD format.`,
+      `日期无效：“${nextBillingDate}”。请使用 YYYY-MM-DD 格式。`,
     );
   }
 
   // Validate that the date is actually parseable
   const parsedDate = new Date(nextBillingDate + "T00:00:00Z");
-  if (isNaN(parsedDate.getTime())) {
+  if (
+    isNaN(parsedDate.getTime()) ||
+    parsedDate.toISOString().slice(0, 10) !== nextBillingDate
+  ) {
     throw new ValidationError(
-      `Invalid date: "${nextBillingDate}". Use YYYY-MM-DD format.`,
+      `日期无效：“${nextBillingDate}”。请使用 YYYY-MM-DD 格式。`,
     );
   }
 

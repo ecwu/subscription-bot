@@ -4,6 +4,8 @@ import {
   parseEditCallbackData,
   parseCycleCallbackData,
   parseAddConfirmCallbackData,
+  parseAddCurrencyCallbackData,
+  parseAddDateCallbackData,
   parseEditCycleCallbackData,
 } from "../src/utils/callbackParser.js";
 
@@ -103,6 +105,50 @@ describe("parseAddConfirmCallbackData", () => {
   });
   it("returns null for invalid prefix", () => {
     expect(parseAddConfirmCallbackData("delete:confirm")).toBeNull();
+  });
+});
+
+describe("parseAddCurrencyCallbackData", () => {
+  it("parses selected currency", () => {
+    const result = parseAddCurrencyCallbackData("addcurrency:CNY");
+    expect(result).toEqual({ action: "select", currency: "CNY" });
+  });
+  it("parses skip", () => {
+    const result = parseAddCurrencyCallbackData("addcurrency:skip");
+    expect(result).toEqual({ action: "skip" });
+  });
+  it("parses other", () => {
+    const result = parseAddCurrencyCallbackData("addcurrency:other");
+    expect(result).toEqual({ action: "other" });
+  });
+  it("parses cancel", () => {
+    const result = parseAddCurrencyCallbackData("addcurrency:cancel");
+    expect(result).toEqual({ action: "cancel" });
+  });
+  it("returns null for invalid currency", () => {
+    expect(parseAddCurrencyCallbackData("addcurrency:CN")).toBeNull();
+  });
+});
+
+describe("parseAddDateCallbackData", () => {
+  it("parses picked date", () => {
+    const result = parseAddDateCallbackData("adddate:pick:2026-06-01");
+    expect(result).toEqual({ action: "pick", date: "2026-06-01" });
+  });
+  it("parses month navigation", () => {
+    const result = parseAddDateCallbackData("adddate:month:2026-06");
+    expect(result).toEqual({ action: "month", month: "2026-06" });
+  });
+  it("parses noop", () => {
+    const result = parseAddDateCallbackData("adddate:noop");
+    expect(result).toEqual({ action: "noop" });
+  });
+  it("parses cancel", () => {
+    const result = parseAddDateCallbackData("adddate:cancel");
+    expect(result).toEqual({ action: "cancel" });
+  });
+  it("returns null for malformed date", () => {
+    expect(parseAddDateCallbackData("adddate:pick:2026-6-1")).toBeNull();
   });
 });
 

@@ -1,5 +1,6 @@
 import type { Subscription } from "../models/subscription.js";
 import { shortId } from "./shortId.js";
+import { formatBillingCycle } from "./labels.js";
 
 /**
  * Format a single subscription line for /list output.
@@ -17,9 +18,9 @@ export function formatSubscriptionLine(
   const parts = [
     sub.name,
     priceStr,
-    sub.billingCycle,
-    `next: ${sub.nextBillingDate}`,
-    `id: ${shortId(sub.id)}`,
+    formatBillingCycle(sub.billingCycle),
+    `下次扣款：${sub.nextBillingDate}`,
+    `ID：${shortId(sub.id)}`,
   ].filter(Boolean);
   return `${index + 1}. ${parts.join(" — ")}`;
 }

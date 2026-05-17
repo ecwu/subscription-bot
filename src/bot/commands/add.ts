@@ -7,12 +7,13 @@ import { createReminderRepository } from "../../repositories/reminderRepository.
 import type { Subscription } from "../../models/subscription.js";
 import { shortId } from "../../utils/shortId.js";
 import { createLogger } from "../../utils/logger.js";
+import { formatBillingCycle } from "../../utils/labels.js";
 
 export async function addCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("Unable to identify user. Please try again.");
+    await ctx.reply("无法识别用户，请稍后再试。");
     logger.warn("Add command without userKey");
     return;
   }
@@ -61,8 +62,8 @@ export async function addCommand(ctx: BotContext): Promise<void> {
   });
 
   await ctx.reply(
-    `Subscription added!\n` +
-      `${sub.name} — ${sub.price} ${sub.currency} — ${sub.billingCycle} — next: ${sub.nextBillingDate}\n` +
-      `Short ID: ${shortId(sub.id)}`,
+    `订阅已添加。\n` +
+      `${sub.name} — ${sub.price} ${sub.currency} — ${formatBillingCycle(sub.billingCycle)} — 下次扣款：${sub.nextBillingDate}\n` +
+      `短 ID：${shortId(sub.id)}`,
   );
 }

@@ -7,6 +7,11 @@ import { Subscription, BillingCycle } from "../../models/subscription.js";
 import { shortId } from "../../utils/shortId.js";
 import { createLogger } from "../../utils/logger.js";
 import { InlineKeyboard } from "grammy";
+import {
+  parseAddCurrencyCallbackData,
+  parseAddDateCallbackData,
+} from "../../utils/callbackParser.js";
+import { formatBillingCycle } from "../../utils/labels.js";
 
 // TODO: grammY conversations do not have built-in timeout handling.
 // If a user starts /add and never completes it, the conversation waits
@@ -21,13 +26,25 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const VALID_CYCLES: readonly BillingCycle[] = [
   "weekly",
   "monthly",
+  "quarterly",
   "yearly",
   "custom",
 ];
+const COMMON_CURRENCIES = [
+  "CNY",
+  "USD",
+  "HKD",
+  "TWD",
+  "EUR",
+  "JPY",
+  "GBP",
+  "SGD",
+] as const;
+const WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"];
 
 export function validateAddName(name: string): string | null {
   const trimmed = name.trim();
-  if (trimmed.length === 0) return "Name cannot be empty.";
+  if (trimmed.length === 0) return "订阅名称不能为空。";
   return null;
 }
 
@@ -41,7 +58,7 @@ export function validateAddPrice(priceStr: string): {
   }
   const price = Number(trimmed);
   if (!Number.isFinite(price) || price < 0) {
-    return { error: "Enter a non-negative number, or type skip." };
+    return { error: "请输入非负数字，或发送 skip 跳过。" };
   }
   return { price };
 }
@@ -53,13 +70,13 @@ export function validateAddCurrency(
   const trimmed = currencyStr.trim().toUpperCase();
   if (trimmed === "SKIP" || trimmed === "") {
     if (hasPrice) {
-      return { error: "Currency is required when a price is set." };
+      return { error: "已填写价格时必须选择币种。" };
     }
     return { currency: undefined };
   }
   if (!/^[A-Z]{3}$/.test(trimmed)) {
     return {
-      error: "Use a 3-letter currency code such as EUR or USD.",
+      error: "请输入 3 位币种代码，例如 CNY 或 USD。",
     };
   }
   return { currency: trimmed };
@@ -71,31 +88,133 @@ export function validateAddDate(dateStr: string): {
 } {
   const trimmed = dateStr.trim();
   if (!DATE_REGEX.test(trimmed)) {
-    return { error: "Use YYYY-MM-DD, for example 2026-06-01." };
+    return { error: "请使用 YYYY-MM-DD 格式，例如 2026-06-01。" };
   }
   const parsed = new Date(trimmed + "T00:00:00Z");
-  if (isNaN(parsed.getTime())) {
-    return { error: "Invalid date. Use YYYY-MM-DD, for example 2026-06-01." };
+  if (
+    isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== trimmed
+  ) {
+    return {
+      error: "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
+    };
   }
   return { date: trimmed };
 }
 
 function cycleKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("Weekly", "cycle:weekly")
-    .text("Monthly", "cycle:monthly")
-    .text("Yearly", "cycle:yearly")
-    .text("Custom", "cycle:custom");
+    .text("每周", "cycle:weekly")
+    .text("每月", "cycle:monthly")
+    .row()
+    .text("每季度", "cycle:quarterly")
+    .text("每年", "cycle:yearly")
+    .row()
+    .text("自定义", "cycle:custom");
+}
+
+function currencyKeyboard(hasPrice: boolean): InlineKeyboard {
+  const keyboard = new InlineKeyboard();
+
+  COMMON_CURRENCIES.forEach((currency, index) => {
+    keyboard.text(currency, `addcurrency:${currency}`);
+    if (index % 4 === 3) keyboard.row();
+  });
+
+  keyboard.text("其他", "addcurrency:other");
+  if (!hasPrice) {
+    keyboard.text("不填写", "addcurrency:skip");
+  }
+  keyboard.row().text("取消", "addcurrency:cancel");
+  return keyboard;
+}
+
+function addMonthsToMonth(month: string, delta: number): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const date = new Date(Date.UTC(year, monthNumber - 1 + delta, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(
+    2,
+    "0",
+  )}`;
+}
+
+function currentMonth(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(
+    2,
+    "0",
+  )}`;
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function formatDateValue(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(
+    2,
+    "0",
+  )}`;
+}
+
+export function dateKeyboard(month: string): InlineKeyboard {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const keyboard = new InlineKeyboard()
+    .text("‹", `adddate:month:${addMonthsToMonth(month, -1)}`)
+    .text(`${year}年${monthNumber}月`, "adddate:noop")
+    .text("›", `adddate:month:${addMonthsToMonth(month, 1)}`)
+    .row();
+
+  for (const label of WEEKDAY_LABELS) {
+    keyboard.text(label, "adddate:noop");
+  }
+  keyboard.row();
+
+  const firstDay = new Date(Date.UTC(year, monthNumber - 1, 1));
+  const startOffset = (firstDay.getUTCDay() + 6) % 7;
+  const totalDays = daysInMonth(year, monthNumber);
+  let day = 1;
+
+  for (let week = 0; week < 6; week++) {
+    for (let weekday = 0; weekday < 7; weekday++) {
+      if ((week === 0 && weekday < startOffset) || day > totalDays) {
+        keyboard.text(" ", "adddate:noop");
+      } else {
+        keyboard.text(
+          String(day),
+          `adddate:pick:${formatDateValue(year, monthNumber, day)}`,
+        );
+        day += 1;
+      }
+    }
+    keyboard.row();
+    if (day > totalDays) break;
+  }
+
+  keyboard.text(
+    "今天",
+    `adddate:pick:${new Date().toISOString().slice(0, 10)}`,
+  );
+  keyboard.text("取消", "adddate:cancel");
+  return keyboard;
 }
 
 function confirmKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("✅ Confirm", "add:confirm")
-    .text("❌ Cancel", "add:cancel");
+    .text("✅ 确认", "add:confirm")
+    .text("❌ 取消", "add:cancel");
 }
 
 function isCancel(text: string): boolean {
-  return text.trim() === "/cancel";
+  return text.trim() === "/cancel" || text.trim() === "取消";
+}
+
+async function safeDeleteMessage(ctx: BaseBotContext): Promise<void> {
+  try {
+    await ctx.deleteMessage();
+  } catch {
+    // The callback message may already be gone.
+  }
 }
 
 export async function addConversation(
@@ -113,7 +232,7 @@ export async function addConversation(
   }));
 
   if (!ctxData.userKey) {
-    await ctx.reply("Unable to identify user. Please try again.");
+    await ctx.reply("无法识别用户，请稍后再试。");
     return;
   }
 
@@ -122,86 +241,173 @@ export async function addConversation(
   const logger = createLogger(ctxData.requestId);
 
   // Step 1: Name
-  await ctx.reply("What is the subscription name?");
+  await ctx.reply("订阅名称是什么？");
   const nameCtx = await conversation.waitFor("message:text");
   const nameText = nameCtx.msg.text;
   if (isCancel(nameText)) {
-    await ctx.reply("Cancelled.");
+    await ctx.reply("已取消。");
     return;
   }
   const nameError = validateAddName(nameText);
   if (nameError) {
-    await ctx.reply(nameError + "\nUse /add to try again.");
+    await ctx.reply(nameError + "\n请发送 /add 重新开始。");
     return;
   }
   const name = nameText.trim();
 
   // Step 2: Price
-  await ctx.reply("What is the price? You can type a number, or type skip.");
+  await ctx.reply("价格是多少？请输入数字；如果不想填写价格，可以发送 skip。");
   const priceCtx = await conversation.waitFor("message:text");
   const priceText = priceCtx.msg.text;
   if (isCancel(priceText)) {
-    await ctx.reply("Cancelled.");
+    await ctx.reply("已取消。");
     return;
   }
   const priceResult = validateAddPrice(priceText);
   if (priceResult.error) {
-    await ctx.reply(priceResult.error + "\nUse /add to try again.");
+    await ctx.reply(priceResult.error + "\n请发送 /add 重新开始。");
     return;
   }
   const price = priceResult.price;
 
-  // Step 3: Currency
-  await ctx.reply("What currency? Example: EUR, USD, GBP. You can type skip.");
-  const currencyCtx = await conversation.waitFor("message:text");
-  const currencyText = currencyCtx.msg.text;
-  if (isCancel(currencyText)) {
-    await ctx.reply("Cancelled.");
-    return;
+  // Step 3: Currency (inline keyboard)
+  await ctx.reply("请选择币种：", {
+    reply_markup: currencyKeyboard(price !== undefined),
+  });
+
+  let currency: string | undefined;
+  let currencySelected = false;
+  while (!currencySelected) {
+    const currencyCtx =
+      await conversation.waitForCallbackQuery(/^addcurrency:/);
+    const parsedCurrency = parseAddCurrencyCallbackData(
+      currencyCtx.callbackQuery.data,
+    );
+
+    if (!parsedCurrency) {
+      await currencyCtx.answerCallbackQuery("无效的币种选择。");
+      continue;
+    }
+
+    await currencyCtx.answerCallbackQuery();
+
+    if (parsedCurrency.action === "cancel") {
+      await safeDeleteMessage(currencyCtx);
+      await ctx.reply("已取消。");
+      return;
+    }
+
+    if (parsedCurrency.action === "skip") {
+      if (price !== undefined) {
+        await ctx.reply("已填写价格时必须选择币种。");
+        continue;
+      }
+      await safeDeleteMessage(currencyCtx);
+      currency = undefined;
+      currencySelected = true;
+      break;
+    }
+
+    if (parsedCurrency.action === "other") {
+      await safeDeleteMessage(currencyCtx);
+      await ctx.reply("请输入 3 位币种代码，例如 CNY 或 USD。");
+      const customCurrencyCtx = await conversation.waitFor("message:text");
+      const customCurrencyText = customCurrencyCtx.msg.text;
+      if (isCancel(customCurrencyText)) {
+        await ctx.reply("已取消。");
+        return;
+      }
+      const result = validateAddCurrency(
+        customCurrencyText,
+        price !== undefined,
+      );
+      if (result.error) {
+        await ctx.reply(result.error + "\n请发送 /add 重新开始。");
+        return;
+      }
+      currency = result.currency;
+      currencySelected = true;
+      break;
+    }
+
+    await safeDeleteMessage(currencyCtx);
+    currency = parsedCurrency.currency;
+    currencySelected = true;
+    break;
   }
-  const currencyResult = validateAddCurrency(currencyText, price !== undefined);
-  if (currencyResult.error) {
-    await ctx.reply(currencyResult.error + "\nUse /add to try again.");
-    return;
-  }
-  const currency = currencyResult.currency;
 
   // Step 4: Billing cycle (inline keyboard)
-  await ctx.reply("Choose billing cycle:", {
+  await ctx.reply("请选择扣款周期：", {
     reply_markup: cycleKeyboard(),
   });
   const cycleCtx = await conversation.waitForCallbackQuery(/^cycle:/);
   const cycleCallback = cycleCtx.callbackQuery.data;
   const cycle = cycleCallback.replace("cycle:", "") as BillingCycle;
   if (!VALID_CYCLES.includes(cycle)) {
-    await ctx.reply("Choose one of the buttons.\nUse /add to try again.");
+    await ctx.reply("请点击按钮选择扣款周期。\n请发送 /add 重新开始。");
     return;
   }
   await cycleCtx.answerCallbackQuery();
-  await cycleCtx.deleteMessage();
+  await safeDeleteMessage(cycleCtx);
 
-  // Step 5: Date
-  await ctx.reply("What is the next billing date? Use YYYY-MM-DD.");
-  const dateCtx = await conversation.waitFor("message:text");
-  const dateText = dateCtx.msg.text;
-  if (isCancel(dateText)) {
-    await ctx.reply("Cancelled.");
-    return;
+  // Step 5: Date (inline calendar)
+  await ctx.reply("请选择下次扣款日期：", {
+    reply_markup: dateKeyboard(currentMonth()),
+  });
+
+  let nextBillingDate: string | undefined;
+  while (!nextBillingDate) {
+    const dateCtx = await conversation.waitForCallbackQuery(/^adddate:/);
+    const parsedDate = parseAddDateCallbackData(dateCtx.callbackQuery.data);
+
+    if (!parsedDate) {
+      await dateCtx.answerCallbackQuery("无效的日期选择。");
+      continue;
+    }
+
+    if (parsedDate.action === "noop") {
+      await dateCtx.answerCallbackQuery();
+      continue;
+    }
+
+    if (parsedDate.action === "cancel") {
+      await dateCtx.answerCallbackQuery();
+      await safeDeleteMessage(dateCtx);
+      await ctx.reply("已取消。");
+      return;
+    }
+
+    if (parsedDate.action === "month") {
+      await dateCtx.answerCallbackQuery();
+      try {
+        await dateCtx.editMessageReplyMarkup({
+          reply_markup: dateKeyboard(parsedDate.month),
+        });
+      } catch {
+        // If editing fails, keep the conversation alive for the next callback.
+      }
+      continue;
+    }
+
+    const dateResult = validateAddDate(parsedDate.date);
+    if (dateResult.error) {
+      await dateCtx.answerCallbackQuery("日期无效。");
+      await ctx.reply(dateResult.error + "\n请发送 /add 重新开始。");
+      return;
+    }
+
+    await dateCtx.answerCallbackQuery();
+    await safeDeleteMessage(dateCtx);
+    nextBillingDate = dateResult.date!;
   }
-  const dateResult = validateAddDate(dateText);
-  if (dateResult.error) {
-    await ctx.reply(dateResult.error + "\nUse /add to try again.");
-    return;
-  }
-  const nextBillingDate = dateResult.date!;
 
   // Review
   const reviewLines = [
-    "Review:",
-    `Name: ${name}`,
-    price !== undefined ? `Price: ${price} ${currency ?? ""}`.trim() : null,
-    `Cycle: ${cycle}`,
-    `Next billing: ${nextBillingDate}`,
+    "请确认订阅信息：",
+    `名称：${name}`,
+    price !== undefined ? `价格：${price} ${currency ?? ""}`.trim() : null,
+    `周期：${formatBillingCycle(cycle)}`,
+    `下次扣款：${nextBillingDate}`,
   ].filter((l): l is string => l !== null);
 
   await ctx.reply(reviewLines.join("\n"), {
@@ -211,16 +417,16 @@ export async function addConversation(
   const confirmCtx = await conversation.waitForCallbackQuery(/^add:/);
   const confirmAction = confirmCtx.callbackQuery.data;
   await confirmCtx.answerCallbackQuery();
-  await confirmCtx.deleteMessage();
+  await safeDeleteMessage(confirmCtx);
 
   if (confirmAction === "add:cancel") {
-    await ctx.reply("Cancelled.");
+    await ctx.reply("已取消。");
     logger.info("Add conversation cancelled at review");
     return;
   }
 
   if (confirmAction !== "add:confirm") {
-    await ctx.reply("Cancelled.");
+    await ctx.reply("已取消。");
     return;
   }
 
@@ -252,6 +458,6 @@ export async function addConversation(
   });
 
   await ctx.reply(
-    `✅ "${name}" added.\nShort ID: ${shortId(sub.id)}\nUse /list to see all subscriptions.`,
+    `✅ 已添加“${name}”。\n短 ID：${shortId(sub.id)}\n发送 /list 查看全部订阅。`,
   );
 }

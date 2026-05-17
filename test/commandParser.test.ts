@@ -21,7 +21,13 @@ describe("parseAddArgs", () => {
   });
 
   it("accepts all valid billing cycles", () => {
-    const cycles = ["weekly", "monthly", "yearly", "custom"] as const;
+    const cycles = [
+      "weekly",
+      "monthly",
+      "quarterly",
+      "yearly",
+      "custom",
+    ] as const;
     for (const cycle of cycles) {
       const args = ["/add", "Test", "1", "EUR", cycle, "2026-06-01"];
       const result = parseAddArgs(args);
@@ -44,42 +50,42 @@ describe("parseAddArgs", () => {
   it("throws for too few arguments", () => {
     const args = ["/add", "Netflix", "12.99"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/Usage/);
+    expect(() => parseAddArgs(args)).toThrow(/用法/);
   });
 
   it("throws for missing name", () => {
     const args = ["/add", "", "12.99", "EUR", "monthly", "2026-06-01"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/name/);
+    expect(() => parseAddArgs(args)).toThrow(/名称/);
   });
 
   it("throws for invalid price", () => {
     const args = ["/add", "Netflix", "abc", "EUR", "monthly", "2026-06-01"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/price/);
+    expect(() => parseAddArgs(args)).toThrow(/价格/);
   });
 
   it("throws for negative price", () => {
     const args = ["/add", "Netflix", "-5", "EUR", "monthly", "2026-06-01"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/price/);
+    expect(() => parseAddArgs(args)).toThrow(/价格/);
   });
 
   it("throws for invalid cycle", () => {
     const args = ["/add", "Netflix", "12.99", "EUR", "daily", "2026-06-01"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/cycle/);
+    expect(() => parseAddArgs(args)).toThrow(/周期/);
   });
 
   it("throws for invalid date format", () => {
     const args = ["/add", "Netflix", "12.99", "EUR", "monthly", "06-01-2026"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/date/);
+    expect(() => parseAddArgs(args)).toThrow(/日期/);
   });
 
   it("throws for invalid date values", () => {
     const args = ["/add", "Netflix", "12.99", "EUR", "monthly", "2026-13-01"];
     expect(() => parseAddArgs(args)).toThrow(ValidationError);
-    expect(() => parseAddArgs(args)).toThrow(/date/);
+    expect(() => parseAddArgs(args)).toThrow(/日期/);
   });
 });

@@ -14,7 +14,7 @@ export async function exportCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("Unable to identify user. Please try again.");
+    await ctx.reply("无法识别用户，请稍后再试。");
     logger.warn("Export command without userKey");
     return;
   }
@@ -39,8 +39,7 @@ export async function exportCommand(ctx: BotContext): Promise<void> {
 
   if (payload.length > MAX_EXPORT_MESSAGE_LENGTH) {
     await ctx.reply(
-      "Your export is too large to send as a message.\n" +
-        "TODO: file upload support will be added in a future update.",
+      "导出内容太大，无法直接作为消息发送。\n" + "后续会补充文件上传导出支持。",
     );
     logger.info("Export too large for message", {
       payloadLength: payload.length,

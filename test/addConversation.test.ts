@@ -13,8 +13,8 @@ describe("addConversation validators", () => {
       expect(validateAddName("YouTube Premium")).toBeNull();
     });
     it("rejects empty names", () => {
-      expect(validateAddName("")).toBe("Name cannot be empty.");
-      expect(validateAddName("   ")).toBe("Name cannot be empty.");
+      expect(validateAddName("")).toBe("订阅名称不能为空。");
+      expect(validateAddName("   ")).toBe("订阅名称不能为空。");
     });
   });
 
@@ -36,11 +36,11 @@ describe("addConversation validators", () => {
     });
     it("rejects negative numbers", () => {
       const result = validateAddPrice("-1");
-      expect(result.error).toBe("Enter a non-negative number, or type skip.");
+      expect(result.error).toBe("请输入非负数字，或发送 skip 跳过。");
     });
     it("rejects non-numeric input", () => {
       const result = validateAddPrice("abc");
-      expect(result.error).toBe("Enter a non-negative number, or type skip.");
+      expect(result.error).toBe("请输入非负数字，或发送 skip 跳过。");
     });
   });
 
@@ -52,7 +52,7 @@ describe("addConversation validators", () => {
     });
     it("requires currency when price exists", () => {
       const result = validateAddCurrency("skip", true);
-      expect(result.error).toBe("Currency is required when a price is set.");
+      expect(result.error).toBe("已填写价格时必须选择币种。");
     });
     it("accepts valid 3-letter codes", () => {
       const result = validateAddCurrency("EUR", true);
@@ -61,9 +61,7 @@ describe("addConversation validators", () => {
     });
     it("rejects invalid codes", () => {
       const result = validateAddCurrency("EURO", true);
-      expect(result.error).toBe(
-        "Use a 3-letter currency code such as EUR or USD.",
-      );
+      expect(result.error).toBe("请输入 3 位币种代码，例如 CNY 或 USD。");
     });
   });
 
@@ -75,12 +73,18 @@ describe("addConversation validators", () => {
     });
     it("rejects invalid format", () => {
       const result = validateAddDate("01-06-2026");
-      expect(result.error).toBe("Use YYYY-MM-DD, for example 2026-06-01.");
+      expect(result.error).toBe("请使用 YYYY-MM-DD 格式，例如 2026-06-01。");
     });
     it("rejects invalid date", () => {
       const result = validateAddDate("2026-13-01");
       expect(result.error).toBe(
-        "Invalid date. Use YYYY-MM-DD, for example 2026-06-01.",
+        "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
+      );
+    });
+    it("rejects impossible calendar dates", () => {
+      const result = validateAddDate("2026-02-31");
+      expect(result.error).toBe(
+        "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
       );
     });
   });

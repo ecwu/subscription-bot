@@ -9,7 +9,7 @@ export async function deleteCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("Unable to identify user. Please try again.");
+    await ctx.reply("无法识别用户，请稍后再试。");
     logger.warn("Delete command without userKey");
     return;
   }
@@ -18,9 +18,7 @@ export async function deleteCommand(ctx: BotContext): Promise<void> {
   const args = text.trim().split(/\s+/);
 
   if (args.length < 2) {
-    await ctx.reply(
-      "Usage: /delete <id>\nUse /list to see your subscriptions.",
-    );
+    await ctx.reply("用法：/delete <id>\n发送 /list 查看你的订阅。");
     return;
   }
 
@@ -37,14 +35,12 @@ export async function deleteCommand(ctx: BotContext): Promise<void> {
   );
 
   if (resolved.kind === "not_found") {
-    await ctx.reply("Subscription not found.");
+    await ctx.reply("没有找到这个订阅。");
     return;
   }
 
   if (resolved.kind === "ambiguous") {
-    await ctx.reply(
-      "That short ID matches multiple subscriptions. Use the full ID.",
-    );
+    await ctx.reply("这个短 ID 匹配了多个订阅，请使用完整 ID。");
     return;
   }
 
@@ -55,7 +51,7 @@ export async function deleteCommand(ctx: BotContext): Promise<void> {
   );
 
   if (!sub) {
-    await ctx.reply("Subscription not found.");
+    await ctx.reply("没有找到这个订阅。");
     return;
   }
 
@@ -64,7 +60,7 @@ export async function deleteCommand(ctx: BotContext): Promise<void> {
     // Do not log subscription name or details
   });
 
-  await ctx.reply(`Delete "${sub.name}"?`, {
+  await ctx.reply(`确认删除“${sub.name}”吗？`, {
     reply_markup: confirmationKeyboard("delete", resolved.id),
   });
 }

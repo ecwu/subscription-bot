@@ -7,6 +7,7 @@ import { editMenuKeyboard } from "../keyboards/editMenuKeyboard.js";
 import { createLogger } from "../../utils/logger.js";
 import { parseSubCallbackData } from "../../utils/callbackParser.js";
 import { InlineKeyboard } from "grammy";
+import { formatBillingCycle } from "../../utils/labels.js";
 
 async function safeAnswerCallbackQuery(
   ctx: BotContext,
@@ -36,13 +37,13 @@ export async function subViewCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "Unable to identify user.");
+      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
       return;
     }
 
     const parsed = parseSubCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed) {
-      await safeAnswerCallbackQuery(ctx, "Invalid callback data.");
+      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
 
@@ -56,22 +57,19 @@ export async function subViewCallback(ctx: BotContext): Promise<void> {
     );
 
     if (!sub) {
-      await safeAnswerCallbackQuery(ctx, "Subscription not found.");
-      await safeEditMessageText(
-        ctx,
-        "Subscription not found or already deleted.",
-      );
+      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+      await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
       return;
     }
 
     const lines: string[] = [`${sub.name}`];
     if (sub.price !== undefined) {
-      lines.push(`Price: ${sub.price} ${sub.currency ?? ""}`.trim());
+      lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
     }
-    lines.push(`Cycle: ${sub.billingCycle}`);
-    lines.push(`Next billing: ${sub.nextBillingDate}`);
-    if (sub.category) lines.push(`Category: ${sub.category}`);
-    if (sub.note) lines.push(`Note: ${sub.note}`);
+    lines.push(`周期：${formatBillingCycle(sub.billingCycle)}`);
+    lines.push(`下次扣款：${sub.nextBillingDate}`);
+    if (sub.category) lines.push(`分类：${sub.category}`);
+    if (sub.note) lines.push(`备注：${sub.note}`);
 
     await safeAnswerCallbackQuery(ctx);
     await safeEditMessageText(ctx, lines.join("\n"));
@@ -81,7 +79,7 @@ export async function subViewCallback(ctx: BotContext): Promise<void> {
     logger.error("Error in subViewCallback", {
       error: error instanceof Error ? error.message : String(error),
     });
-    await safeAnswerCallbackQuery(ctx, "Something went wrong.");
+    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
 }
 
@@ -90,13 +88,13 @@ export async function subEditCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "Unable to identify user.");
+      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
       return;
     }
 
     const parsed = parseSubCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed) {
-      await safeAnswerCallbackQuery(ctx, "Invalid callback data.");
+      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
 
@@ -110,27 +108,22 @@ export async function subEditCallback(ctx: BotContext): Promise<void> {
     );
 
     if (!sub) {
-      await safeAnswerCallbackQuery(ctx, "Subscription not found.");
-      await safeEditMessageText(
-        ctx,
-        "Subscription not found or already deleted.",
-      );
+      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+      await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
       return;
     }
 
     await safeAnswerCallbackQuery(ctx);
-    await safeEditMessageText(
-      ctx,
-      `What do you want to edit for "${sub.name}"?`,
-      { reply_markup: editMenuKeyboard(parsed.subId) },
-    );
+    await safeEditMessageText(ctx, `要编辑“${sub.name}”的哪一项？`, {
+      reply_markup: editMenuKeyboard(parsed.subId),
+    });
 
     logger.info("Edit menu opened via callback", { subId: parsed.subId });
   } catch (error) {
     logger.error("Error in subEditCallback", {
       error: error instanceof Error ? error.message : String(error),
     });
-    await safeAnswerCallbackQuery(ctx, "Something went wrong.");
+    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
 }
 
@@ -139,13 +132,13 @@ export async function subDeleteCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "Unable to identify user.");
+      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
       return;
     }
 
     const parsed = parseSubCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed) {
-      await safeAnswerCallbackQuery(ctx, "Invalid callback data.");
+      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
 
@@ -159,11 +152,8 @@ export async function subDeleteCallback(ctx: BotContext): Promise<void> {
     );
 
     if (!sub) {
-      await safeAnswerCallbackQuery(ctx, "Subscription not found.");
-      await safeEditMessageText(
-        ctx,
-        "Subscription not found or already deleted.",
-      );
+      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+      await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
       return;
     }
 
@@ -172,13 +162,13 @@ export async function subDeleteCallback(ctx: BotContext): Promise<void> {
     });
 
     await safeAnswerCallbackQuery(ctx);
-    await safeEditMessageText(ctx, `Delete "${sub.name}"?`, {
+    await safeEditMessageText(ctx, `确认删除“${sub.name}”吗？`, {
       reply_markup: confirmationKeyboard("delete", parsed.subId),
     });
   } catch (error) {
     logger.error("Error in subDeleteCallback", {
       error: error instanceof Error ? error.message : String(error),
     });
-    await safeAnswerCallbackQuery(ctx, "Something went wrong.");
+    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
 }

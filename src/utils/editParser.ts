@@ -13,6 +13,7 @@ export interface ParsedEditArgs {
 const VALID_CYCLES: readonly BillingCycle[] = [
   "weekly",
   "monthly",
+  "quarterly",
   "yearly",
   "custom",
 ];
@@ -36,9 +37,9 @@ export function parseEditArgs(args: string[]): ParsedEditArgs {
   // args[0] is the command itself, need at least: /edit <id> <field> <value>
   if (args.length < 4) {
     throw new ValidationError(
-      "Usage: /edit <id> date <YYYY-MM-DD>\n" +
-        "       /edit <id> price <amount> <currency>\n" +
-        "       /edit <id> cycle <weekly|monthly|yearly|custom>",
+      "用法：/edit <id> date <YYYY-MM-DD>\n" +
+        "      /edit <id> price <金额> <币种>\n" +
+        "      /edit <id> cycle <weekly|monthly|quarterly|yearly|custom>",
     );
   }
 
@@ -46,20 +47,23 @@ export function parseEditArgs(args: string[]): ParsedEditArgs {
   const field = args[2];
 
   if (!subId || subId.trim().length === 0) {
-    throw new ValidationError("Subscription ID is required.");
+    throw new ValidationError("订阅 ID 不能为空。");
   }
 
   if (field === "date") {
     const dateStr = args[3];
     if (!DATE_REGEX.test(dateStr)) {
       throw new ValidationError(
-        `Invalid date: "${dateStr}". Use YYYY-MM-DD format.`,
+        `日期无效：“${dateStr}”。请使用 YYYY-MM-DD 格式。`,
       );
     }
     const parsedDate = new Date(dateStr + "T00:00:00Z");
-    if (isNaN(parsedDate.getTime())) {
+    if (
+      isNaN(parsedDate.getTime()) ||
+      parsedDate.toISOString().slice(0, 10) !== dateStr
+    ) {
       throw new ValidationError(
-        `Invalid date: "${dateStr}". Use YYYY-MM-DD format.`,
+        `日期无效：“${dateStr}”。请使用 YYYY-MM-DD 格式。`,
       );
     }
     return { subId, field: "date", nextBillingDate: dateStr };
@@ -68,8 +72,8 @@ export function parseEditArgs(args: string[]): ParsedEditArgs {
   if (field === "price") {
     if (args.length < 5) {
       throw new ValidationError(
-        "Usage: /edit <id> price <amount> <currency>\n" +
-          "Example: /edit a1b2c3d4 price 15.99 USD",
+        "用法：/edit <id> price <金额> <币种>\n" +
+          "示例：/edit a1b2c3d4 price 15.99 CNY",
       );
     }
     const priceStr = args[3];
@@ -77,7 +81,7 @@ export function parseEditArgs(args: string[]): ParsedEditArgs {
     const price = Number(priceStr);
     if (!Number.isFinite(price) || price < 0) {
       throw new ValidationError(
-        `Invalid price: "${priceStr}". Price must be a non-negative number.`,
+        `价格无效：“${priceStr}”。价格必须是非负数字。`,
       );
     }
     return { subId, field: "price", price, currency };
@@ -87,13 +91,11 @@ export function parseEditArgs(args: string[]): ParsedEditArgs {
     const cycle = args[3];
     if (!VALID_CYCLES.includes(cycle as BillingCycle)) {
       throw new ValidationError(
-        `Invalid cycle: "${cycle}". Allowed: ${VALID_CYCLES.join(", ")}.`,
+        `周期无效：“${cycle}”。可选值：${VALID_CYCLES.join(", ")}。`,
       );
     }
     return { subId, field: "cycle", billingCycle: cycle as BillingCycle };
   }
 
-  throw new ValidationError(
-    `Unknown field: "${field}". Supported: date, price, cycle.`,
-  );
+  throw new ValidationError(`未知字段：“${field}”。支持：date、price、cycle。`);
 }

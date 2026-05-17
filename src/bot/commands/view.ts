@@ -3,12 +3,13 @@ import { createSubscriptionService } from "../../services/subscriptionService.js
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createLogger } from "../../utils/logger.js";
+import { formatBillingCycle } from "../../utils/labels.js";
 
 export async function viewCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("Unable to identify user. Please try again.");
+    await ctx.reply("无法识别用户，请稍后再试。");
     logger.warn("View command without userKey");
     return;
   }
@@ -17,7 +18,7 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
   const args = text.trim().split(/\s+/);
 
   if (args.length < 2) {
-    await ctx.reply("Usage: /view <id>\nUse /list to see your subscriptions.");
+    await ctx.reply("用法：/view <id>\n发送 /list 查看你的订阅。");
     return;
   }
 
@@ -34,14 +35,12 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
   );
 
   if (resolved.kind === "not_found") {
-    await ctx.reply("Subscription not found.");
+    await ctx.reply("没有找到这个订阅。");
     return;
   }
 
   if (resolved.kind === "ambiguous") {
-    await ctx.reply(
-      "That short ID matches multiple subscriptions. Use the full ID.",
-    );
+    await ctx.reply("这个短 ID 匹配了多个订阅，请使用完整 ID。");
     return;
   }
 
@@ -52,25 +51,25 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
   );
 
   if (!sub) {
-    await ctx.reply("Subscription not found.");
+    await ctx.reply("没有找到这个订阅。");
     return;
   }
 
   const lines: string[] = [`${sub.name}`];
 
   if (sub.price !== undefined) {
-    lines.push(`Price: ${sub.price} ${sub.currency ?? ""}`.trim());
+    lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
   }
 
-  lines.push(`Cycle: ${sub.billingCycle}`);
-  lines.push(`Next billing: ${sub.nextBillingDate}`);
+  lines.push(`周期：${formatBillingCycle(sub.billingCycle)}`);
+  lines.push(`下次扣款：${sub.nextBillingDate}`);
 
   if (sub.category) {
-    lines.push(`Category: ${sub.category}`);
+    lines.push(`分类：${sub.category}`);
   }
 
   if (sub.note) {
-    lines.push(`Note: ${sub.note}`);
+    lines.push(`备注：${sub.note}`);
   }
 
   await ctx.reply(lines.join("\n"));

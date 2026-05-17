@@ -2,12 +2,12 @@ import { InlineKeyboard } from "grammy";
 
 export function editMenuKeyboard(subId: string): InlineKeyboard {
   return new InlineKeyboard()
-    .text("Name", `edit:name:${subId}`)
-    .text("Price", `edit:price:${subId}`)
-    .text("Currency", `edit:currency:${subId}`)
+    .text("名称", `edit:name:${subId}`)
+    .text("价格", `edit:price:${subId}`)
+    .text("币种", `edit:currency:${subId}`)
     .row()
-    .text("Cycle", `edit:cycle:${subId}`)
-    .text("Next billing date", `edit:date:${subId}`)
+    .text("周期", `edit:cycle:${subId}`)
+    .text("下次扣款日期", `edit:date:${subId}`)
     .row()
-    .text("Cancel", `edit:cancel:${subId}`);
+    .text("取消", `edit:cancel:${subId}`);
 }

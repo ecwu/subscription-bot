@@ -36,15 +36,15 @@ export async function privacyDeleteConfirmCallback(
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "Unable to identify user.");
-      await safeEditMessageText(ctx, "Unable to identify user.");
+      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeEditMessageText(ctx, "无法识别用户。");
       logger.warn("Privacy delete confirm callback without userKey");
       return;
     }
 
     const parsed = parsePrivacyCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed) {
-      await safeAnswerCallbackQuery(ctx, "Invalid callback data.");
+      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
 
@@ -74,13 +74,13 @@ export async function privacyDeleteConfirmCallback(
       // Do not log userKey
     });
 
-    await safeAnswerCallbackQuery(ctx, "Deleted.");
-    await safeEditMessageText(ctx, "Your stored data has been deleted.");
+    await safeAnswerCallbackQuery(ctx, "已删除。");
+    await safeEditMessageText(ctx, "你保存的数据已删除。");
   } catch (error) {
     logger.error("Error in privacyDeleteConfirmCallback", {
       error: error instanceof Error ? error.message : String(error),
     });
-    await safeAnswerCallbackQuery(ctx, "Something went wrong.");
+    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
 }
 
@@ -91,20 +91,20 @@ export async function privacyDeleteCancelCallback(
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "Unable to identify user.");
-      await safeEditMessageText(ctx, "Unable to identify user.");
+      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeEditMessageText(ctx, "无法识别用户。");
       logger.warn("Privacy delete cancel callback without userKey");
       return;
     }
 
     logger.info("Privacy deletion cancelled");
 
-    await safeAnswerCallbackQuery(ctx, "Cancelled.");
-    await safeEditMessageText(ctx, "Deletion cancelled.");
+    await safeAnswerCallbackQuery(ctx, "已取消。");
+    await safeEditMessageText(ctx, "已取消删除。");
   } catch (error) {
     logger.error("Error in privacyDeleteCancelCallback", {
       error: error instanceof Error ? error.message : String(error),
     });
-    await safeAnswerCallbackQuery(ctx, "Something went wrong.");
+    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
 }

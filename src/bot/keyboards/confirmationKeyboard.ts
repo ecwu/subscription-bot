@@ -5,6 +5,6 @@ export function confirmationKeyboard(
   data: string,
 ): InlineKeyboard {
   return new InlineKeyboard()
-    .text("✅ Confirm", `${actionPrefix}:confirm:${data}`)
-    .text("❌ Cancel", `${actionPrefix}:cancel:${data}`);
+    .text("✅ 确认", `${actionPrefix}:confirm:${data}`)
+    .text("❌ 取消", `${actionPrefix}:cancel:${data}`);
 }

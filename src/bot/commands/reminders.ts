@@ -18,7 +18,7 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("Unable to identify user. Please try again.");
+    await ctx.reply("无法识别用户，请稍后再试。");
     logger.warn("Reminders command without userKey");
     return;
   }
@@ -40,7 +40,7 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
     .sort((a, b) => a.nextBillingDate.localeCompare(b.nextBillingDate));
 
   if (upcoming.length === 0) {
-    await ctx.reply("No upcoming renewals.");
+    await ctx.reply("近期没有即将扣款的订阅。");
     logger.info("Reminders command: no upcoming renewals");
     return;
   }
@@ -52,13 +52,13 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
         : sub.price !== undefined
           ? `${sub.price}`
           : "";
-    const parts = [sub.name, priceStr, `renews ${sub.nextBillingDate}`].filter(
+    const parts = [sub.name, priceStr, `扣款日 ${sub.nextBillingDate}`].filter(
       Boolean,
     );
     return parts.join(" — ");
   });
 
-  await ctx.reply("Upcoming renewals:\n\n" + lines.join("\n"));
+  await ctx.reply("近期扣款订阅：\n\n" + lines.join("\n"));
 
   logger.info("Reminders command: listed upcoming renewals", {
     count: upcoming.length,

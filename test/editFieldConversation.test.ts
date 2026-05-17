@@ -12,8 +12,8 @@ describe("editFieldConversation validators", () => {
       expect(validateEditName("Netflix")).toBeNull();
     });
     it("rejects empty names", () => {
-      expect(validateEditName("")).toBe("Name cannot be empty.");
-      expect(validateEditName("   ")).toBe("Name cannot be empty.");
+      expect(validateEditName("")).toBe("订阅名称不能为空。");
+      expect(validateEditName("   ")).toBe("订阅名称不能为空。");
     });
   });
 
@@ -30,11 +30,11 @@ describe("editFieldConversation validators", () => {
     });
     it("rejects negative numbers", () => {
       const result = validateEditPrice("-1");
-      expect(result.error).toBe("Enter a non-negative number.");
+      expect(result.error).toBe("请输入非负数字。");
     });
     it("rejects non-numeric input", () => {
       const result = validateEditPrice("abc");
-      expect(result.error).toBe("Enter a non-negative number.");
+      expect(result.error).toBe("请输入非负数字。");
     });
   });
 
@@ -46,9 +46,7 @@ describe("editFieldConversation validators", () => {
     });
     it("rejects invalid codes", () => {
       const result = validateEditCurrency("EURO");
-      expect(result.error).toBe(
-        "Use a 3-letter currency code such as EUR or USD.",
-      );
+      expect(result.error).toBe("请输入 3 位币种代码，例如 CNY 或 USD。");
     });
     it("converts to uppercase", () => {
       const result = validateEditCurrency("eur");
@@ -64,12 +62,18 @@ describe("editFieldConversation validators", () => {
     });
     it("rejects invalid format", () => {
       const result = validateEditDate("01-06-2026");
-      expect(result.error).toBe("Use YYYY-MM-DD, for example 2026-06-01.");
+      expect(result.error).toBe("请使用 YYYY-MM-DD 格式，例如 2026-06-01。");
     });
     it("rejects invalid date", () => {
       const result = validateEditDate("2026-13-01");
       expect(result.error).toBe(
-        "Invalid date. Use YYYY-MM-DD, for example 2026-06-01.",
+        "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
+      );
+    });
+    it("rejects impossible calendar dates", () => {
+      const result = validateEditDate("2026-02-31");
+      expect(result.error).toBe(
+        "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
       );
     });
   });

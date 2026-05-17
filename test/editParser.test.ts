@@ -35,7 +35,13 @@ describe("parseEditArgs", () => {
   });
 
   it("accepts all valid cycles", () => {
-    const cycles = ["weekly", "monthly", "yearly", "custom"] as const;
+    const cycles = [
+      "weekly",
+      "monthly",
+      "quarterly",
+      "yearly",
+      "custom",
+    ] as const;
     for (const cycle of cycles) {
       const args = ["/edit", "id", "cycle", cycle];
       const result = parseEditArgs(args);
@@ -46,7 +52,7 @@ describe("parseEditArgs", () => {
   it("throws for too few arguments", () => {
     const args = ["/edit", "a1b2c3d4"];
     expect(() => parseEditArgs(args)).toThrow(ValidationError);
-    expect(() => parseEditArgs(args)).toThrow(/Usage/);
+    expect(() => parseEditArgs(args)).toThrow(/用法/);
   });
 
   it("throws for missing subId", () => {
@@ -58,42 +64,48 @@ describe("parseEditArgs", () => {
   it("throws for invalid date", () => {
     const args = ["/edit", "a1b2c3d4", "date", "07-01-2026"];
     expect(() => parseEditArgs(args)).toThrow(ValidationError);
-    expect(() => parseEditArgs(args)).toThrow(/date/);
+    expect(() => parseEditArgs(args)).toThrow(/日期/);
   });
 
   it("throws for invalid date values", () => {
     const args = ["/edit", "a1b2c3d4", "date", "2026-13-01"];
     expect(() => parseEditArgs(args)).toThrow(ValidationError);
-    expect(() => parseEditArgs(args)).toThrow(/date/);
+    expect(() => parseEditArgs(args)).toThrow(/日期/);
+  });
+
+  it("throws for impossible calendar dates", () => {
+    const args = ["/edit", "a1b2c3d4", "date", "2026-02-31"];
+    expect(() => parseEditArgs(args)).toThrow(ValidationError);
+    expect(() => parseEditArgs(args)).toThrow(/日期/);
   });
 
   it("throws for price edit missing currency", () => {
     const args = ["/edit", "a1b2c3d4", "price", "15.99"];
     expect(() => parseEditArgs(args)).toThrow(ValidationError);
-    expect(() => parseEditArgs(args)).toThrow(/Usage/);
+    expect(() => parseEditArgs(args)).toThrow(/用法/);
   });
 
   it("throws for invalid price", () => {
     const args = ["/edit", "a1b2c3d4", "price", "abc", "USD"];
     expect(() => parseEditArgs(args)).toThrow(ValidationError);
-    expect(() => parseEditArgs(args)).toThrow(/price/);
+    expect(() => parseEditArgs(args)).toThrow(/价格/);
   });
 
   it("throws for negative price", () => {
     const args = ["/edit", "a1b2c3d4", "price", "-5", "USD"];
     expect(() => parseEditArgs(args)).toThrow(ValidationError);
-    expect(() => parseEditArgs(args)).toThrow(/price/);
+    expect(() => parseEditArgs(args)).toThrow(/价格/);
   });
 
   it("throws for invalid cycle", () => {
     const args = ["/edit", "a1b2c3d4", "cycle", "daily"];
     expect(() => parseEditArgs(args)).toThrow(ValidationError);
-    expect(() => parseEditArgs(args)).toThrow(/cycle/);
+    expect(() => parseEditArgs(args)).toThrow(/周期/);
   });
 
   it("throws for unknown field", () => {
     const args = ["/edit", "a1b2c3d4", "name", "New Name"];
     expect(() => parseEditArgs(args)).toThrow(ValidationError);
-    expect(() => parseEditArgs(args)).toThrow(/Unknown field/);
+    expect(() => parseEditArgs(args)).toThrow(/未知字段/);
   });
 });

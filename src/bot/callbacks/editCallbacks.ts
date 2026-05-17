@@ -29,13 +29,13 @@ export async function editFieldCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "Unable to identify user.");
+      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
       return;
     }
 
     const parsed = parseEditCallbackData(ctx.callbackQuery?.data ?? "");
     if (!parsed) {
-      await safeAnswerCallbackQuery(ctx, "Invalid callback data.");
+      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
       return;
     }
 
@@ -57,13 +57,13 @@ export async function editFieldCallback(ctx: BotContext): Promise<void> {
       return;
     }
 
-    await safeAnswerCallbackQuery(ctx, "Unknown edit field.");
+    await safeAnswerCallbackQuery(ctx, "未知的编辑字段。");
     logger.warn("Unknown edit field in callback", { field });
   } catch (error) {
     logger.error("Error in editFieldCallback", {
       error: error instanceof Error ? error.message : String(error),
     });
-    await safeAnswerCallbackQuery(ctx, "Something went wrong.");
+    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
 }
 
@@ -72,19 +72,19 @@ export async function editCancelCallback(ctx: BotContext): Promise<void> {
 
   try {
     if (!ctx.userKey) {
-      await safeAnswerCallbackQuery(ctx, "Unable to identify user.");
-      await safeEditMessageText(ctx, "Unable to identify user.");
+      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      await safeEditMessageText(ctx, "无法识别用户。");
       return;
     }
 
-    await safeAnswerCallbackQuery(ctx, "Cancelled.");
-    await safeEditMessageText(ctx, "Edit cancelled.");
+    await safeAnswerCallbackQuery(ctx, "已取消。");
+    await safeEditMessageText(ctx, "已取消编辑。");
 
     logger.info("Edit cancelled via callback");
   } catch (error) {
     logger.error("Error in editCancelCallback", {
       error: error instanceof Error ? error.message : String(error),
     });
-    await safeAnswerCallbackQuery(ctx, "Something went wrong.");
+    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
   }
 }

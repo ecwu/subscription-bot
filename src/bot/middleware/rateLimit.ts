@@ -54,9 +54,7 @@ export function rateLimiter(
     }
 
     if (entry.count >= options.maxRequests) {
-      await ctx.reply(
-        "Too many requests. Please wait a moment before trying again.",
-      );
+      await ctx.reply("请求过于频繁，请稍等片刻再试。");
       return;
     }
 

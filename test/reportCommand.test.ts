@@ -105,7 +105,7 @@ describe("reportCommand", () => {
     await reportCommand(ctx);
 
     expect(ctx.reply).toHaveBeenCalledWith(
-      "You have no subscriptions yet.\nUse /add to create your first one.",
+      "你还没有添加任何订阅。\n发送 /add 添加第一个订阅。",
     );
     expect(renderReportPngMock).not.toHaveBeenCalled();
     expect(ctx.replyWithPhoto).not.toHaveBeenCalled();
@@ -136,7 +136,7 @@ describe("reportCommand", () => {
     expect(ctx.replyWithPhoto).not.toHaveBeenCalled();
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(text).toContain("Subscription run-rate report");
+    expect(text).toContain("订阅月度支出报告");
     expect(text).not.toContain("Very Private Name");
   });
 
@@ -154,7 +154,7 @@ describe("reportCommand", () => {
     expect(ctx.replyWithPhoto).toHaveBeenCalledTimes(1);
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     expect((ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0]).toContain(
-      "Subscription run-rate report",
+      "订阅月度支出报告",
     );
   });
 
@@ -164,9 +164,7 @@ describe("reportCommand", () => {
 
     await reportCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith(
-      "Unable to identify user. Please try again.",
-    );
+    expect(ctx.reply).toHaveBeenCalledWith("无法识别用户，请稍后再试。");
     expect(renderReportPngMock).not.toHaveBeenCalled();
   });
 });

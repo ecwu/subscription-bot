@@ -6,6 +6,7 @@ import { createReminderRepository } from "../../repositories/reminderRepository.
 import { createLogger } from "../../utils/logger.js";
 import { InlineKeyboard } from "grammy";
 import { BillingCycle } from "../../models/subscription.js";
+import { formatBillingCycle } from "../../utils/labels.js";
 
 // TODO: grammY conversations do not have built-in timeout handling.
 // If a user starts an edit flow and never completes it, the conversation
@@ -15,7 +16,7 @@ import { BillingCycle } from "../../models/subscription.js";
 
 export function validateEditName(name: string): string | null {
   const trimmed = name.trim();
-  if (trimmed.length === 0) return "Name cannot be empty.";
+  if (trimmed.length === 0) return "订阅名称不能为空。";
   return null;
 }
 
@@ -26,7 +27,7 @@ export function validateEditPrice(priceStr: string): {
   const trimmed = priceStr.trim();
   const price = Number(trimmed);
   if (!Number.isFinite(price) || price < 0) {
-    return { price: 0, error: "Enter a non-negative number." };
+    return { price: 0, error: "请输入非负数字。" };
   }
   return { price };
 }
@@ -39,7 +40,7 @@ export function validateEditCurrency(currencyStr: string): {
   if (!/^[A-Z]{3}$/.test(trimmed)) {
     return {
       currency: "",
-      error: "Use a 3-letter currency code such as EUR or USD.",
+      error: "请输入 3 位币种代码，例如 CNY 或 USD。",
     };
   }
   return { currency: trimmed };
@@ -51,11 +52,16 @@ export function validateEditDate(dateStr: string): {
 } {
   const trimmed = dateStr.trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return { error: "Use YYYY-MM-DD, for example 2026-06-01." };
+    return { error: "请使用 YYYY-MM-DD 格式，例如 2026-06-01。" };
   }
   const parsed = new Date(trimmed + "T00:00:00Z");
-  if (isNaN(parsed.getTime())) {
-    return { error: "Invalid date. Use YYYY-MM-DD, for example 2026-06-01." };
+  if (
+    isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== trimmed
+  ) {
+    return {
+      error: "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
+    };
   }
   return { date: trimmed };
 }
@@ -75,7 +81,7 @@ export async function editFieldConversation(
   }));
 
   if (!ctxData.userKey) {
-    await ctx.reply("Unable to identify user. Please try again.");
+    await ctx.reply("无法识别用户，请稍后再试。");
     return;
   }
 
@@ -93,28 +99,28 @@ export async function editFieldConversation(
   });
 
   if (!sub) {
-    await ctx.reply("Subscription not found or already deleted.");
+    await ctx.reply("没有找到这个订阅，或它已被删除。");
     return;
   }
 
   const fieldLabels: Record<string, string> = {
-    name: "name",
-    price: "price",
-    currency: "currency",
-    date: "next billing date",
+    name: "名称",
+    price: "价格",
+    currency: "币种",
+    date: "下次扣款日期",
   };
 
   const promptMap: Record<string, string> = {
-    name: `Current name: ${sub.name}\nSend the new name.`,
+    name: `当前名称：${sub.name}\n请发送新名称。`,
     price:
       sub.price !== undefined
-        ? `Current price: ${sub.price}\nSend the new price (number).`
-        : "No price set.\nSend a price (number).",
+        ? `当前价格：${sub.price}\n请发送新价格（数字）。`
+        : "当前未填写价格。\n请发送价格（数字）。",
     currency:
       sub.currency !== undefined
-        ? `Current currency: ${sub.currency}\nSend the new currency (3-letter code).`
-        : "No currency set.\nSend a currency (3-letter code).",
-    date: `Current next billing date: ${sub.nextBillingDate}\nSend the new date (YYYY-MM-DD).`,
+        ? `当前币种：${sub.currency}\n请发送新币种（3 位代码）。`
+        : "当前未填写币种。\n请发送币种（3 位代码）。",
+    date: `当前下次扣款日期：${sub.nextBillingDate}\n请发送新日期（YYYY-MM-DD）。`,
   };
 
   await ctx.reply(promptMap[field]);
@@ -122,8 +128,8 @@ export async function editFieldConversation(
   const inputCtx = await conversation.waitFor("message:text");
   const input = inputCtx.msg.text;
 
-  if (input.trim() === "/cancel") {
-    await ctx.reply("Cancelled.");
+  if (input.trim() === "/cancel" || input.trim() === "取消") {
+    await ctx.reply("已取消。");
     return;
   }
 
@@ -133,28 +139,28 @@ export async function editFieldConversation(
   if (field === "name") {
     const error = validateEditName(input);
     if (error) {
-      await ctx.reply(error + "\nUse /edit to try again.");
+      await ctx.reply(error + "\n请发送 /edit 重新开始。");
       return;
     }
     updated.name = input.trim();
   } else if (field === "price") {
     const result = validateEditPrice(input);
     if (result.error) {
-      await ctx.reply(result.error + "\nUse /edit to try again.");
+      await ctx.reply(result.error + "\n请发送 /edit 重新开始。");
       return;
     }
     updated.price = result.price;
   } else if (field === "currency") {
     const result = validateEditCurrency(input);
     if (result.error) {
-      await ctx.reply(result.error + "\nUse /edit to try again.");
+      await ctx.reply(result.error + "\n请发送 /edit 重新开始。");
       return;
     }
     updated.currency = result.currency;
   } else if (field === "date") {
     const result = validateEditDate(input);
     if (result.error) {
-      await ctx.reply(result.error + "\nUse /edit to try again.");
+      await ctx.reply(result.error + "\n请发送 /edit 重新开始。");
       return;
     }
     updated.nextBillingDate = result.date!;
@@ -175,7 +181,7 @@ export async function editFieldConversation(
   });
 
   await ctx.reply(
-    `Updated ${fieldLabels[field]} for "${updated.name}".\nUse /view to see the result.`,
+    `已更新“${updated.name}”的${fieldLabels[field]}。\n发送 /view 查看结果。`,
   );
 }
 
@@ -193,7 +199,7 @@ export async function editCycleConversation(
   }));
 
   if (!ctxData.userKey) {
-    await ctx.reply("Unable to identify user. Please try again.");
+    await ctx.reply("无法识别用户，请稍后再试。");
     return;
   }
 
@@ -211,17 +217,20 @@ export async function editCycleConversation(
   });
 
   if (!sub) {
-    await ctx.reply("Subscription not found or already deleted.");
+    await ctx.reply("没有找到这个订阅，或它已被删除。");
     return;
   }
 
   const cycleKeyboard = new InlineKeyboard()
-    .text("Weekly", `editcycle:weekly:${subId}`)
-    .text("Monthly", `editcycle:monthly:${subId}`)
-    .text("Yearly", `editcycle:yearly:${subId}`)
-    .text("Custom", `editcycle:custom:${subId}`);
+    .text("每周", `editcycle:weekly:${subId}`)
+    .text("每月", `editcycle:monthly:${subId}`)
+    .row()
+    .text("每季度", `editcycle:quarterly:${subId}`)
+    .text("每年", `editcycle:yearly:${subId}`)
+    .row()
+    .text("自定义", `editcycle:custom:${subId}`);
 
-  await ctx.reply("Choose the new billing cycle:", {
+  await ctx.reply("请选择新的扣款周期：", {
     reply_markup: cycleKeyboard,
   });
 
@@ -247,6 +256,6 @@ export async function editCycleConversation(
   logger.info("Subscription cycle updated via conversation", { subId, cycle });
 
   await ctx.reply(
-    `Updated cycle to ${cycle} for "${updated.name}".\nUse /view to see the result.`,
+    `已将“${updated.name}”的周期更新为${formatBillingCycle(cycle)}。\n发送 /view 查看结果。`,
   );
 }

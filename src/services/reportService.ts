@@ -156,19 +156,19 @@ export function buildReportData(
 
 export function formatReportText(report: ReportData): string {
   const lines = [
-    "Subscription run-rate report",
-    `Generated: ${report.generatedAt.slice(0, 10)}`,
-    `Monthly total: ${formatMoney(report.monthlyTotalBase, report.baseCurrency)}`,
-    `Included: ${report.includedCount}/${report.subscriptionCount}`,
+    "订阅月度支出报告",
+    `生成日期：${report.generatedAt.slice(0, 10)}`,
+    `月度合计：${formatMoney(report.monthlyTotalBase, report.baseCurrency)}`,
+    `已纳入：${report.includedCount}/${report.subscriptionCount}`,
   ];
 
   if (report.byCurrency.length > 0) {
-    lines.push("", "By currency:");
+    lines.push("", "按币种：");
     for (const summary of report.byCurrency) {
       const converted =
         summary.convertedMonthlyTotal !== undefined
           ? ` (~${formatMoney(summary.convertedMonthlyTotal, report.baseCurrency)})`
-          : " (missing exchange rate)";
+          : "（缺少汇率）";
       lines.push(
         `- ${summary.currency}: ${formatMoney(summary.monthlyTotal, summary.currency)}${converted}`,
       );
@@ -176,10 +176,10 @@ export function formatReportText(report: ReportData): string {
   }
 
   if (report.dayDistribution.length > 0) {
-    lines.push("", "Monthly date distribution:");
+    lines.push("", "按扣款日分布：");
     for (const item of report.dayDistribution) {
       lines.push(
-        `- Day ${String(item.day).padStart(2, "0")}: ${formatMoney(
+        `- ${String(item.day).padStart(2, "0")} 日：${formatMoney(
           item.convertedMonthlyTotal,
           report.baseCurrency,
         )}`,
@@ -188,10 +188,7 @@ export function formatReportText(report: ReportData): string {
   }
 
   if (report.missingRateCurrencies.length > 0) {
-    lines.push(
-      "",
-      `Missing exchange rates: ${report.missingRateCurrencies.join(", ")}`,
-    );
+    lines.push("", `缺少汇率：${report.missingRateCurrencies.join(", ")}`);
   }
 
   const excludedTotal =
@@ -201,7 +198,7 @@ export function formatReportText(report: ReportData): string {
   if (excludedTotal > 0) {
     lines.push(
       "",
-      `Excluded: ${excludedTotal} (no price: ${report.excluded.noPrice}, no currency: ${report.excluded.noCurrency}, custom cycle: ${report.excluded.customCycle})`,
+      `未纳入：${excludedTotal}（无价格：${report.excluded.noPrice}，无币种：${report.excluded.noCurrency}，自定义周期：${report.excluded.customCycle}）`,
     );
   }
 

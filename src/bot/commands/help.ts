@@ -2,24 +2,24 @@ import { BotContext } from "../../types/context.js";
 
 export async function helpCommand(ctx: BotContext): Promise<void> {
   await ctx.reply(
-    "Available commands:\n\n" +
-      "Command style:\n" +
-      "/add <name> <price> <currency> <cycle> <date> — Add a subscription\n" +
-      "  Example: /add Netflix 12.99 EUR monthly 2026-06-01\n" +
-      "  Note: one-line /add names cannot contain spaces\n\n" +
-      "/list — List your subscriptions with buttons\n" +
-      "/view <id> — View a subscription (short ID or full ID)\n" +
-      "/edit <id> date|price|cycle <value> — Edit a subscription\n" +
-      "/delete <id> — Delete a subscription (short ID or full ID)\n" +
-      "/reminders — Show upcoming renewals within the reminder window\n\n" +
-      "/report — Generate a monthly run-rate spending report\n\n" +
-      "Interactive style:\n" +
-      "/add with no arguments — Add step by step (supports names with spaces)\n" +
-      "/list — Click View, Edit, or Delete on each subscription\n" +
-      "/cancel — Stop an active flow\n\n" +
-      "Privacy & data:\n" +
-      "/export — Export your stored subscriptions as JSON\n" +
-      "/delete_me — Permanently delete all your stored data (with confirmation)\n\n" +
-      "/help — Show this help message",
+    "可用命令：\n\n" +
+      "一行命令：\n" +
+      "/add <名称> <价格> <币种> <周期> <日期> — 添加订阅\n" +
+      "  示例：/add Netflix 12.99 CNY monthly 2026-06-01\n" +
+      "  说明：一行 /add 的名称暂不支持空格\n\n" +
+      "/list — 查看订阅列表，并显示操作按钮\n" +
+      "/view <id> — 查看订阅详情（短 ID 或完整 ID）\n" +
+      "/edit <id> date|price|cycle <值> — 修改订阅\n" +
+      "/delete <id> — 删除订阅（短 ID 或完整 ID）\n" +
+      "/reminders — 查看近期即将扣款的订阅\n\n" +
+      "/report — 生成月度订阅支出报告\n\n" +
+      "交互方式：\n" +
+      "/add — 逐步添加订阅，支持带空格的名称\n" +
+      "/list — 点击每个订阅下方的查看、编辑或删除按钮\n" +
+      "/cancel — 结束当前流程\n\n" +
+      "隐私与数据：\n" +
+      "/export — 导出已保存的订阅 JSON\n" +
+      "/delete_me — 永久删除所有已保存数据（需要确认）\n\n" +
+      "/help — 显示这条帮助信息",
   );
 }

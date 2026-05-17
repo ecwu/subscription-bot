@@ -5,7 +5,7 @@ export async function cancelCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("Unable to identify user. Please try again.");
+    await ctx.reply("无法识别用户，请稍后再试。");
     logger.warn("Cancel command without userKey");
     return;
   }
@@ -14,6 +14,6 @@ export async function cancelCommand(ctx: BotContext): Promise<void> {
   // This is safe to call even when no conversation is active.
   await ctx.conversation.exitAll();
 
-  await ctx.reply("Cancelled.");
+  await ctx.reply("已取消。");
   logger.info("Cancel command executed, all conversations exited");
 }

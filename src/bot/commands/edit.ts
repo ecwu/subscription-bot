@@ -6,11 +6,17 @@ import { parseEditArgs } from "../../utils/editParser.js";
 import { ValidationError } from "../../utils/errors.js";
 import { createLogger } from "../../utils/logger.js";
 
+const FIELD_LABELS: Record<string, string> = {
+  date: "下次扣款日期",
+  price: "价格",
+  cycle: "周期",
+};
+
 export async function editCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
-    await ctx.reply("Unable to identify user. Please try again.");
+    await ctx.reply("无法识别用户，请稍后再试。");
     logger.warn("Edit command without userKey");
     return;
   }
@@ -40,14 +46,12 @@ export async function editCommand(ctx: BotContext): Promise<void> {
   );
 
   if (resolved.kind === "not_found") {
-    await ctx.reply("Subscription not found.");
+    await ctx.reply("没有找到这个订阅。");
     return;
   }
 
   if (resolved.kind === "ambiguous") {
-    await ctx.reply(
-      "That short ID matches multiple subscriptions. Use the full ID.",
-    );
+    await ctx.reply("这个短 ID 匹配了多个订阅，请使用完整 ID。");
     return;
   }
 
@@ -58,7 +62,7 @@ export async function editCommand(ctx: BotContext): Promise<void> {
   );
 
   if (!sub) {
-    await ctx.reply("Subscription not found.");
+    await ctx.reply("没有找到这个订阅。");
     return;
   }
 
@@ -84,6 +88,6 @@ export async function editCommand(ctx: BotContext): Promise<void> {
   });
 
   await ctx.reply(
-    `Updated "${updated.name}": ${parsed.field} changed.\nUse /view to see the result.`,
+    `已更新“${updated.name}”的${FIELD_LABELS[parsed.field]}。\n发送 /view 查看结果。`,
   );
 }

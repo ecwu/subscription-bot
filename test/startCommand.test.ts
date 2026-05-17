@@ -57,12 +57,13 @@ describe("startCommand", () => {
 
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("Welcome!");
+    expect(replyText).toContain("欢迎使用");
     expect(replyText).toContain("/add");
     expect(replyText).toContain("/report");
     expect(replyText).toContain("/help");
 
-    const replyOptions = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    const replyOptions = (ctx.reply as ReturnType<typeof vi.fn>).mock
+      .calls[0][1];
     expect(replyOptions).toEqual({ parse_mode: "Markdown" });
   });
 
@@ -75,7 +76,7 @@ describe("startCommand", () => {
 
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("Welcome back!");
+    expect(replyText).toContain("欢迎回来");
     expect(replyText).toContain("/add");
     expect(replyText).toContain("/list");
     expect(replyText).toContain("/report");
@@ -89,7 +90,7 @@ describe("startCommand", () => {
 
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(replyText).toContain("Welcome!");
+    expect(replyText).toContain("欢迎使用");
     expect(replyText).toContain("/add");
     expect(replyText).toContain("/help");
     expect(replyText).toContain("/report");
