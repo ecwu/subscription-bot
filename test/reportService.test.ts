@@ -187,7 +187,6 @@ describe("buildReportData", () => {
 
     const text = formatReportText(report);
     expect(text).toContain("订阅月度支出报告");
-    expect(text).toContain("缺少汇率：GBP");
     expect(text).not.toContain("Private Service");
   });
 });

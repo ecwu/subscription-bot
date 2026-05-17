@@ -159,7 +159,7 @@ export function formatReportText(report: ReportData): string {
     "订阅月度支出报告",
     `生成日期：${report.generatedAt.slice(0, 10)}`,
     `月度合计：${formatMoney(report.monthlyTotalBase, report.baseCurrency)}`,
-    `已纳入：${report.includedCount}/${report.subscriptionCount}`,
+    `纳入统计：${report.includedCount}`,
   ];
 
   if (report.byCurrency.length > 0) {
@@ -167,10 +167,10 @@ export function formatReportText(report: ReportData): string {
     for (const summary of report.byCurrency) {
       const converted =
         summary.convertedMonthlyTotal !== undefined
-          ? ` (~${formatMoney(summary.convertedMonthlyTotal, report.baseCurrency)})`
+          ? `（约 ${formatMoney(summary.convertedMonthlyTotal, report.baseCurrency)}）`
           : "（缺少汇率）";
       lines.push(
-        `- ${summary.currency}: ${formatMoney(summary.monthlyTotal, summary.currency)}${converted}`,
+        `- ${summary.currency}：${formatMoney(summary.monthlyTotal, summary.currency)} ${converted}`,
       );
     }
   }
@@ -185,21 +185,6 @@ export function formatReportText(report: ReportData): string {
         )}`,
       );
     }
-  }
-
-  if (report.missingRateCurrencies.length > 0) {
-    lines.push("", `缺少汇率：${report.missingRateCurrencies.join(", ")}`);
-  }
-
-  const excludedTotal =
-    report.excluded.noPrice +
-    report.excluded.noCurrency +
-    report.excluded.customCycle;
-  if (excludedTotal > 0) {
-    lines.push(
-      "",
-      `未纳入：${excludedTotal}（无价格：${report.excluded.noPrice}，无币种：${report.excluded.noCurrency}，自定义周期：${report.excluded.customCycle}）`,
-    );
   }
 
   return lines.join("\n");
