@@ -261,7 +261,7 @@ All subscription-related callbacks verify the subscription still exists before a
 
 7. **Webhook secret validation**: Simple `!==` comparison is acceptable for high-entropy secrets.
 
-8. **Scheduled triggers**: Cron is configured in `wrangler.toml` (`0 9 * * *`) but reminder sending is not yet implemented. The `scheduled` handler exists as a stub.
+8. **Scheduled triggers**: Cron is configured in `wrangler.toml` (`0 8 * * *`). The `scheduled` handler processes reminders for the upcoming days and sends Telegram messages via `reminderService`.
 
 ## Documentation Files
 

@@ -70,9 +70,20 @@ Added a development-only `/debug_me` command gated by `APP_ENV !== "production"`
 
 Does not leak Telegram user ID, username, message text, or secrets.
 
+### 9. Rate limiting
+**Status: ADDED**
+
+Added per-isolate in-memory rate limiting (`rateLimiter` middleware). Default: 60 requests per minute per userKey. Resets on isolate recycle, which is acceptable for MVP.
+
+### 10. Conversations
+**Status: ADDED**
+
+Multi-step flows (`/add`, `/edit`) are implemented using `@grammyjs/conversations`. Fallback handlers are registered for conversation-specific callbacks to handle stale button clicks after conversations end.
+
 ## Remaining Risks
 
 1. **KV Eventual Consistency:** Reads after writes may return stale data for a few seconds. This is a KV platform behavior, not a code bug. For subscription edits, it is usually acceptable.
 2. **Reminder KV Value Size:** `reminderRepository` stores all daily reminders in one value. At scale, this may need sharding by user or by hour.
-3. **No Rate Limiting:** The webhook handler has no rate limiting or update deduplication beyond Telegram's own retry behavior.
-4. **No Conversation State:** Multi-step flows (`/add`) will need grammY conversations or a custom state machine. Not a scaffold issue.
+3. **Per-Isolate Rate Limiting:** The in-memory rate limiter resets when the isolate is recycled. This is acceptable for MVP but not a hard guarantee against abuse.
+4. **Session Loss on Isolate Change:** grammY conversations are stored in-memory per isolate. If the isolate changes between messages, active conversations disappear and users must restart flows. Documented as acceptable MVP behavior.
+5. **Non-Atomic Delete All:** `SubscriptionRepository.deleteAll()` deletes subscription records, index, and profile key sequentially. Best-effort only.

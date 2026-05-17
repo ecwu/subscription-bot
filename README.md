@@ -6,7 +6,7 @@ A privacy-oriented Telegram bot for managing personal subscription services. Run
 
 - **Runtime**: Cloudflare Workers
 - **Language**: TypeScript
-- **Telegram SDK**: grammY
+- **Telegram SDK**: grammY + @grammyjs/conversations
 - **Storage**: Cloudflare KV
 - **Validation**: Zod
 - **Testing**: Vitest
@@ -16,9 +16,9 @@ A privacy-oriented Telegram bot for managing personal subscription services. Run
 
 ```
 src/
-├── bot/          # Telegram bot setup, commands, middleware
+├── bot/          # Telegram bot setup, commands, conversations, callbacks, keyboards, middleware
 ├── handlers/     # Worker fetch/scheduled handlers
-├── services/     # Business logic placeholders
+├── services/     # Business logic layer
 ├── repositories/ # KV storage access layer
 ├── crypto/       # Encryption, hashing, key derivation
 ├── models/       # TypeScript type definitions

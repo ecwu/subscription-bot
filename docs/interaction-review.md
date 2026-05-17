@@ -8,9 +8,9 @@ The `/add` command starts a multi-step conversation when called without argument
 
 1. **Name** — asks for subscription name. Empty input is rejected.
 2. **Price** — asks for price. User may type `skip` to leave unset.
-3. **Currency** — asks for 3-letter code (e.g. `EUR`). Required if price was set; otherwise `skip` is allowed.
-4. **Billing cycle** — inline keyboard with Weekly, Monthly, Yearly, Custom.
-5. **Next billing date** — asks for `YYYY-MM-DD`.
+3. **Currency** — inline keyboard with common currencies (CNY, USD, HKD, TWD, EUR, JPY, GBP, SGD). User can choose **其他** to type a custom 3-letter code, or **不填写** if no price was set. Required if price was set.
+4. **Billing cycle** — inline keyboard with Weekly, Monthly, Quarterly, Yearly, Custom.
+5. **Next billing date** — inline calendar keyboard. User can navigate months with ‹ ›, pick a day, or select **今天**.
 6. **Review** — shows a summary with Confirm/Cancel inline buttons.
 
 If the user sends `/cancel` at any step, the conversation exits immediately and **no partial subscription is saved**.
@@ -18,7 +18,7 @@ If the user sends `/cancel` at any step, the conversation exits immediately and 
 If validation fails at any step, the conversation ends with an error message and the user must restart with `/add`.
 
 ### Legacy one-line usage
-`/add Netflix 12.99 EUR monthly 2026-06-01` still works and bypasses the conversation.
+`/add Netflix 12.99 CNY monthly 2026-06-01` still works and bypasses the conversation.
 
 ## /edit Conversation Behavior
 
@@ -47,8 +47,19 @@ Two interactive edit paths exist:
 ## /cancel Behavior
 
 - `/cancel` calls `ctx.conversation.exitAll()`, which safely ends all active conversations for the current chat.
-- It is safe to use **outside** a conversation; the bot simply replies "Cancelled."
+- It is safe to use **outside** a conversation; the bot simply replies "已取消。"
 - During `/add`, cancelling before the final Confirm step guarantees **no partial data is written to KV**.
+
+## /reminders Behavior
+
+The `/reminders` command lists subscriptions with upcoming renewals within the configured reminder window (default 3 days, controlled by `REMINDER_DAYS_AHEAD`).
+
+- Loads all subscriptions, filters those with `nextBillingDate` between today and today + days ahead.
+- Sorts by billing date ascending.
+- Shows name, price (if set), and billing date for each upcoming subscription.
+- If no subscriptions are due within the window, replies "近期没有即将扣款的订阅。"
+
+This is a single-shot command; no conversation or callback state is involved.
 
 ## Session Limitations on Cloudflare Workers
 
@@ -163,15 +174,15 @@ What **is** logged:
 
 ## Validation Messages
 
-All validation errors are user-facing and specific:
+All validation errors are user-facing and specific (messages are in Chinese as shown to users):
 
 | Field | Invalid input | Message |
 |-------|--------------|---------|
-| Name | empty | "Name cannot be empty." |
-| Price (add) | negative / non-numeric | "Enter a non-negative number, or type skip." |
-| Price (edit) | negative / non-numeric | "Enter a non-negative number." |
-| Currency (add) | not 3-letter | "Use a 3-letter currency code such as EUR or USD." |
-| Currency (edit) | not 3-letter | "Use a 3-letter currency code such as EUR or USD." |
-| Date (add) | wrong format | "Use YYYY-MM-DD, for example 2026-06-01." |
-| Date (edit) | wrong format | "Use YYYY-MM-DD, for example 2026-06-01." |
-| Cycle | invalid button | "Choose one of the buttons." |
+| Name | empty | "订阅名称不能为空。" |
+| Price (add) | negative / non-numeric | "请输入非负数字，或发送 skip 跳过。" |
+| Price (edit) | negative / non-numeric | "请输入非负数字。" |
+| Currency (add) | not 3-letter | "请输入 3 位币种代码，例如 CNY 或 USD。" |
+| Currency (edit) | not 3-letter | "请输入 3 位币种代码，例如 CNY 或 USD。" |
+| Date (add) | wrong format | "请使用 YYYY-MM-DD 格式，例如 2026-06-01。" |
+| Date (edit) | wrong format | "请使用 YYYY-MM-DD 格式，例如 2026-06-01。" |
+| Cycle | invalid button | "请点击按钮选择扣款周期。" |

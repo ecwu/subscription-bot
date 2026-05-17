@@ -4,14 +4,18 @@
 
 | Command      | Description                                      | Status        |
 |-------------|--------------------------------------------------|---------------|
-| `/start`    | Start the bot and show welcome message           | Placeholder   |
-| `/help`     | Show list of available commands                  | Placeholder   |
-| `/add`      | Add a new subscription                           | Placeholder   |
-| `/list`     | List all your subscriptions                      | Placeholder   |
-| `/delete`   | Delete a specific subscription                   | Placeholder   |
-| `/export`   | Export your subscription data                    | Placeholder   |
+| `/start`    | Start the bot and show welcome message           | Implemented   |
+| `/help`     | Show list of available commands                  | Implemented   |
+| `/add`      | Add a new subscription (interactive or one-line) | Implemented   |
+| `/list`     | List all your subscriptions with inline buttons  | Implemented   |
+| `/view`     | View subscription details by ID                  | Implemented   |
+| `/edit`     | Edit a subscription field (interactive or one-line) | Implemented |
+| `/delete`   | Delete a specific subscription                   | Implemented   |
+| `/export`   | Export your subscription data as JSON            | Implemented   |
 | `/report`   | Generate a monthly run-rate PNG report           | Implemented   |
-| `/delete_me`| Delete all your data from the bot                | Placeholder   |
+| `/reminders`| Show upcoming renewals within reminder window    | Implemented   |
+| `/delete_me`| Delete all your data from the bot                | Implemented   |
+| `/cancel`   | Exit all active conversations                    | Implemented   |
 
 ## Development Commands
 
@@ -21,55 +25,93 @@
 
 `/debug_me` is only registered when `APP_ENV !== "production"`. It never exposes raw Telegram user IDs, usernames, message text, or secrets.
 
-## Planned Interactions
+## Command Details
+
+### `/start`
+
+Shows a welcome message. First-time users see a quick-start guide with `/add`, `/list`, and `/report`. Returning users see common actions.
 
 ### `/add`
 
-Will collect:
-- Subscription name
-- Price (optional)
-- Currency (optional)
-- Billing cycle (monthly, yearly, quarterly, weekly)
-- Next billing date
-- Category (optional)
-- Note (optional)
+**Interactive mode** (no arguments):
+1. Asks for subscription name (non-empty).
+2. Asks for price. Send `skip` to leave unset.
+3. Select currency via inline keyboard (includes common currencies + custom input).
+4. Select billing cycle via inline keyboard: Weekly, Monthly, Quarterly, Yearly, Custom.
+5. Select next billing date via inline calendar keyboard.
+6. Review summary with Confirm/Cancel buttons.
+
+If the user sends `/cancel` at any step, the conversation exits immediately and **no partial subscription is saved**.
+
+**One-line mode**:
+```
+/add <name> <price> <currency> <cycle> <date>
+```
+Example: `/add Netflix 12.99 CNY monthly 2026-06-01`
+
+Note: One-line `/add` does not support spaces in the name.
 
 ### `/list`
 
-Will display subscriptions with:
-- Name and price
-- Days until next billing
-- Category
+Displays all subscriptions sorted by next billing date. Each subscription is sent as a separate message with inline buttons: **[查看] [编辑] [删除]**.
 
-### `/delete`
+### `/view <id>`
 
-Will show inline keyboard with subscription list, followed by confirmation.
+Shows full details for a subscription. `id` can be the short ID (first 8 chars) or the full UUID.
+
+### `/edit <id> field value`
+
+**One-line mode**:
+```
+/edit <id> date|price|cycle <value>
+```
+
+**Interactive mode**:
+Send `/edit` without full arguments, or click **编辑** from a `/list` message. The bot shows an inline keyboard with fields: Name, Price, Currency, Cycle, Next billing date, Cancel. Clicking a field starts the corresponding conversation.
+
+### `/delete <id>`
+
+Deletes a subscription after confirmation. `id` can be short ID or full UUID. Shows a confirmation inline keyboard before deleting.
 
 ### `/export`
 
-Will generate a JSON export of all decrypted subscription data.
+Returns a JSON export with `version`, `exportedAt`, and `subscriptions`. Sent as a MarkdownV2 code block. Size is limited to ~4000 characters (Telegram message limit). If the export is too large, the bot informs the user.
+
+The export does **not** include `userKey`, raw Telegram ID, `chat_id`, or encrypted payloads.
 
 ### `/report`
 
-Generates a PNG report from the current subscription list. It shows monthly
-run-rate spending, per-currency totals, and monthly date distribution. It does
-not use or imply historical payment data.
+Generates a PNG image report from the current subscription list. It shows:
+- Monthly run-rate spending
+- Per-currency totals
+- Monthly date distribution (by day of month)
 
-Multi-currency conversion uses the manually maintained KV config key
-`config:exchange-rates:v1`:
+Subscriptions without price or currency, and subscriptions with `custom` billing cycle, are excluded from the calculated total but counted in the report.
+
+Multi-currency conversion uses the manually maintained KV config key `config:exchange-rates:v1`:
 
 ```json
 { "base": "CNY", "rates": { "CNY": 1, "USD": 7.2, "EUR": 7.8 } }
 ```
 
-Subscriptions without price or currency, and subscriptions with `custom` billing
-cycle, are excluded from the calculated total and counted in the report.
-Currencies missing from the exchange-rate config remain visible in the
-per-currency section but are not converted into the CNY total.
+Currencies missing from the exchange-rate config remain visible in the per-currency section but are not converted into the CNY total.
+
+If PNG generation fails, the bot falls back to a plain-text report.
+
+### `/reminders`
+
+Lists subscriptions with upcoming renewals within the configured reminder window (default 3 days, controlled by `REMINDER_DAYS_AHEAD`).
 
 ### `/delete_me`
 
-Will require confirmation before permanently deleting all user data.
+Requires confirmation via inline keyboard before permanently deleting all user data:
+- All subscription records
+- User profile
+- Associated reminder entries
+
+### `/cancel`
+
+Calls `ctx.conversation.exitAll()`, safely ending all active conversations for the current chat. Safe to use outside of conversations.
 
 ## Admin
 
