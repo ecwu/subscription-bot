@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnpm-debug.log*
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Cloudflare / Wrangler
+.wrangler/
+.mf/
+.dev.vars
+
+# Environment variables
+.env
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.vite/vitest/results.json
+
+# ESLint
+.eslintcache
+
+# Misc
+*.local
+.temp/
+.cache/

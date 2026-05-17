@@ -1,0 +1,66 @@
+import { BotContext } from "../../types/context.js";
+import { parseAddArgs } from "../../utils/commandParser.js";
+import { ValidationError } from "../../utils/errors.js";
+import { createSubscriptionService } from "../../services/subscriptionService.js";
+import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
+import type { Subscription } from "../../models/subscription.js";
+import { shortId } from "../../utils/shortId.js";
+import { createLogger } from "../../utils/logger.js";
+
+export async function addCommand(ctx: BotContext): Promise<void> {
+  const logger = createLogger(ctx.requestId);
+
+  if (!ctx.userKey) {
+    await ctx.reply("Unable to identify user. Please try again.");
+    logger.warn("Add command without userKey");
+    return;
+  }
+
+  const text = ctx.msg?.text ?? "";
+  const args = text.trim().split(/\s+/);
+
+  // If no arguments beyond the command, start interactive conversation
+  if (args.length < 2) {
+    await ctx.conversation.enter("add");
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = parseAddArgs(args);
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      await ctx.reply(err.message);
+      return;
+    }
+    throw err;
+  }
+
+  const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
+  const service = createSubscriptionService(repo);
+
+  const now = new Date().toISOString();
+  const sub: Subscription = {
+    id: crypto.randomUUID(),
+    name: parsed.name,
+    price: parsed.price,
+    currency: parsed.currency,
+    billingCycle: parsed.billingCycle,
+    nextBillingDate: parsed.nextBillingDate,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await service.create(ctx.userKey, sub, ctx.env.ENCRYPTION_KEY);
+
+  logger.info("Subscription created", {
+    subId: sub.id,
+    shortId: shortId(sub.id),
+  });
+
+  await ctx.reply(
+    `Subscription added!\n` +
+      `${sub.name} — ${sub.price} ${sub.currency} — ${sub.billingCycle} — next: ${sub.nextBillingDate}\n` +
+      `Short ID: ${shortId(sub.id)}`
+  );
+}

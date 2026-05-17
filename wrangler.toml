@@ -1,0 +1,26 @@
+name = "subscription-bot"
+main = "src/index.ts"
+compatibility_date = "2024-10-22"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+APP_ENV = "development"
+
+# To use a real KV namespace, create one and fill in the IDs:
+#   wrangler kv:namespace create SUBSCRIPTION_KV
+#   wrangler kv:namespace create SUBSCRIPTION_KV --preview
+# Then uncomment and replace the id/preview_id below.
+[[kv_namespaces]]
+binding = "SUBSCRIPTION_KV"
+id = "00d51942c6564b588079bf62b25e47cb"
+preview_id = "6401a8087afa4916be481c9d71a8266c"
+
+[triggers]
+crons = ["0 9 * * *"]
+
+# Secrets (set via `wrangler secret put`):
+# BOT_TOKEN
+# TELEGRAM_WEBHOOK_SECRET
+# ENCRYPTION_KEY
+# USER_HASH_SECRET
+# ADMIN_USER_ID
