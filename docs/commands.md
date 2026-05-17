@@ -73,4 +73,5 @@ Will require confirmation before permanently deleting all user data.
 
 ## Admin
 
-If `ADMIN_USER_ID` is configured, only that Telegram user can interact with the bot.
+If `ADMIN_USER_ID` is configured, that Telegram user is marked as admin (`ctx.isAdmin`).
+There are no admin-only commands yet, but future commands can gate on this flag.

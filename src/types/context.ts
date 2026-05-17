@@ -13,6 +13,7 @@ export type BaseBotContext = Context &
     env: Env;
     userKey?: string;
     requestId: string;
+    isAdmin: boolean;
   };
 
 // Full context used in middleware (with conversation controls)

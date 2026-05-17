@@ -80,7 +80,7 @@ All three must pass before merging:
 | `TELEGRAM_WEBHOOK_SECRET` | Yes | High-entropy random string |
 | `ENCRYPTION_KEY` | Yes | Base64url-encoded 32-byte value. Validated at startup by `parseMasterKey()`. |
 | `USER_HASH_SECRET` | Yes | High-entropy random string |
-| `ADMIN_USER_ID` | No | Restrict bot to one Telegram user ID |
+| `ADMIN_USER_ID` | No | Telegram user ID granted admin privileges (e.g. for future admin-only commands) |
 | `APP_ENV` | No | `development` (default), `production`, `test` |
 
 For local development, secrets go in `.dev.vars`. For production, use `wrangler secret put`.
@@ -170,7 +170,7 @@ Repository and service objects **must** be created inside the `external()` callb
 ```typescript
 bot.use(session({ initial: () => ({}) }));
 bot.use(requestContext(env));    // Sets ctx.env, ctx.userKey, ctx.requestId
-bot.use(auth);                    // Optional ADMIN_USER_ID restriction
+bot.use(auth);                    // Sets ctx.isAdmin based on ADMIN_USER_ID
 bot.use(rateLimiter());           // Per-isolate best-effort rate limiting
 bot.use(errorHandler);            // Catches errors in downstream middleware
 bot.use(conversations());         // Enables conversation plugin

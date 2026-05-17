@@ -11,12 +11,12 @@ The middleware attached `env` and `requestId`, but `userKey` was left as a TODO.
 
 **Fix:** Implemented async `hashUserId(ctx.from.id, env.USER_HASH_SECRET)` derivation. If `ctx.from` is absent, `userKey` remains `undefined` and downstream handlers/auth must deal with it.
 
-### 2. `auth.ts` — safe handling of missing `ctx.from`
+### 2. `auth.ts` — sets `ctx.isAdmin`
 **Status: ACCEPTABLE**
 
-Uses `ctx.from?.id` with optional chaining. When `ADMIN_USER_ID` is set, missing `ctx.from` correctly falls through to "Unauthorized." When unset, all users are allowed for development.
+Uses `ctx.from?.id` with optional chaining. Sets `ctx.isAdmin = true` when the user's Telegram ID matches `ADMIN_USER_ID`. All users are allowed to interact; admin restriction is reserved for future admin-only commands.
 
-**Minor note:** `auth` runs after `requestContext`, so `ctx.userKey` is now available but `auth` still checks the raw Telegram user ID against `ADMIN_USER_ID`. This is correct because `ADMIN_USER_ID` is configured as a raw Telegram ID.
+**Minor note:** `auth` runs after `requestContext`, so `ctx.userKey` is available, but `auth` still checks the raw Telegram user ID against `ADMIN_USER_ID`. This is correct because `ADMIN_USER_ID` is configured as a raw Telegram ID.
 
 ### 3. `errorHandler.ts` — update sanitization
 **Status: ACCEPTABLE**
