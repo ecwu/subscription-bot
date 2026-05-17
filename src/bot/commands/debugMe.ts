@@ -10,6 +10,6 @@ export async function debugMeCommand(ctx: BotContext): Promise<void> {
     "Debug info:\n" +
       `- userKey: ${ctx.userKey ? "present" : "missing"}\n` +
       `- requestId: ${ctx.requestId}\n` +
-      `- env: ${ctx.env.APP_ENV ?? "unknown"}`
+      `- env: ${ctx.env.APP_ENV ?? "unknown"}`,
   );
 }

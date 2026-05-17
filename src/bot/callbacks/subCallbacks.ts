@@ -10,7 +10,7 @@ import { InlineKeyboard } from "grammy";
 
 async function safeAnswerCallbackQuery(
   ctx: BotContext,
-  text?: string
+  text?: string,
 ): Promise<void> {
   try {
     await ctx.answerCallbackQuery(text);
@@ -22,7 +22,7 @@ async function safeAnswerCallbackQuery(
 async function safeEditMessageText(
   ctx: BotContext,
   text: string,
-  options?: { reply_markup?: InlineKeyboard }
+  options?: { reply_markup?: InlineKeyboard },
 ): Promise<void> {
   try {
     await ctx.editMessageText(text, options);
@@ -49,13 +49,17 @@ export async function subViewCallback(ctx: BotContext): Promise<void> {
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
     const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
     const service = createSubscriptionService(repo, reminderRepo);
-    const sub = await service.get(ctx.userKey, parsed.subId, ctx.env.ENCRYPTION_KEY);
+    const sub = await service.get(
+      ctx.userKey,
+      parsed.subId,
+      ctx.env.ENCRYPTION_KEY,
+    );
 
     if (!sub) {
       await safeAnswerCallbackQuery(ctx, "Subscription not found.");
       await safeEditMessageText(
         ctx,
-        "Subscription not found or already deleted."
+        "Subscription not found or already deleted.",
       );
       return;
     }
@@ -99,13 +103,17 @@ export async function subEditCallback(ctx: BotContext): Promise<void> {
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
     const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
     const service = createSubscriptionService(repo, reminderRepo);
-    const sub = await service.get(ctx.userKey, parsed.subId, ctx.env.ENCRYPTION_KEY);
+    const sub = await service.get(
+      ctx.userKey,
+      parsed.subId,
+      ctx.env.ENCRYPTION_KEY,
+    );
 
     if (!sub) {
       await safeAnswerCallbackQuery(ctx, "Subscription not found.");
       await safeEditMessageText(
         ctx,
-        "Subscription not found or already deleted."
+        "Subscription not found or already deleted.",
       );
       return;
     }
@@ -114,7 +122,7 @@ export async function subEditCallback(ctx: BotContext): Promise<void> {
     await safeEditMessageText(
       ctx,
       `What do you want to edit for "${sub.name}"?`,
-      { reply_markup: editMenuKeyboard(parsed.subId) }
+      { reply_markup: editMenuKeyboard(parsed.subId) },
     );
 
     logger.info("Edit menu opened via callback", { subId: parsed.subId });
@@ -144,18 +152,24 @@ export async function subDeleteCallback(ctx: BotContext): Promise<void> {
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
     const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
     const service = createSubscriptionService(repo, reminderRepo);
-    const sub = await service.get(ctx.userKey, parsed.subId, ctx.env.ENCRYPTION_KEY);
+    const sub = await service.get(
+      ctx.userKey,
+      parsed.subId,
+      ctx.env.ENCRYPTION_KEY,
+    );
 
     if (!sub) {
       await safeAnswerCallbackQuery(ctx, "Subscription not found.");
       await safeEditMessageText(
         ctx,
-        "Subscription not found or already deleted."
+        "Subscription not found or already deleted.",
       );
       return;
     }
 
-    logger.info("Delete confirmation requested via callback", { subId: parsed.subId });
+    logger.info("Delete confirmation requested via callback", {
+      subId: parsed.subId,
+    });
 
     await safeAnswerCallbackQuery(ctx);
     await safeEditMessageText(ctx, `Delete "${sub.name}"?`, {

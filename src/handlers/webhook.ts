@@ -11,7 +11,7 @@ let bot: Bot<BotContext> | null = null;
 
 export async function handleWebhook(
   request: Request,
-  env: Env
+  env: Env,
 ): Promise<Response> {
   const secretToken = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
 

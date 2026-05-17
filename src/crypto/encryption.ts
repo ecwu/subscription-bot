@@ -8,13 +8,10 @@ const IV_LENGTH = 12;
  */
 async function importKey(rawKey: string): Promise<CryptoKey> {
   const keyData = parseMasterKey(rawKey);
-  return crypto.subtle.importKey(
-    "raw",
-    keyData,
-    { name: ALGORITHM },
-    false,
-    ["encrypt", "decrypt"]
-  );
+  return crypto.subtle.importKey("raw", keyData, { name: ALGORITHM }, false, [
+    "encrypt",
+    "decrypt",
+  ]);
 }
 
 export interface EncryptedPayload {
@@ -24,7 +21,7 @@ export interface EncryptedPayload {
 
 export async function encrypt(
   plaintext: string,
-  key: string
+  key: string,
 ): Promise<EncryptedPayload> {
   const cryptoKey = await importKey(key);
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
@@ -34,7 +31,7 @@ export async function encrypt(
   const ciphertext = await crypto.subtle.encrypt(
     { name: ALGORITHM, iv },
     cryptoKey,
-    encoded
+    encoded,
   );
 
   return {
@@ -45,7 +42,7 @@ export async function encrypt(
 
 export async function decrypt(
   payload: EncryptedPayload,
-  key: string
+  key: string,
 ): Promise<string> {
   const cryptoKey = await importKey(key);
   const iv = Buffer.from(payload.iv, "base64url");
@@ -54,7 +51,7 @@ export async function decrypt(
   const decrypted = await crypto.subtle.decrypt(
     { name: ALGORITHM, iv },
     cryptoKey,
-    ciphertext
+    ciphertext,
   );
 
   return new TextDecoder().decode(decrypted);

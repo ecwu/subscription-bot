@@ -13,7 +13,7 @@ export async function deleteMeCommand(ctx: BotContext): Promise<void> {
 
   await ctx.reply(
     "This will permanently delete all your stored subscriptions. Continue?",
-    { reply_markup: privacyDeleteKeyboard() }
+    { reply_markup: privacyDeleteKeyboard() },
   );
 
   logger.info("Delete me confirmation requested");

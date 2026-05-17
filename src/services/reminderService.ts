@@ -37,7 +37,7 @@ export function createReminderService(
   env: Env,
   reminderRepo: ReminderRepository,
   subRepo: SubscriptionRepository,
-  userRepo: UserRepository
+  userRepo: UserRepository,
 ): ReminderService {
   return {
     async processDay(date: string): Promise<void> {
@@ -72,7 +72,10 @@ export function createReminderService(
           const sub: Subscription = JSON.parse(decryptedSub);
 
           // 3. Load user profile and decrypt chatId
-          const userProfile = await userRepo.getUserProfile(entry.userKey, env.ENCRYPTION_KEY);
+          const userProfile = await userRepo.getUserProfile(
+            entry.userKey,
+            env.ENCRYPTION_KEY,
+          );
           if (!userProfile) {
             log("warn", "Skipping reminder: no user profile", {
               date,
@@ -85,7 +88,7 @@ export function createReminderService(
           const alreadySent = await reminderRepo.hasSent(
             entry.userKey,
             entry.subscriptionId,
-            date
+            date,
           );
           if (alreadySent) {
             log("info", "Skipping reminder: already sent", {
@@ -110,7 +113,11 @@ export function createReminderService(
           }
 
           // 6. Mark sent only after successful delivery
-          await reminderRepo.markSent(entry.userKey, entry.subscriptionId, date);
+          await reminderRepo.markSent(
+            entry.userKey,
+            entry.subscriptionId,
+            date,
+          );
 
           log("info", "Reminder sent successfully", {
             date,

@@ -7,7 +7,7 @@ import { parseDeleteCallbackData } from "../../utils/callbackParser.js";
 
 async function safeAnswerCallbackQuery(
   ctx: BotContext,
-  text?: string
+  text?: string,
 ): Promise<void> {
   try {
     await ctx.answerCallbackQuery(text);
@@ -18,7 +18,7 @@ async function safeAnswerCallbackQuery(
 
 async function safeEditMessageText(
   ctx: BotContext,
-  text: string
+  text: string,
 ): Promise<void> {
   try {
     await ctx.editMessageText(text);
@@ -49,10 +49,17 @@ export async function deleteConfirmCallback(ctx: BotContext): Promise<void> {
     const service = createSubscriptionService(repo, reminderRepo);
 
     // Verify it still exists before deleting (idempotency: if already gone, report safely)
-    const sub = await service.get(ctx.userKey, parsed.subId, ctx.env.ENCRYPTION_KEY);
+    const sub = await service.get(
+      ctx.userKey,
+      parsed.subId,
+      ctx.env.ENCRYPTION_KEY,
+    );
     if (!sub) {
       await safeAnswerCallbackQuery(ctx, "Already deleted.");
-      await safeEditMessageText(ctx, "Subscription not found or already deleted.");
+      await safeEditMessageText(
+        ctx,
+        "Subscription not found or already deleted.",
+      );
       return;
     }
 

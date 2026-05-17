@@ -19,7 +19,10 @@ export function validateEditName(name: string): string | null {
   return null;
 }
 
-export function validateEditPrice(priceStr: string): { price: number; error?: string } {
+export function validateEditPrice(priceStr: string): {
+  price: number;
+  error?: string;
+} {
   const trimmed = priceStr.trim();
   const price = Number(trimmed);
   if (!Number.isFinite(price) || price < 0) {
@@ -42,7 +45,10 @@ export function validateEditCurrency(currencyStr: string): {
   return { currency: trimmed };
 }
 
-export function validateEditDate(dateStr: string): { date?: string; error?: string } {
+export function validateEditDate(dateStr: string): {
+  date?: string;
+  error?: string;
+} {
   const trimmed = dateStr.trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     return { error: "Use YYYY-MM-DD, for example 2026-06-01." };
@@ -58,7 +64,7 @@ export async function editFieldConversation(
   conversation: Conversation<BotContext, BaseBotContext>,
   ctx: BaseBotContext,
   subId: string,
-  field: "name" | "price" | "currency" | "date"
+  field: "name" | "price" | "currency" | "date",
 ): Promise<void> {
   // grammY conversations do not inherit custom middleware properties.
   // Read required fields from the outside context via external().
@@ -79,7 +85,9 @@ export async function editFieldConversation(
 
   const sub = await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const reminderRepo = createReminderRepository(outsideCtx.env.SUBSCRIPTION_KV);
+    const reminderRepo = createReminderRepository(
+      outsideCtx.env.SUBSCRIPTION_KV,
+    );
     const service = createSubscriptionService(repo, reminderRepo);
     return service.get(userKey, subId, encryptionKey);
   });
@@ -154,7 +162,9 @@ export async function editFieldConversation(
 
   await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const reminderRepo = createReminderRepository(outsideCtx.env.SUBSCRIPTION_KV);
+    const reminderRepo = createReminderRepository(
+      outsideCtx.env.SUBSCRIPTION_KV,
+    );
     const service = createSubscriptionService(repo, reminderRepo);
     await service.update(userKey, updated, encryptionKey);
   });
@@ -165,14 +175,14 @@ export async function editFieldConversation(
   });
 
   await ctx.reply(
-    `Updated ${fieldLabels[field]} for "${updated.name}".\nUse /view to see the result.`
+    `Updated ${fieldLabels[field]} for "${updated.name}".\nUse /view to see the result.`,
   );
 }
 
 export async function editCycleConversation(
   conversation: Conversation<BotContext, BaseBotContext>,
   ctx: BaseBotContext,
-  subId: string
+  subId: string,
 ): Promise<void> {
   // grammY conversations do not inherit custom middleware properties.
   // Read required fields from the outside context via external().
@@ -193,7 +203,9 @@ export async function editCycleConversation(
 
   const sub = await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const reminderRepo = createReminderRepository(outsideCtx.env.SUBSCRIPTION_KV);
+    const reminderRepo = createReminderRepository(
+      outsideCtx.env.SUBSCRIPTION_KV,
+    );
     const service = createSubscriptionService(repo, reminderRepo);
     return service.get(userKey, subId, encryptionKey);
   });
@@ -225,7 +237,9 @@ export async function editCycleConversation(
 
   await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const reminderRepo = createReminderRepository(outsideCtx.env.SUBSCRIPTION_KV);
+    const reminderRepo = createReminderRepository(
+      outsideCtx.env.SUBSCRIPTION_KV,
+    );
     const service = createSubscriptionService(repo, reminderRepo);
     await service.update(userKey, updated, encryptionKey);
   });
@@ -233,6 +247,6 @@ export async function editCycleConversation(
   logger.info("Subscription cycle updated via conversation", { subId, cycle });
 
   await ctx.reply(
-    `Updated cycle to ${cycle} for "${updated.name}".\nUse /view to see the result.`
+    `Updated cycle to ${cycle} for "${updated.name}".\nUse /view to see the result.`,
   );
 }

@@ -63,6 +63,6 @@ export async function addCommand(ctx: BotContext): Promise<void> {
   await ctx.reply(
     `Subscription added!\n` +
       `${sub.name} — ${sub.price} ${sub.currency} — ${sub.billingCycle} — next: ${sub.nextBillingDate}\n` +
-      `Short ID: ${shortId(sub.id)}`
+      `Short ID: ${shortId(sub.id)}`,
   );
 }

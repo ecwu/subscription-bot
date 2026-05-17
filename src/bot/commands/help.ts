@@ -12,6 +12,7 @@ export async function helpCommand(ctx: BotContext): Promise<void> {
       "/edit <id> date|price|cycle <value> — Edit a subscription\n" +
       "/delete <id> — Delete a subscription (short ID or full ID)\n" +
       "/reminders — Show upcoming renewals within the reminder window\n\n" +
+      "/report — Generate a monthly run-rate spending report\n\n" +
       "Interactive style:\n" +
       "/add with no arguments — Add step by step (supports names with spaces)\n" +
       "/list — Click View, Edit, or Delete on each subscription\n" +
@@ -19,6 +20,6 @@ export async function helpCommand(ctx: BotContext): Promise<void> {
       "Privacy & data:\n" +
       "/export — Export your stored subscriptions as JSON\n" +
       "/delete_me — Permanently delete all your stored data (with confirmation)\n\n" +
-      "/help — Show this help message"
+      "/help — Show this help message",
   );
 }

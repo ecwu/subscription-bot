@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import { createUserRepository } from "../src/repositories/userRepository.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
-const VALID_KEY = Buffer.from(
-  "0123456789abcdef0123456789abcdef"
-).toString("base64url");
+const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
+  "base64url",
+);
 
 function createMockKV(): KVNamespace {
   const store = new Map<string, string>();
@@ -17,7 +17,11 @@ function createMockKV(): KVNamespace {
     delete: async (key: string) => {
       store.delete(key);
     },
-    list: async (options?: { prefix?: string; limit?: number; cursor?: string }) => {
+    list: async (options?: {
+      prefix?: string;
+      limit?: number;
+      cursor?: string;
+    }) => {
       const prefix = options?.prefix ?? "";
       const keys = Array.from(store.keys())
         .filter((k) => k.startsWith(prefix))

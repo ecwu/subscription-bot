@@ -9,12 +9,14 @@
     "types:check": "tsc --noEmit",
     "lint": "eslint src/ test/",
     "lint:fix": "eslint src/ test/ --fix",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format": "biome format --write src/ test/",
+    "format:check": "biome format src/ test/",
     "test": "vitest",
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@cf-wasm/resvg": "^0.3.4",
+    "@fontsource/inter": "^5.2.8",
     "@grammyjs/conversations": "^2.1.1",
     "grammy": "^1.30.0",
     "zod": "^3.23.8"
@@ -25,7 +27,7 @@
     "@typescript-eslint/eslint-plugin": "^8.59.3",
     "@typescript-eslint/parser": "^8.59.3",
     "eslint": "^8.57.0",
-    "prettier": "^3.3.3",
+    "@biomejs/biome": "^1.9.4",
     "typescript": "^5.6.3",
     "vitest": "^2.1.2",
     "wrangler": "^4.92.0"

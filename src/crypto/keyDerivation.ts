@@ -8,7 +8,7 @@ import { parseMasterKey } from "./masterKey.js";
  */
 export async function deriveUserKey(
   masterKey: string,
-  userKey: string
+  userKey: string,
 ): Promise<string> {
   const keyData = parseMasterKey(masterKey);
   const baseKey = await crypto.subtle.importKey(
@@ -16,7 +16,7 @@ export async function deriveUserKey(
     keyData,
     { name: "HKDF" },
     false,
-    ["deriveKey"]
+    ["deriveKey"],
   );
 
   const encoder = new TextEncoder();
@@ -30,9 +30,12 @@ export async function deriveUserKey(
     baseKey,
     { name: "AES-GCM", length: 256 },
     true,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 
-  const exported = (await crypto.subtle.exportKey("raw", derived)) as ArrayBuffer;
+  const exported = (await crypto.subtle.exportKey(
+    "raw",
+    derived,
+  )) as ArrayBuffer;
   return Buffer.from(new Uint8Array(exported)).toString("base64url");
 }

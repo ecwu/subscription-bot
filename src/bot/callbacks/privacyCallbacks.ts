@@ -9,7 +9,7 @@ import { parsePrivacyCallbackData } from "../../utils/callbackParser.js";
 
 async function safeAnswerCallbackQuery(
   ctx: BotContext,
-  text?: string
+  text?: string,
 ): Promise<void> {
   try {
     await ctx.answerCallbackQuery(text);
@@ -20,7 +20,7 @@ async function safeAnswerCallbackQuery(
 
 async function safeEditMessageText(
   ctx: BotContext,
-  text: string
+  text: string,
 ): Promise<void> {
   try {
     await ctx.editMessageText(text);
@@ -30,7 +30,7 @@ async function safeEditMessageText(
 }
 
 export async function privacyDeleteConfirmCallback(
-  ctx: BotContext
+  ctx: BotContext,
 ): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
@@ -51,11 +51,14 @@ export async function privacyDeleteConfirmCallback(
     const subRepo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
     const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
     const userRepo = createUserRepository(ctx.env.SUBSCRIPTION_KV);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const privacyService = createPrivacyService(
       subscriptionService,
       userRepo,
-      reminderRepo
+      reminderRepo,
     );
 
     // Exit any active conversations before deleting data
@@ -82,7 +85,7 @@ export async function privacyDeleteConfirmCallback(
 }
 
 export async function privacyDeleteCancelCallback(
-  ctx: BotContext
+  ctx: BotContext,
 ): Promise<void> {
   const logger = createLogger(ctx.requestId);
 

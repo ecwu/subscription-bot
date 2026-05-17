@@ -61,6 +61,19 @@ pnpm format
 | `APP_ENV` | No | `development` (default), `production`, `test` |
 | `REMINDER_DAYS_AHEAD` | No | Number of days ahead to send renewal reminders (default: 3) |
 
+## Report Exchange Rates
+
+`/report` generates a current monthly run-rate report and converts known
+currencies to CNY using a manually maintained KV config item. Seed or update the
+fixed key `config:exchange-rates:v1` with JSON like:
+
+```json
+{ "base": "CNY", "rates": { "CNY": 1, "USD": 7.2, "EUR": 7.8 } }
+```
+
+Missing currencies are shown in the report but are not included in the CNY
+converted total.
+
 ### Generating ENCRYPTION_KEY
 
 The master encryption key must be exactly 32 bytes (256 bits), base64url-encoded:

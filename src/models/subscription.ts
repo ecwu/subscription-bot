@@ -1,4 +1,9 @@
-export type BillingCycle = "monthly" | "yearly" | "quarterly" | "weekly" | "custom";
+export type BillingCycle =
+  | "monthly"
+  | "yearly"
+  | "quarterly"
+  | "weekly"
+  | "custom";
 
 export interface Subscription {
   id: string;

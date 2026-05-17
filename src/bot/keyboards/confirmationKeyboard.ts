@@ -2,7 +2,7 @@ import { InlineKeyboard } from "grammy";
 
 export function confirmationKeyboard(
   actionPrefix: string,
-  data: string
+  data: string,
 ): InlineKeyboard {
   return new InlineKeyboard()
     .text("✅ Confirm", `${actionPrefix}:confirm:${data}`)

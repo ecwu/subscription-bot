@@ -12,13 +12,13 @@ export function parseMasterKey(key: string): Uint8Array {
   } catch {
     throw new Error(
       "ENCRYPTION_KEY must be a base64url-encoded string. " +
-        "Generate one with: node -e \"console.log(Buffer.from(crypto.randomBytes(32)).toString('base64url'))\""
+        "Generate one with: node -e \"console.log(Buffer.from(crypto.randomBytes(32)).toString('base64url'))\"",
     );
   }
 
   if (decoded.length !== 32) {
     throw new Error(
-      `ENCRYPTION_KEY must decode to exactly 32 bytes (256 bits), got ${decoded.length} bytes.`
+      `ENCRYPTION_KEY must decode to exactly 32 bytes (256 bits), got ${decoded.length} bytes.`,
     );
   }
 

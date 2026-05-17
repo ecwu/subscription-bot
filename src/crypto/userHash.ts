@@ -4,7 +4,7 @@
  */
 export async function hashUserId(
   telegramUserId: number,
-  secret: string
+  secret: string,
 ): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
@@ -12,13 +12,13 @@ export async function hashUserId(
     encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
 
   const signature = await crypto.subtle.sign(
     "HMAC",
     key,
-    encoder.encode(String(telegramUserId))
+    encoder.encode(String(telegramUserId)),
   );
 
   return Buffer.from(signature).toString("base64url");

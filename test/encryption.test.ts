@@ -7,9 +7,9 @@ import {
 } from "../src/crypto/encryption.js";
 
 // A valid base64url-encoded 32-byte master key
-const VALID_KEY = Buffer.from(
-  "0123456789abcdef0123456789abcdef"
-).toString("base64url");
+const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
+  "base64url",
+);
 
 describe("encryption", () => {
   it("encrypts and decrypts plaintext", async () => {

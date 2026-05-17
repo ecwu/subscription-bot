@@ -23,11 +23,15 @@ export async function exportCommand(ctx: BotContext): Promise<void> {
   const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
   const userRepo = createUserRepository(ctx.env.SUBSCRIPTION_KV);
   const subscriptionService = createSubscriptionService(repo, reminderRepo);
-  const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
+  const privacyService = createPrivacyService(
+    subscriptionService,
+    userRepo,
+    reminderRepo,
+  );
 
   const exportData = await privacyService.exportUserData(
     ctx.userKey,
-    ctx.env.ENCRYPTION_KEY
+    ctx.env.ENCRYPTION_KEY,
   );
 
   // Build JSON without internal identifiers
@@ -36,7 +40,7 @@ export async function exportCommand(ctx: BotContext): Promise<void> {
   if (payload.length > MAX_EXPORT_MESSAGE_LENGTH) {
     await ctx.reply(
       "Your export is too large to send as a message.\n" +
-        "TODO: file upload support will be added in a future update."
+        "TODO: file upload support will be added in a future update.",
     );
     logger.info("Export too large for message", {
       payloadLength: payload.length,

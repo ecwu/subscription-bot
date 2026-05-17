@@ -3,9 +3,9 @@ import { parseMasterKey } from "../src/crypto/masterKey.js";
 
 describe("parseMasterKey", () => {
   it("accepts a valid base64url 32-byte key", () => {
-    const key = Buffer.from(
-      "0123456789abcdef0123456789abcdef"
-    ).toString("base64url");
+    const key = Buffer.from("0123456789abcdef0123456789abcdef").toString(
+      "base64url",
+    );
     const decoded = parseMasterKey(key);
     expect(decoded.length).toBe(32);
   });

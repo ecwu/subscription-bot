@@ -14,6 +14,7 @@ import { deleteCommand } from "./commands/delete.js";
 import { viewCommand } from "./commands/view.js";
 import { editCommand } from "./commands/edit.js";
 import { exportCommand } from "./commands/export.js";
+import { reportCommand } from "./commands/report.js";
 import { deleteMeCommand } from "./commands/deleteMe.js";
 import { remindersCommand } from "./commands/reminders.js";
 import { debugMeCommand } from "./commands/debugMe.js";
@@ -70,9 +71,21 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.use(conversations());
 
   // Register conversations
-  bot.use(createConversation<BotContext, BaseBotContext>(addConversation, "add"));
-  bot.use(createConversation<BotContext, BaseBotContext>(editFieldConversation, "editField"));
-  bot.use(createConversation<BotContext, BaseBotContext>(editCycleConversation, "editCycle"));
+  bot.use(
+    createConversation<BotContext, BaseBotContext>(addConversation, "add"),
+  );
+  bot.use(
+    createConversation<BotContext, BaseBotContext>(
+      editFieldConversation,
+      "editField",
+    ),
+  );
+  bot.use(
+    createConversation<BotContext, BaseBotContext>(
+      editCycleConversation,
+      "editCycle",
+    ),
+  );
 
   // Commands
   bot.command("start", startCommand);
@@ -83,6 +96,7 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.command("view", viewCommand);
   bot.command("edit", editCommand);
   bot.command("export", exportCommand);
+  bot.command("report", reportCommand);
   bot.command("delete_me", deleteMeCommand);
   bot.command("reminders", remindersCommand);
   bot.command("cancel", cancelCommand);
@@ -119,13 +133,19 @@ export function createBot(env: Env): Bot<BotContext> {
   // or timeout). They answer the callback so Telegram stops the
   // loading spinner and inform the user the action expired.
   bot.callbackQuery(/^cycle:/, async (ctx) => {
-    await ctx.answerCallbackQuery("This selection has expired. Use /add to start again.");
+    await ctx.answerCallbackQuery(
+      "This selection has expired. Use /add to start again.",
+    );
   });
   bot.callbackQuery(/^editcycle:/, async (ctx) => {
-    await ctx.answerCallbackQuery("This selection has expired. Use /edit to start again.");
+    await ctx.answerCallbackQuery(
+      "This selection has expired. Use /edit to start again.",
+    );
   });
   bot.callbackQuery(/^add:confirm$/, async (ctx) => {
-    await ctx.answerCallbackQuery("This confirmation has expired. Use /add to start again.");
+    await ctx.answerCallbackQuery(
+      "This confirmation has expired. Use /add to start again.",
+    );
   });
   bot.callbackQuery(/^add:cancel$/, async (ctx) => {
     await ctx.answerCallbackQuery("This confirmation has expired.");

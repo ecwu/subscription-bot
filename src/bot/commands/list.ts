@@ -23,7 +23,7 @@ export async function listCommand(ctx: BotContext): Promise<void> {
 
   if (subs.length === 0) {
     await ctx.reply(
-      "You have no subscriptions yet.\nUse /add to create your first one."
+      "You have no subscriptions yet.\nUse /add to create your first one.",
     );
     return;
   }
@@ -32,7 +32,7 @@ export async function listCommand(ctx: BotContext): Promise<void> {
   const sorted = subs.sort(
     (a, b) =>
       new Date(a.nextBillingDate).getTime() -
-      new Date(b.nextBillingDate).getTime()
+      new Date(b.nextBillingDate).getTime(),
   );
 
   await ctx.reply("Your subscriptions:");

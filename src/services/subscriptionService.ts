@@ -1,7 +1,12 @@
 import { SubscriptionRepository } from "../repositories/subscriptionRepository.js";
 import { ReminderRepository } from "../repositories/reminderRepository.js";
 import { Subscription, StoredSubscription } from "../models/subscription.js";
-import { encrypt, decrypt, serializeEncryptedPayload, parseEncryptedPayload } from "../crypto/encryption.js";
+import {
+  encrypt,
+  decrypt,
+  serializeEncryptedPayload,
+  parseEncryptedPayload,
+} from "../crypto/encryption.js";
 import { shortId } from "../utils/shortId.js";
 
 export type ResolveResult =
@@ -10,21 +15,41 @@ export type ResolveResult =
   | { kind: "not_found" };
 
 export interface SubscriptionService {
-  create(userKey: string, sub: Subscription, encryptionKey: string): Promise<void>;
+  create(
+    userKey: string,
+    sub: Subscription,
+    encryptionKey: string,
+  ): Promise<void>;
   list(userKey: string, encryptionKey: string): Promise<Subscription[]>;
-  get(userKey: string, subId: string, encryptionKey: string): Promise<Subscription | null>;
-  update(userKey: string, sub: Subscription, encryptionKey: string): Promise<void>;
+  get(
+    userKey: string,
+    subId: string,
+    encryptionKey: string,
+  ): Promise<Subscription | null>;
+  update(
+    userKey: string,
+    sub: Subscription,
+    encryptionKey: string,
+  ): Promise<void>;
   remove(userKey: string, subId: string): Promise<void>;
   removeAll(userKey: string): Promise<void>;
-  resolveId(userKey: string, inputId: string, encryptionKey: string): Promise<ResolveResult>;
+  resolveId(
+    userKey: string,
+    inputId: string,
+    encryptionKey: string,
+  ): Promise<ResolveResult>;
 }
 
 export function createSubscriptionService(
   repo: SubscriptionRepository,
-  reminderRepo: ReminderRepository
+  reminderRepo: ReminderRepository,
 ): SubscriptionService {
   return {
-    async create(userKey: string, sub: Subscription, encryptionKey: string): Promise<void> {
+    async create(
+      userKey: string,
+      sub: Subscription,
+      encryptionKey: string,
+    ): Promise<void> {
       const payload = JSON.stringify(sub);
       const encrypted = await encrypt(payload, encryptionKey);
       const stored: StoredSubscription = {
@@ -39,7 +64,10 @@ export function createSubscriptionService(
       await reminderRepo.addEntry(sub.nextBillingDate, userKey, sub.id);
     },
 
-    async list(userKey: string, encryptionKey: string): Promise<Subscription[]> {
+    async list(
+      userKey: string,
+      encryptionKey: string,
+    ): Promise<Subscription[]> {
       const ids = await repo.listIds(userKey);
       const subs: Subscription[] = [];
       for (const id of ids) {
@@ -52,7 +80,11 @@ export function createSubscriptionService(
       return subs;
     },
 
-    async get(userKey: string, subId: string, encryptionKey: string): Promise<Subscription | null> {
+    async get(
+      userKey: string,
+      subId: string,
+      encryptionKey: string,
+    ): Promise<Subscription | null> {
       const stored = await repo.get(userKey, subId);
       if (!stored) return null;
       const encrypted = parseEncryptedPayload(stored.encryptedPayload);
@@ -60,7 +92,11 @@ export function createSubscriptionService(
       return JSON.parse(decrypted);
     },
 
-    async update(userKey: string, sub: Subscription, encryptionKey: string): Promise<void> {
+    async update(
+      userKey: string,
+      sub: Subscription,
+      encryptionKey: string,
+    ): Promise<void> {
       // Load the old stored version to know the previous nextBillingDate
       const oldStored = await repo.get(userKey, sub.id);
 
@@ -78,7 +114,11 @@ export function createSubscriptionService(
 
       // Best-effort: update reminder index when billing date changes
       if (oldStored && oldStored.nextBillingDate !== sub.nextBillingDate) {
-        await reminderRepo.removeEntry(oldStored.nextBillingDate, userKey, sub.id);
+        await reminderRepo.removeEntry(
+          oldStored.nextBillingDate,
+          userKey,
+          sub.id,
+        );
         await reminderRepo.addEntry(sub.nextBillingDate, userKey, sub.id);
       }
     },
@@ -96,13 +136,21 @@ export function createSubscriptionService(
       for (const subId of ids) {
         const stored = await repo.get(userKey, subId);
         if (stored) {
-          await reminderRepo.removeEntry(stored.nextBillingDate, userKey, subId);
+          await reminderRepo.removeEntry(
+            stored.nextBillingDate,
+            userKey,
+            subId,
+          );
         }
       }
       await repo.deleteAll(userKey);
     },
 
-    async resolveId(userKey: string, inputId: string, encryptionKey: string): Promise<ResolveResult> {
+    async resolveId(
+      userKey: string,
+      inputId: string,
+      encryptionKey: string,
+    ): Promise<ResolveResult> {
       const allSubs = await this.list(userKey, encryptionKey);
 
       // Exact match wins
@@ -117,7 +165,10 @@ export function createSubscriptionService(
         return { kind: "found", id: matches[0].id };
       }
       if (matches.length > 1) {
-        return { kind: "ambiguous", matches: matches.map((s) => shortId(s.id)) };
+        return {
+          kind: "ambiguous",
+          matches: matches.map((s) => shortId(s.id)),
+        };
       }
 
       // Also try prefix match on full ID (user typed partial UUID)
@@ -126,7 +177,10 @@ export function createSubscriptionService(
         return { kind: "found", id: prefixMatches[0].id };
       }
       if (prefixMatches.length > 1) {
-        return { kind: "ambiguous", matches: prefixMatches.map((s) => shortId(s.id)) };
+        return {
+          kind: "ambiguous",
+          matches: prefixMatches.map((s) => shortId(s.id)),
+        };
       }
 
       return { kind: "not_found" };

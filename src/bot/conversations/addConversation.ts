@@ -31,7 +31,10 @@ export function validateAddName(name: string): string | null {
   return null;
 }
 
-export function validateAddPrice(priceStr: string): { price?: number; error?: string } {
+export function validateAddPrice(priceStr: string): {
+  price?: number;
+  error?: string;
+} {
   const trimmed = priceStr.trim().toLowerCase();
   if (trimmed === "skip" || trimmed === "") {
     return { price: undefined };
@@ -45,7 +48,7 @@ export function validateAddPrice(priceStr: string): { price?: number; error?: st
 
 export function validateAddCurrency(
   currencyStr: string,
-  hasPrice: boolean
+  hasPrice: boolean,
 ): { currency?: string; error?: string } {
   const trimmed = currencyStr.trim().toUpperCase();
   if (trimmed === "SKIP" || trimmed === "") {
@@ -56,13 +59,16 @@ export function validateAddCurrency(
   }
   if (!/^[A-Z]{3}$/.test(trimmed)) {
     return {
-      error: "Use a 3-letter currency code such as EUR or USD."
+      error: "Use a 3-letter currency code such as EUR or USD.",
     };
   }
   return { currency: trimmed };
 }
 
-export function validateAddDate(dateStr: string): { date?: string; error?: string } {
+export function validateAddDate(dateStr: string): {
+  date?: string;
+  error?: string;
+} {
   const trimmed = dateStr.trim();
   if (!DATE_REGEX.test(trimmed)) {
     return { error: "Use YYYY-MM-DD, for example 2026-06-01." };
@@ -94,7 +100,7 @@ function isCancel(text: string): boolean {
 
 export async function addConversation(
   conversation: Conversation<BotContext, BaseBotContext>,
-  ctx: BaseBotContext
+  ctx: BaseBotContext,
 ): Promise<void> {
   // grammY conversations create fresh context objects that do not inherit
   // custom properties from outside middleware. We must read userKey, env,
@@ -146,9 +152,7 @@ export async function addConversation(
   const price = priceResult.price;
 
   // Step 3: Currency
-  await ctx.reply(
-    "What currency? Example: EUR, USD, GBP. You can type skip."
-  );
+  await ctx.reply("What currency? Example: EUR, USD, GBP. You can type skip.");
   const currencyCtx = await conversation.waitFor("message:text");
   const currencyText = currencyCtx.msg.text;
   if (isCancel(currencyText)) {
@@ -235,7 +239,9 @@ export async function addConversation(
 
   await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const reminderRepo = createReminderRepository(outsideCtx.env.SUBSCRIPTION_KV);
+    const reminderRepo = createReminderRepository(
+      outsideCtx.env.SUBSCRIPTION_KV,
+    );
     const service = createSubscriptionService(repo, reminderRepo);
     await service.create(userKey, sub, encryptionKey);
   });
@@ -246,6 +252,6 @@ export async function addConversation(
   });
 
   await ctx.reply(
-    `✅ "${name}" added.\nShort ID: ${shortId(sub.id)}\nUse /list to see all subscriptions.`
+    `✅ "${name}" added.\nShort ID: ${shortId(sub.id)}\nUse /list to see all subscriptions.`,
   );
 }

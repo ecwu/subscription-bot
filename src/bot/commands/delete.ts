@@ -19,7 +19,7 @@ export async function deleteCommand(ctx: BotContext): Promise<void> {
 
   if (args.length < 2) {
     await ctx.reply(
-      "Usage: /delete <id>\nUse /list to see your subscriptions."
+      "Usage: /delete <id>\nUse /list to see your subscriptions.",
     );
     return;
   }
@@ -33,7 +33,7 @@ export async function deleteCommand(ctx: BotContext): Promise<void> {
   const resolved = await service.resolveId(
     ctx.userKey,
     inputId,
-    ctx.env.ENCRYPTION_KEY
+    ctx.env.ENCRYPTION_KEY,
   );
 
   if (resolved.kind === "not_found") {
@@ -43,7 +43,7 @@ export async function deleteCommand(ctx: BotContext): Promise<void> {
 
   if (resolved.kind === "ambiguous") {
     await ctx.reply(
-      "That short ID matches multiple subscriptions. Use the full ID."
+      "That short ID matches multiple subscriptions. Use the full ID.",
     );
     return;
   }
@@ -51,7 +51,7 @@ export async function deleteCommand(ctx: BotContext): Promise<void> {
   const sub = await service.get(
     ctx.userKey,
     resolved.id,
-    ctx.env.ENCRYPTION_KEY
+    ctx.env.ENCRYPTION_KEY,
   );
 
   if (!sub) {

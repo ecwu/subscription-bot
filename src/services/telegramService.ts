@@ -13,7 +13,7 @@ export interface TelegramSendResult {
 export async function sendMessage(
   env: Env,
   chatId: number | string,
-  text: string
+  text: string,
 ): Promise<TelegramSendResult> {
   const url = `https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`;
 

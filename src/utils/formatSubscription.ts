@@ -6,7 +6,7 @@ import { shortId } from "./shortId.js";
  */
 export function formatSubscriptionLine(
   sub: Subscription,
-  index: number
+  index: number,
 ): string {
   const priceStr =
     sub.price !== undefined && sub.currency

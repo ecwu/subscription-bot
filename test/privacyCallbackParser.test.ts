@@ -1,7 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  parsePrivacyCallbackData,
-} from "../src/utils/callbackParser.js";
+import { parsePrivacyCallbackData } from "../src/utils/callbackParser.js";
 
 describe("parsePrivacyCallbackData", () => {
   it("parses delete_confirm", () => {

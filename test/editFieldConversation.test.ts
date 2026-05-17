@@ -47,7 +47,7 @@ describe("editFieldConversation validators", () => {
     it("rejects invalid codes", () => {
       const result = validateEditCurrency("EURO");
       expect(result.error).toBe(
-        "Use a 3-letter currency code such as EUR or USD."
+        "Use a 3-letter currency code such as EUR or USD.",
       );
     });
     it("converts to uppercase", () => {
@@ -69,7 +69,7 @@ describe("editFieldConversation validators", () => {
     it("rejects invalid date", () => {
       const result = validateEditDate("2026-13-01");
       expect(result.error).toBe(
-        "Invalid date. Use YYYY-MM-DD, for example 2026-06-01."
+        "Invalid date. Use YYYY-MM-DD, for example 2026-06-01.",
       );
     });
   });

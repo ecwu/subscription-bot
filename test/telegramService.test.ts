@@ -6,7 +6,9 @@ function createMockEnv(): Env {
   return {
     BOT_TOKEN: "test-token",
     TELEGRAM_WEBHOOK_SECRET: "test-secret",
-    ENCRYPTION_KEY: Buffer.from("0123456789abcdef0123456789abcdef").toString("base64url"),
+    ENCRYPTION_KEY: Buffer.from("0123456789abcdef0123456789abcdef").toString(
+      "base64url",
+    ),
     USER_HASH_SECRET: "test-hash-secret",
     SUBSCRIPTION_KV: {} as unknown as KVNamespace,
   };
@@ -16,9 +18,11 @@ describe("telegramService.sendMessage", () => {
   it("returns success on 200 OK", async () => {
     const env = createMockEnv();
 
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), { status: 200 })
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
     global.fetch = mockFetch;
 
     const result = await sendMessage(env, 123456, "Hello");
@@ -36,12 +40,14 @@ describe("telegramService.sendMessage", () => {
   it("returns failure with status and description on error", async () => {
     const env = createMockEnv();
 
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ ok: false, description: "Chat not found" }),
-        { status: 400 }
-      )
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ ok: false, description: "Chat not found" }),
+          { status: 400 },
+        ),
+      );
     global.fetch = mockFetch;
 
     const result = await sendMessage(env, 999999, "Hello");
@@ -54,9 +60,9 @@ describe("telegramService.sendMessage", () => {
   it("returns failure without description on unparseable error body", async () => {
     const env = createMockEnv();
 
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response("not json", { status: 500 })
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response("not json", { status: 500 }));
     global.fetch = mockFetch;
 
     const result = await sendMessage(env, 123456, "Hello");

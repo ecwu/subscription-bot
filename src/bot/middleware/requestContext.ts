@@ -43,7 +43,7 @@ export function requestContext(env: Env): Middleware<BotContext> {
         await userRepo.upsertUserProfile(
           ctx.userKey,
           ctx.chat.id,
-          env.ENCRYPTION_KEY
+          env.ENCRYPTION_KEY,
         );
         logger.info("User profile upserted");
       } catch (err) {

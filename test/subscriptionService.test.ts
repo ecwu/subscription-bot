@@ -5,9 +5,9 @@ import { createReminderRepository } from "../src/repositories/reminderRepository
 import type { KVNamespace } from "@cloudflare/workers-types";
 
 // A valid base64url-encoded 32-byte master key
-const VALID_KEY = Buffer.from(
-  "0123456789abcdef0123456789abcdef"
-).toString("base64url");
+const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
+  "base64url",
+);
 
 function createMockKV(): KVNamespace {
   const store = new Map<string, string>();
@@ -20,7 +20,11 @@ function createMockKV(): KVNamespace {
     delete: async (key: string) => {
       store.delete(key);
     },
-    list: async (options?: { prefix?: string; limit?: number; cursor?: string }) => {
+    list: async (options?: {
+      prefix?: string;
+      limit?: number;
+      cursor?: string;
+    }) => {
       const prefix = options?.prefix ?? "";
       const keys = Array.from(store.keys())
         .filter((k) => k.startsWith(prefix))
@@ -126,27 +130,35 @@ describe("subscriptionService", () => {
     const userA = "user-a";
     const userB = "user-b";
 
-    await service.create(userA, {
-      id: "sub-a",
-      name: "Netflix",
-      price: 12.99,
-      currency: "EUR",
-      billingCycle: "monthly",
-      nextBillingDate: "2026-06-01",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }, VALID_KEY);
+    await service.create(
+      userA,
+      {
+        id: "sub-a",
+        name: "Netflix",
+        price: 12.99,
+        currency: "EUR",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-06-01",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
 
-    await service.create(userB, {
-      id: "sub-b",
-      name: "Spotify",
-      price: 9.99,
-      currency: "EUR",
-      billingCycle: "monthly",
-      nextBillingDate: "2026-06-15",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }, VALID_KEY);
+    await service.create(
+      userB,
+      {
+        id: "sub-b",
+        name: "Spotify",
+        price: 9.99,
+        currency: "EUR",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-06-15",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
 
     const listA = await service.list(userA, VALID_KEY);
     const listB = await service.list(userB, VALID_KEY);

@@ -30,7 +30,7 @@ const DEFAULT_OPTIONS: RateLimitOptions = {
 };
 
 export function rateLimiter(
-  options: RateLimitOptions = DEFAULT_OPTIONS
+  options: RateLimitOptions = DEFAULT_OPTIONS,
 ): Middleware<BotContext> {
   return async (ctx, next) => {
     // Skip rate limiting for webhooks/health checks that don't have a user
@@ -55,7 +55,7 @@ export function rateLimiter(
 
     if (entry.count >= options.maxRequests) {
       await ctx.reply(
-        "Too many requests. Please wait a moment before trying again."
+        "Too many requests. Please wait a moment before trying again.",
       );
       return;
     }

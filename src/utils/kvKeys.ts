@@ -17,7 +17,7 @@ export function reminderDate(date: string): string {
 export function reminderSent(
   userKey: string,
   subId: string,
-  billingDate: string
+  billingDate: string,
 ): string {
   return `reminder:sent:${userKey}:${subId}:${billingDate}`;
 }

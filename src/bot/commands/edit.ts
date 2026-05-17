@@ -36,7 +36,7 @@ export async function editCommand(ctx: BotContext): Promise<void> {
   const resolved = await service.resolveId(
     ctx.userKey,
     parsed.subId,
-    ctx.env.ENCRYPTION_KEY
+    ctx.env.ENCRYPTION_KEY,
   );
 
   if (resolved.kind === "not_found") {
@@ -46,7 +46,7 @@ export async function editCommand(ctx: BotContext): Promise<void> {
 
   if (resolved.kind === "ambiguous") {
     await ctx.reply(
-      "That short ID matches multiple subscriptions. Use the full ID."
+      "That short ID matches multiple subscriptions. Use the full ID.",
     );
     return;
   }
@@ -54,7 +54,7 @@ export async function editCommand(ctx: BotContext): Promise<void> {
   const sub = await service.get(
     ctx.userKey,
     resolved.id,
-    ctx.env.ENCRYPTION_KEY
+    ctx.env.ENCRYPTION_KEY,
   );
 
   if (!sub) {
@@ -84,6 +84,6 @@ export async function editCommand(ctx: BotContext): Promise<void> {
   });
 
   await ctx.reply(
-    `Updated "${updated.name}": ${parsed.field} changed.\nUse /view to see the result.`
+    `Updated "${updated.name}": ${parsed.field} changed.\nUse /view to see the result.`,
   );
 }

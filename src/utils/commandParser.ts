@@ -34,7 +34,7 @@ export function parseAddArgs(args: string[]): ParsedAddArgs {
   if (args.length < 6) {
     throw new ValidationError(
       "Usage: /add <name> <price> <currency> <cycle> <nextBillingDate>\n" +
-        "Example: /add Netflix 12.99 EUR monthly 2026-06-01"
+        "Example: /add Netflix 12.99 EUR monthly 2026-06-01",
     );
   }
 
@@ -51,19 +51,19 @@ export function parseAddArgs(args: string[]): ParsedAddArgs {
   const price = Number(priceStr);
   if (!Number.isFinite(price) || price < 0) {
     throw new ValidationError(
-      `Invalid price: "${priceStr}". Price must be a non-negative number.`
+      `Invalid price: "${priceStr}". Price must be a non-negative number.`,
     );
   }
 
   if (!VALID_CYCLES.includes(cycle as BillingCycle)) {
     throw new ValidationError(
-      `Invalid cycle: "${cycle}". Allowed: ${VALID_CYCLES.join(", ")}.`
+      `Invalid cycle: "${cycle}". Allowed: ${VALID_CYCLES.join(", ")}.`,
     );
   }
 
   if (!DATE_REGEX.test(nextBillingDate)) {
     throw new ValidationError(
-      `Invalid date: "${nextBillingDate}". Use YYYY-MM-DD format.`
+      `Invalid date: "${nextBillingDate}". Use YYYY-MM-DD format.`,
     );
   }
 
@@ -71,7 +71,7 @@ export function parseAddArgs(args: string[]): ParsedAddArgs {
   const parsedDate = new Date(nextBillingDate + "T00:00:00Z");
   if (isNaN(parsedDate.getTime())) {
     throw new ValidationError(
-      `Invalid date: "${nextBillingDate}". Use YYYY-MM-DD format.`
+      `Invalid date: "${nextBillingDate}". Use YYYY-MM-DD format.`,
     );
   }
 

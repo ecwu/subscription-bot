@@ -10,6 +10,7 @@
 | `/list`     | List all your subscriptions                      | Placeholder   |
 | `/delete`   | Delete a specific subscription                   | Placeholder   |
 | `/export`   | Export your subscription data                    | Placeholder   |
+| `/report`   | Generate a monthly run-rate PNG report           | Implemented   |
 | `/delete_me`| Delete all your data from the bot                | Placeholder   |
 
 ## Development Commands
@@ -47,6 +48,24 @@ Will show inline keyboard with subscription list, followed by confirmation.
 ### `/export`
 
 Will generate a JSON export of all decrypted subscription data.
+
+### `/report`
+
+Generates a PNG report from the current subscription list. It shows monthly
+run-rate spending, per-currency totals, and monthly date distribution. It does
+not use or imply historical payment data.
+
+Multi-currency conversion uses the manually maintained KV config key
+`config:exchange-rates:v1`:
+
+```json
+{ "base": "CNY", "rates": { "CNY": 1, "USD": 7.2, "EUR": 7.8 } }
+```
+
+Subscriptions without price or currency, and subscriptions with `custom` billing
+cycle, are excluded from the calculated total and counted in the report.
+Currencies missing from the exchange-rate config remain visible in the
+per-currency section but are not converted into the CNY total.
 
 ### `/delete_me`
 

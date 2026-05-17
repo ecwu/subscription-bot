@@ -5,16 +5,16 @@ export interface ExportService {
 }
 
 export function createExportService(
-  subscriptionService: SubscriptionService
+  subscriptionService: SubscriptionService,
 ): ExportService {
   return {
     async exportUserData(
       userKey: string,
-      encryptionKey: string
+      encryptionKey: string,
     ): Promise<unknown> {
       const subscriptions = await subscriptionService.list(
         userKey,
-        encryptionKey
+        encryptionKey,
       );
       return {
         version: "1.0.0",

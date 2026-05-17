@@ -11,7 +11,7 @@ export interface DeleteCallbackData {
  *   delete:cancel:<subId>
  */
 export function parseDeleteCallbackData(
-  callbackData: string
+  callbackData: string,
 ): DeleteCallbackData | null {
   const prefix = "delete:";
   if (!callbackData.startsWith(prefix)) {
@@ -43,7 +43,7 @@ export interface SubCallbackData {
  *   sub:delete:<subId>
  */
 export function parseSubCallbackData(
-  callbackData: string
+  callbackData: string,
 ): SubCallbackData | null {
   const prefix = "sub:";
   if (!callbackData.startsWith(prefix)) return null;
@@ -66,7 +66,7 @@ export interface EditCallbackData {
  *   edit:<field>:<subId>
  */
 export function parseEditCallbackData(
-  callbackData: string
+  callbackData: string,
 ): EditCallbackData | null {
   const prefix = "edit:";
   if (!callbackData.startsWith(prefix)) return null;
@@ -83,7 +83,7 @@ export function parseEditCallbackData(
  * Expected format: cycle:<cycle>
  */
 export function parseCycleCallbackData(
-  callbackData: string
+  callbackData: string,
 ): { cycle: string } | null {
   const prefix = "cycle:";
   if (!callbackData.startsWith(prefix)) return null;
@@ -100,7 +100,7 @@ export function parseCycleCallbackData(
  *   add:cancel
  */
 export function parseAddConfirmCallbackData(
-  callbackData: string
+  callbackData: string,
 ): { action: "confirm" | "cancel" } | null {
   if (callbackData === "add:confirm") return { action: "confirm" };
   if (callbackData === "add:cancel") return { action: "cancel" };
@@ -113,7 +113,7 @@ export function parseAddConfirmCallbackData(
  * Expected format: editcycle:<cycle>:<subId>
  */
 export function parseEditCycleCallbackData(
-  callbackData: string
+  callbackData: string,
 ): { cycle: string; subId: string } | null {
   const prefix = "editcycle:";
   if (!callbackData.startsWith(prefix)) return null;
@@ -136,7 +136,7 @@ export interface PrivacyCallbackData {
  *   privacy:delete_cancel
  */
 export function parsePrivacyCallbackData(
-  callbackData: string
+  callbackData: string,
 ): PrivacyCallbackData | null {
   if (callbackData === "privacy:delete_confirm") {
     return { action: "delete_confirm" };

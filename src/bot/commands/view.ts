@@ -30,7 +30,7 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
   const resolved = await service.resolveId(
     ctx.userKey,
     inputId,
-    ctx.env.ENCRYPTION_KEY
+    ctx.env.ENCRYPTION_KEY,
   );
 
   if (resolved.kind === "not_found") {
@@ -40,7 +40,7 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
 
   if (resolved.kind === "ambiguous") {
     await ctx.reply(
-      "That short ID matches multiple subscriptions. Use the full ID."
+      "That short ID matches multiple subscriptions. Use the full ID.",
     );
     return;
   }
@@ -48,7 +48,7 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
   const sub = await service.get(
     ctx.userKey,
     resolved.id,
-    ctx.env.ENCRYPTION_KEY
+    ctx.env.ENCRYPTION_KEY,
   );
 
   if (!sub) {

@@ -15,9 +15,7 @@ export const errorHandler: Middleware<BotContext> = async (ctx, next) => {
     });
 
     try {
-      await ctx.reply(
-        "An unexpected error occurred. Please try again later."
-      );
+      await ctx.reply("An unexpected error occurred. Please try again later.");
     } catch {
       // If replying fails, silently fail to avoid leaking errors
     }

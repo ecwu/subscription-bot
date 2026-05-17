@@ -1,7 +1,7 @@
 export function log(
   level: "info" | "warn" | "error",
   message: string,
-  meta?: Record<string, unknown>
+  meta?: Record<string, unknown>,
 ): void {
   const timestamp = new Date().toISOString();
   const payload = { timestamp, level, message, ...meta };

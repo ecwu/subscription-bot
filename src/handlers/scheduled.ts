@@ -11,7 +11,7 @@ import { log } from "../utils/logger.js";
 
 export async function handleScheduled(
   _controller: ScheduledController,
-  env: Env
+  env: Env,
 ): Promise<void> {
   const daysAhead = getReminderDaysAhead(env);
   const dates = getReminderDateRange(daysAhead);
@@ -29,7 +29,7 @@ export async function handleScheduled(
     env,
     reminderRepo,
     subRepo,
-    userRepo
+    userRepo,
   );
 
   for (const date of dates) {

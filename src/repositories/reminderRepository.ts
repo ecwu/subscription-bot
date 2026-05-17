@@ -7,11 +7,27 @@ export interface ReminderEntry {
 }
 
 export interface ReminderRepository {
-  addEntry(date: string, userKey: string, subscriptionId: string): Promise<void>;
-  removeEntry(date: string, userKey: string, subscriptionId: string): Promise<void>;
+  addEntry(
+    date: string,
+    userKey: string,
+    subscriptionId: string,
+  ): Promise<void>;
+  removeEntry(
+    date: string,
+    userKey: string,
+    subscriptionId: string,
+  ): Promise<void>;
   listEntries(date: string): Promise<ReminderEntry[]>;
-  hasSent(userKey: string, subscriptionId: string, billingDate: string): Promise<boolean>;
-  markSent(userKey: string, subscriptionId: string, billingDate: string): Promise<void>;
+  hasSent(
+    userKey: string,
+    subscriptionId: string,
+    billingDate: string,
+  ): Promise<boolean>;
+  markSent(
+    userKey: string,
+    subscriptionId: string,
+    billingDate: string,
+  ): Promise<void>;
 }
 
 export function createReminderRepository(kv: KVNamespace): ReminderRepository {
@@ -19,7 +35,7 @@ export function createReminderRepository(kv: KVNamespace): ReminderRepository {
     async addEntry(
       date: string,
       userKey: string,
-      subscriptionId: string
+      subscriptionId: string,
     ): Promise<void> {
       const key = reminderDate(date);
       const existing = await kv.get(key);
@@ -27,7 +43,7 @@ export function createReminderRepository(kv: KVNamespace): ReminderRepository {
 
       // Deduplicate
       const alreadyExists = entries.some(
-        (e) => e.userKey === userKey && e.subscriptionId === subscriptionId
+        (e) => e.userKey === userKey && e.subscriptionId === subscriptionId,
       );
       if (alreadyExists) return;
 
@@ -38,7 +54,7 @@ export function createReminderRepository(kv: KVNamespace): ReminderRepository {
     async removeEntry(
       date: string,
       userKey: string,
-      subscriptionId: string
+      subscriptionId: string,
     ): Promise<void> {
       const key = reminderDate(date);
       const existing = await kv.get(key);
@@ -46,7 +62,7 @@ export function createReminderRepository(kv: KVNamespace): ReminderRepository {
 
       const entries: ReminderEntry[] = JSON.parse(existing);
       const filtered = entries.filter(
-        (e) => !(e.userKey === userKey && e.subscriptionId === subscriptionId)
+        (e) => !(e.userKey === userKey && e.subscriptionId === subscriptionId),
       );
 
       if (filtered.length === entries.length) return;
@@ -62,7 +78,7 @@ export function createReminderRepository(kv: KVNamespace): ReminderRepository {
     async hasSent(
       userKey: string,
       subscriptionId: string,
-      billingDate: string
+      billingDate: string,
     ): Promise<boolean> {
       const key = reminderSent(userKey, subscriptionId, billingDate);
       const data = await kv.get(key);
@@ -72,7 +88,7 @@ export function createReminderRepository(kv: KVNamespace): ReminderRepository {
     async markSent(
       userKey: string,
       subscriptionId: string,
-      billingDate: string
+      billingDate: string,
     ): Promise<void> {
       const key = reminderSent(userKey, subscriptionId, billingDate);
       await kv.put(key, "1");

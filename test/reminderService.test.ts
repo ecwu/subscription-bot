@@ -10,9 +10,9 @@ import { createUserRepository } from "../src/repositories/userRepository.js";
 import { Env } from "../src/types/env.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
-const VALID_KEY = Buffer.from(
-  "0123456789abcdef0123456789abcdef"
-).toString("base64url");
+const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
+  "base64url",
+);
 
 function createMockKV(): KVNamespace {
   const store = new Map<string, string>();
@@ -25,7 +25,11 @@ function createMockKV(): KVNamespace {
     delete: async (key: string) => {
       store.delete(key);
     },
-    list: async (options?: { prefix?: string; limit?: number; cursor?: string }) => {
+    list: async (options?: {
+      prefix?: string;
+      limit?: number;
+      cursor?: string;
+    }) => {
       const prefix = options?.prefix ?? "";
       const keys = Array.from(store.keys())
         .filter((k) => k.startsWith(prefix))
@@ -141,9 +145,11 @@ describe("reminderService.processDay", () => {
     await reminderRepo.addEntry(date, userKey, subId);
 
     // Mock successful Telegram API call
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), { status: 200 })
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
     global.fetch = mockFetch;
 
     const service = createReminderService(env, reminderRepo, subRepo, userRepo);
@@ -172,9 +178,11 @@ describe("reminderService.processDay", () => {
     await reminderRepo.addEntry(date, userKey, subId);
     // No subscription stored
 
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), { status: 200 })
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
     global.fetch = mockFetch;
 
     const service = createReminderService(env, reminderRepo, subRepo, userRepo);
@@ -228,9 +236,11 @@ describe("reminderService.processDay", () => {
 
     await reminderRepo.addEntry(indexDate, userKey, subId);
 
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), { status: 200 })
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
     global.fetch = mockFetch;
 
     const service = createReminderService(env, reminderRepo, subRepo, userRepo);
@@ -282,9 +292,11 @@ describe("reminderService.processDay", () => {
     await reminderRepo.addEntry(date, userKey, subId);
     await reminderRepo.markSent(userKey, subId, date);
 
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), { status: 200 })
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
     global.fetch = mockFetch;
 
     const service = createReminderService(env, reminderRepo, subRepo, userRepo);
@@ -335,12 +347,14 @@ describe("reminderService.processDay", () => {
     await reminderRepo.addEntry(date, userKey, subId);
 
     // Mock failed Telegram API call
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ ok: false, description: "Chat not found" }),
-        { status: 400 }
-      )
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ ok: false, description: "Chat not found" }),
+          { status: 400 },
+        ),
+      );
     global.fetch = mockFetch;
 
     const service = createReminderService(env, reminderRepo, subRepo, userRepo);
@@ -391,9 +405,11 @@ describe("reminderService.processDay", () => {
 
     await reminderRepo.addEntry(date, userKey, subId);
 
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), { status: 200 })
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
     global.fetch = mockFetch;
 
     const service = createReminderService(env, reminderRepo, subRepo, userRepo);

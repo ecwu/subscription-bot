@@ -7,9 +7,9 @@ import { createUserRepository } from "../src/repositories/userRepository.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
 // A valid base64url-encoded 32-byte master key
-const VALID_KEY = Buffer.from(
-  "0123456789abcdef0123456789abcdef"
-).toString("base64url");
+const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
+  "base64url",
+);
 
 function createMockKV(): KVNamespace {
   const store = new Map<string, string>();
@@ -22,7 +22,11 @@ function createMockKV(): KVNamespace {
     delete: async (key: string) => {
       store.delete(key);
     },
-    list: async (options?: { prefix?: string; limit?: number; cursor?: string }) => {
+    list: async (options?: {
+      prefix?: string;
+      limit?: number;
+      cursor?: string;
+    }) => {
       const prefix = options?.prefix ?? "";
       const keys = Array.from(store.keys())
         .filter((k) => k.startsWith(prefix))
@@ -39,7 +43,11 @@ describe("privacyService", () => {
     const reminderRepo = createReminderRepository(kv);
     const userRepo = createUserRepository(kv);
     const subscriptionService = createSubscriptionService(repo, reminderRepo);
-    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
+    const privacyService = createPrivacyService(
+      subscriptionService,
+      userRepo,
+      reminderRepo,
+    );
 
     const userKey = "user-key-123";
     const sub = {
@@ -72,7 +80,11 @@ describe("privacyService", () => {
     const reminderRepo = createReminderRepository(kv);
     const userRepo = createUserRepository(kv);
     const subscriptionService = createSubscriptionService(repo, reminderRepo);
-    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
+    const privacyService = createPrivacyService(
+      subscriptionService,
+      userRepo,
+      reminderRepo,
+    );
 
     const userKey = "user-key-123";
     const sub = {
@@ -102,7 +114,11 @@ describe("privacyService", () => {
     const reminderRepo = createReminderRepository(kv);
     const userRepo = createUserRepository(kv);
     const subscriptionService = createSubscriptionService(repo, reminderRepo);
-    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
+    const privacyService = createPrivacyService(
+      subscriptionService,
+      userRepo,
+      reminderRepo,
+    );
 
     const userKey = "user-key-123";
     const sub = {
@@ -129,32 +145,44 @@ describe("privacyService", () => {
     const reminderRepo = createReminderRepository(kv);
     const userRepo = createUserRepository(kv);
     const subscriptionService = createSubscriptionService(repo, reminderRepo);
-    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
+    const privacyService = createPrivacyService(
+      subscriptionService,
+      userRepo,
+      reminderRepo,
+    );
 
     const userA = "user-a";
     const userB = "user-b";
 
-    await subscriptionService.create(userA, {
-      id: "sub-a",
-      name: "Netflix",
-      price: 12.99,
-      currency: "EUR",
-      billingCycle: "monthly",
-      nextBillingDate: "2026-06-01",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    }, VALID_KEY);
+    await subscriptionService.create(
+      userA,
+      {
+        id: "sub-a",
+        name: "Netflix",
+        price: 12.99,
+        currency: "EUR",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-06-01",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+      VALID_KEY,
+    );
 
-    await subscriptionService.create(userB, {
-      id: "sub-b",
-      name: "Spotify",
-      price: 9.99,
-      currency: "EUR",
-      billingCycle: "monthly",
-      nextBillingDate: "2026-06-15",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    }, VALID_KEY);
+    await subscriptionService.create(
+      userB,
+      {
+        id: "sub-b",
+        name: "Spotify",
+        price: 9.99,
+        currency: "EUR",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-06-15",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+      VALID_KEY,
+    );
 
     await privacyService.deleteUserData(userA);
 
@@ -172,9 +200,16 @@ describe("privacyService", () => {
     const reminderRepo = createReminderRepository(kv);
     const userRepo = createUserRepository(kv);
     const subscriptionService = createSubscriptionService(repo, reminderRepo);
-    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
+    const privacyService = createPrivacyService(
+      subscriptionService,
+      userRepo,
+      reminderRepo,
+    );
 
-    const exported = await privacyService.exportUserData("empty-user", VALID_KEY);
+    const exported = await privacyService.exportUserData(
+      "empty-user",
+      VALID_KEY,
+    );
 
     expect(exported.version).toBe(1);
     expect(exported.subscriptions).toHaveLength(0);
@@ -186,7 +221,11 @@ describe("privacyService", () => {
     const reminderRepo = createReminderRepository(kv);
     const userRepo = createUserRepository(kv);
     const subscriptionService = createSubscriptionService(repo, reminderRepo);
-    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
+    const privacyService = createPrivacyService(
+      subscriptionService,
+      userRepo,
+      reminderRepo,
+    );
 
     const userKey = "user-key-123";
     await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
@@ -203,7 +242,11 @@ describe("privacyService", () => {
     const reminderRepo = createReminderRepository(kv);
     const userRepo = createUserRepository(kv);
     const subscriptionService = createSubscriptionService(repo, reminderRepo);
-    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
+    const privacyService = createPrivacyService(
+      subscriptionService,
+      userRepo,
+      reminderRepo,
+    );
 
     const userKey = "user-key-123";
     const sub = {

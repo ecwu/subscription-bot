@@ -4,9 +4,9 @@ import { createSubscriptionRepository } from "../src/repositories/subscriptionRe
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
-const VALID_KEY = Buffer.from(
-  "0123456789abcdef0123456789abcdef"
-).toString("base64url");
+const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
+  "base64url",
+);
 
 function createMockKV(): KVNamespace {
   const store = new Map<string, string>();
@@ -19,7 +19,11 @@ function createMockKV(): KVNamespace {
     delete: async (key: string) => {
       store.delete(key);
     },
-    list: async (options?: { prefix?: string; limit?: number; cursor?: string }) => {
+    list: async (options?: {
+      prefix?: string;
+      limit?: number;
+      cursor?: string;
+    }) => {
       const prefix = options?.prefix ?? "";
       const keys = Array.from(store.keys())
         .filter((k) => k.startsWith(prefix))
@@ -51,7 +55,7 @@ describe("subscriptionService.resolveId", () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
-      VALID_KEY
+      VALID_KEY,
     );
 
     const result = await service.resolveId(userKey, fullId, VALID_KEY);
@@ -79,7 +83,7 @@ describe("subscriptionService.resolveId", () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
-      VALID_KEY
+      VALID_KEY,
     );
 
     const result = await service.resolveId(userKey, "aaaaaaaa", VALID_KEY);
@@ -116,7 +120,7 @@ describe("subscriptionService.resolveId", () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
-      VALID_KEY
+      VALID_KEY,
     );
 
     await service.create(
@@ -131,11 +135,14 @@ describe("subscriptionService.resolveId", () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
-      VALID_KEY
+      VALID_KEY,
     );
 
     const result = await service.resolveId(userKey, "aaaaaaaa", VALID_KEY);
-    expect(result).toEqual({ kind: "ambiguous", matches: ["aaaaaaaa", "aaaaaaaa"] });
+    expect(result).toEqual({
+      kind: "ambiguous",
+      matches: ["aaaaaaaa", "aaaaaaaa"],
+    });
   });
 
   it("does not leak other users' subscriptions", async () => {
@@ -160,7 +167,7 @@ describe("subscriptionService.resolveId", () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
-      VALID_KEY
+      VALID_KEY,
     );
 
     const result = await service.resolveId(userB, "bbbbbbbb", VALID_KEY);
@@ -188,14 +195,10 @@ describe("subscriptionService.resolveId", () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
-      VALID_KEY
+      VALID_KEY,
     );
 
-    const result = await service.resolveId(
-      userKey,
-      "cccccccc-1111",
-      VALID_KEY
-    );
+    const result = await service.resolveId(userKey, "cccccccc-1111", VALID_KEY);
     expect(result).toEqual({ kind: "found", id: fullId });
   });
 });

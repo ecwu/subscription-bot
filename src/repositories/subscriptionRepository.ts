@@ -17,7 +17,7 @@ export interface SubscriptionRepository {
 }
 
 export function createSubscriptionRepository(
-  kv: KVNamespace
+  kv: KVNamespace,
 ): SubscriptionRepository {
   return {
     async save(userKey: string, sub: StoredSubscription): Promise<void> {
@@ -40,7 +40,7 @@ export function createSubscriptionRepository(
 
     async get(
       userKey: string,
-      subId: string
+      subId: string,
     ): Promise<StoredSubscription | null> {
       const key = subscription(userKey, subId);
       const data = await kv.get(key);

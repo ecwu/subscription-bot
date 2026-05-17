@@ -4,7 +4,7 @@ import { parseEditCallbackData } from "../../utils/callbackParser.js";
 
 async function safeAnswerCallbackQuery(
   ctx: BotContext,
-  text?: string
+  text?: string,
 ): Promise<void> {
   try {
     await ctx.answerCallbackQuery(text);
@@ -15,7 +15,7 @@ async function safeAnswerCallbackQuery(
 
 async function safeEditMessageText(
   ctx: BotContext,
-  text: string
+  text: string,
 ): Promise<void> {
   try {
     await ctx.editMessageText(text);
@@ -52,7 +52,7 @@ export async function editFieldCallback(ctx: BotContext): Promise<void> {
       await ctx.conversation.enter(
         "editField",
         subId,
-        field as "name" | "price" | "currency" | "date"
+        field as "name" | "price" | "currency" | "date",
       );
       return;
     }

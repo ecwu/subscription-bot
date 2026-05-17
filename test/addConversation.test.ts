@@ -52,9 +52,7 @@ describe("addConversation validators", () => {
     });
     it("requires currency when price exists", () => {
       const result = validateAddCurrency("skip", true);
-      expect(result.error).toBe(
-        "Currency is required when a price is set."
-      );
+      expect(result.error).toBe("Currency is required when a price is set.");
     });
     it("accepts valid 3-letter codes", () => {
       const result = validateAddCurrency("EUR", true);
@@ -64,7 +62,7 @@ describe("addConversation validators", () => {
     it("rejects invalid codes", () => {
       const result = validateAddCurrency("EURO", true);
       expect(result.error).toBe(
-        "Use a 3-letter currency code such as EUR or USD."
+        "Use a 3-letter currency code such as EUR or USD.",
       );
     });
   });
@@ -82,7 +80,7 @@ describe("addConversation validators", () => {
     it("rejects invalid date", () => {
       const result = validateAddDate("2026-13-01");
       expect(result.error).toBe(
-        "Invalid date. Use YYYY-MM-DD, for example 2026-06-01."
+        "Invalid date. Use YYYY-MM-DD, for example 2026-06-01.",
       );
     });
   });

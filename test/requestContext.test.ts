@@ -5,7 +5,7 @@ import type { Env } from "../src/types/env.js";
 import { createUserRepository } from "../src/repositories/userRepository.js";
 
 const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
-  "base64url"
+  "base64url",
 );
 
 function createMockKV(): KVNamespace {
@@ -19,7 +19,11 @@ function createMockKV(): KVNamespace {
     delete: async (key: string) => {
       store.delete(key);
     },
-    list: async (options?: { prefix?: string; limit?: number; cursor?: string }) => {
+    list: async (options?: {
+      prefix?: string;
+      limit?: number;
+      cursor?: string;
+    }) => {
       const prefix = options?.prefix ?? "";
       const keys = Array.from(store.keys())
         .filter((k) => k.startsWith(prefix))
@@ -113,7 +117,7 @@ describe("requestContext", () => {
     await expect(
       middleware(ctx, async () => {
         nextCalled = true;
-      })
+      }),
     ).resolves.not.toThrow();
 
     expect(nextCalled).toBe(true);
@@ -130,7 +134,9 @@ describe("requestContext", () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => {
       logs.push(
-        args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ")
+        args
+          .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+          .join(" "),
       );
     };
 
@@ -143,7 +149,9 @@ describe("requestContext", () => {
       console.log = originalLog;
     }
 
-    const diagnosticLog = logs.find((l) => l.includes("request_context_user_key"));
+    const diagnosticLog = logs.find((l) =>
+      l.includes("request_context_user_key"),
+    );
     expect(diagnosticLog).toBeDefined();
 
     // Ensure no raw IDs or secrets are in the log
@@ -188,7 +196,7 @@ describe("requestContext", () => {
     await expect(
       middleware(ctx, async () => {
         nextCalled = true;
-      })
+      }),
     ).resolves.not.toThrow();
 
     expect(nextCalled).toBe(true);
@@ -205,7 +213,9 @@ describe("requestContext", () => {
     const originalLog = console.log;
     console.log = (...args: unknown[]) => {
       logs.push(
-        args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ")
+        args
+          .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+          .join(" "),
       );
     };
 

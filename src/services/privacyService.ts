@@ -18,16 +18,16 @@ export interface PrivacyService {
 export function createPrivacyService(
   subscriptionService: SubscriptionService,
   userRepo: UserRepository,
-  _reminderRepo: ReminderRepository
+  _reminderRepo: ReminderRepository,
 ): PrivacyService {
   return {
     async exportUserData(
       userKey: string,
-      encryptionKey: string
+      encryptionKey: string,
     ): Promise<UserExport> {
       const subscriptions = await subscriptionService.list(
         userKey,
-        encryptionKey
+        encryptionKey,
       );
       return {
         version: 1,

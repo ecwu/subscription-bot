@@ -34,7 +34,9 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
   const subs = await service.list(ctx.userKey, ctx.env.ENCRYPTION_KEY);
 
   const upcoming = subs
-    .filter((sub) => sub.nextBillingDate >= today && sub.nextBillingDate <= maxDate)
+    .filter(
+      (sub) => sub.nextBillingDate >= today && sub.nextBillingDate <= maxDate,
+    )
     .sort((a, b) => a.nextBillingDate.localeCompare(b.nextBillingDate));
 
   if (upcoming.length === 0) {
@@ -50,7 +52,9 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
         : sub.price !== undefined
           ? `${sub.price}`
           : "";
-    const parts = [sub.name, priceStr, `renews ${sub.nextBillingDate}`].filter(Boolean);
+    const parts = [sub.name, priceStr, `renews ${sub.nextBillingDate}`].filter(
+      Boolean,
+    );
     return parts.join(" — ");
   });
 

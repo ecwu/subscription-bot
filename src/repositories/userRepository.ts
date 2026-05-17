@@ -12,11 +12,11 @@ export interface UserRepository {
   upsertUserProfile(
     userKey: string,
     chatId: number | string,
-    encryptionKey: string
+    encryptionKey: string,
   ): Promise<void>;
   getUserProfile(
     userKey: string,
-    encryptionKey: string
+    encryptionKey: string,
   ): Promise<DecryptedUserProfile | null>;
   deleteUserProfile(userKey: string): Promise<void>;
 }
@@ -26,7 +26,7 @@ export function createUserRepository(kv: KVNamespace): UserRepository {
     async upsertUserProfile(
       userKey: string,
       chatId: number | string,
-      encryptionKey: string
+      encryptionKey: string,
     ): Promise<void> {
       const key = userProfile(userKey);
       const existingData = await kv.get(key);
@@ -61,7 +61,7 @@ export function createUserRepository(kv: KVNamespace): UserRepository {
 
     async getUserProfile(
       userKey: string,
-      encryptionKey: string
+      encryptionKey: string,
     ): Promise<DecryptedUserProfile | null> {
       const key = userProfile(userKey);
       const data = await kv.get(key);
