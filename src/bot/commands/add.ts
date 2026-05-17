@@ -3,6 +3,7 @@ import { parseAddArgs } from "../../utils/commandParser.js";
 import { ValidationError } from "../../utils/errors.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
+import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import type { Subscription } from "../../models/subscription.js";
 import { shortId } from "../../utils/shortId.js";
 import { createLogger } from "../../utils/logger.js";
@@ -37,7 +38,8 @@ export async function addCommand(ctx: BotContext): Promise<void> {
   }
 
   const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
-  const service = createSubscriptionService(repo);
+  const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
+  const service = createSubscriptionService(repo, reminderRepo);
 
   const now = new Date().toISOString();
   const sub: Subscription = {

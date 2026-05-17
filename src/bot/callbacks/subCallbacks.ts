@@ -1,6 +1,7 @@
 import { BotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
+import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { confirmationKeyboard } from "../keyboards/confirmationKeyboard.js";
 import { editMenuKeyboard } from "../keyboards/editMenuKeyboard.js";
 import { createLogger } from "../../utils/logger.js";
@@ -46,7 +47,8 @@ export async function subViewCallback(ctx: BotContext): Promise<void> {
     }
 
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
+    const service = createSubscriptionService(repo, reminderRepo);
     const sub = await service.get(ctx.userKey, parsed.subId, ctx.env.ENCRYPTION_KEY);
 
     if (!sub) {
@@ -95,7 +97,8 @@ export async function subEditCallback(ctx: BotContext): Promise<void> {
     }
 
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
+    const service = createSubscriptionService(repo, reminderRepo);
     const sub = await service.get(ctx.userKey, parsed.subId, ctx.env.ENCRYPTION_KEY);
 
     if (!sub) {
@@ -139,7 +142,8 @@ export async function subDeleteCallback(ctx: BotContext): Promise<void> {
     }
 
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
+    const service = createSubscriptionService(repo, reminderRepo);
     const sub = await service.get(ctx.userKey, parsed.subId, ctx.env.ENCRYPTION_KEY);
 
     if (!sub) {

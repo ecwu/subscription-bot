@@ -4,6 +4,7 @@ import {
   userSubscriptionsIndex,
   subscription,
   reminderDate,
+  reminderSent,
 } from "../src/utils/kvKeys.js";
 
 describe("kvKeys", () => {
@@ -20,6 +21,12 @@ describe("kvKeys", () => {
   });
 
   it("reminderDate returns correct key", () => {
-    expect(reminderDate("2026-06-01")).toBe("reminders:2026-06-01");
+    expect(reminderDate("2026-06-01")).toBe("reminders:date:2026-06-01");
+  });
+
+  it("reminderSent returns correct key", () => {
+    expect(reminderSent("user1", "sub1", "2026-06-01")).toBe(
+      "reminder:sent:user1:sub1:2026-06-01"
+    );
   });
 });

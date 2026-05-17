@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { createSubscriptionService } from "../src/services/subscriptionService.js";
 import { createPrivacyService } from "../src/services/privacyService.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
+import { createReminderRepository } from "../src/repositories/reminderRepository.js";
+import { createUserRepository } from "../src/repositories/userRepository.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
 // A valid base64url-encoded 32-byte master key
@@ -34,8 +36,10 @@ describe("privacyService", () => {
   it("exports user data with correct format", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const subscriptionService = createSubscriptionService(repo);
-    const privacyService = createPrivacyService(subscriptionService);
+    const reminderRepo = createReminderRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(repo, reminderRepo);
+    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
 
     const userKey = "user-key-123";
     const sub = {
@@ -65,8 +69,10 @@ describe("privacyService", () => {
   it("export does not include internal identifiers", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const subscriptionService = createSubscriptionService(repo);
-    const privacyService = createPrivacyService(subscriptionService);
+    const reminderRepo = createReminderRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(repo, reminderRepo);
+    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
 
     const userKey = "user-key-123";
     const sub = {
@@ -93,8 +99,10 @@ describe("privacyService", () => {
   it("deleteUserData removes all subscriptions for the user", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const subscriptionService = createSubscriptionService(repo);
-    const privacyService = createPrivacyService(subscriptionService);
+    const reminderRepo = createReminderRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(repo, reminderRepo);
+    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
 
     const userKey = "user-key-123";
     const sub = {
@@ -118,8 +126,10 @@ describe("privacyService", () => {
   it("deleteUserData does not affect another user", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const subscriptionService = createSubscriptionService(repo);
-    const privacyService = createPrivacyService(subscriptionService);
+    const reminderRepo = createReminderRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(repo, reminderRepo);
+    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
 
     const userA = "user-a";
     const userB = "user-b";
@@ -159,12 +169,58 @@ describe("privacyService", () => {
   it("export returns empty subscriptions array when user has no data", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const subscriptionService = createSubscriptionService(repo);
-    const privacyService = createPrivacyService(subscriptionService);
+    const reminderRepo = createReminderRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(repo, reminderRepo);
+    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
 
     const exported = await privacyService.exportUserData("empty-user", VALID_KEY);
 
     expect(exported.version).toBe(1);
     expect(exported.subscriptions).toHaveLength(0);
+  });
+
+  it("deleteUserData removes user profile", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(repo, reminderRepo);
+    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
+
+    const userKey = "user-key-123";
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+    expect(await userRepo.getUserProfile(userKey, VALID_KEY)).not.toBeNull();
+
+    await privacyService.deleteUserData(userKey);
+
+    expect(await userRepo.getUserProfile(userKey, VALID_KEY)).toBeNull();
+  });
+
+  it("deleteUserData removes reminder index entries for the user", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(repo, reminderRepo);
+    const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
+
+    const userKey = "user-key-123";
+    const sub = {
+      id: "sub-1",
+      name: "Netflix",
+      price: 12.99,
+      currency: "EUR",
+      billingCycle: "monthly" as const,
+      nextBillingDate: "2026-06-01",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    await subscriptionService.create(userKey, sub, VALID_KEY);
+    await privacyService.deleteUserData(userKey);
+
+    const entries = await reminderRepo.listEntries("2026-06-01");
+    expect(entries).toHaveLength(0);
   });
 });

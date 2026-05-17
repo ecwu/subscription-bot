@@ -2,6 +2,8 @@ import { BotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createPrivacyService } from "../../services/privacyService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
+import { createReminderRepository } from "../../repositories/reminderRepository.js";
+import { createUserRepository } from "../../repositories/userRepository.js";
 import { createLogger } from "../../utils/logger.js";
 
 // Telegram message text limit is 4096 UTF-16 code units.
@@ -18,8 +20,10 @@ export async function exportCommand(ctx: BotContext): Promise<void> {
   }
 
   const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
-  const subscriptionService = createSubscriptionService(repo);
-  const privacyService = createPrivacyService(subscriptionService);
+  const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
+  const userRepo = createUserRepository(ctx.env.SUBSCRIPTION_KV);
+  const subscriptionService = createSubscriptionService(repo, reminderRepo);
+  const privacyService = createPrivacyService(subscriptionService, userRepo, reminderRepo);
 
   const exportData = await privacyService.exportUserData(
     ctx.userKey,

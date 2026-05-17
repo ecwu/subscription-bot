@@ -15,6 +15,7 @@ import { viewCommand } from "./commands/view.js";
 import { editCommand } from "./commands/edit.js";
 import { exportCommand } from "./commands/export.js";
 import { deleteMeCommand } from "./commands/deleteMe.js";
+import { remindersCommand } from "./commands/reminders.js";
 import { debugMeCommand } from "./commands/debugMe.js";
 import { cancelCommand } from "./commands/cancel.js";
 import { addConversation } from "./conversations/addConversation.js";
@@ -83,6 +84,7 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.command("edit", editCommand);
   bot.command("export", exportCommand);
   bot.command("delete_me", deleteMeCommand);
+  bot.command("reminders", remindersCommand);
   bot.command("cancel", cancelCommand);
 
   // Dev-only commands

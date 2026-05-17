@@ -6,4 +6,5 @@ export interface Env {
   ADMIN_USER_ID?: string;
   SUBSCRIPTION_KV: KVNamespace;
   APP_ENV?: string;
+  REMINDER_DAYS_AHEAD?: string;
 }

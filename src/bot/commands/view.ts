@@ -1,6 +1,7 @@
 import { BotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
+import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createLogger } from "../../utils/logger.js";
 
 export async function viewCommand(ctx: BotContext): Promise<void> {
@@ -23,7 +24,8 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
   const inputId = args[1];
 
   const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
-  const service = createSubscriptionService(repo);
+  const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
+  const service = createSubscriptionService(repo, reminderRepo);
 
   const resolved = await service.resolveId(
     ctx.userKey,

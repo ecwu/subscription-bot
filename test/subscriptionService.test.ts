@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createSubscriptionService } from "../src/services/subscriptionService.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
+import { createReminderRepository } from "../src/repositories/reminderRepository.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
 // A valid base64url-encoded 32-byte master key
@@ -33,7 +34,8 @@ describe("subscriptionService", () => {
   it("creates and lists a subscription", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     const userKey = "user-key-123";
     const sub = {
@@ -58,7 +60,8 @@ describe("subscriptionService", () => {
   it("gets a single subscription", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     const userKey = "user-key-123";
     const sub = {
@@ -82,7 +85,8 @@ describe("subscriptionService", () => {
   it("returns null for non-existent subscription", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     const retrieved = await service.get("user-key", "missing", VALID_KEY);
     expect(retrieved).toBeNull();
@@ -91,7 +95,8 @@ describe("subscriptionService", () => {
   it("removes a subscription", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     const userKey = "user-key-123";
     const sub = {
@@ -115,7 +120,8 @@ describe("subscriptionService", () => {
   it("isolates subscriptions between users", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     const userA = "user-a";
     const userB = "user-b";

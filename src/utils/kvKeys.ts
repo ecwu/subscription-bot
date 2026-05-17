@@ -11,5 +11,13 @@ export function subscription(userKey: string, subId: string): string {
 }
 
 export function reminderDate(date: string): string {
-  return `reminders:${date}`;
+  return `reminders:date:${date}`;
+}
+
+export function reminderSent(
+  userKey: string,
+  subId: string,
+  billingDate: string
+): string {
+  return `reminder:sent:${userKey}:${subId}:${billingDate}`;
 }

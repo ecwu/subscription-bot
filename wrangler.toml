@@ -5,6 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 APP_ENV = "development"
+REMINDER_DAYS_AHEAD = "3"
 
 # To use a real KV namespace, create one and fill in the IDs:
 #   wrangler kv:namespace create SUBSCRIPTION_KV
@@ -16,7 +17,7 @@ id = "00d51942c6564b588079bf62b25e47cb"
 preview_id = "6401a8087afa4916be481c9d71a8266c"
 
 [triggers]
-crons = ["0 9 * * *"]
+crons = ["0 8 * * *"]
 
 # Secrets (set via `wrangler secret put`):
 # BOT_TOKEN

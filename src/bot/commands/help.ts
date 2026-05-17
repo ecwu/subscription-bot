@@ -10,7 +10,8 @@ export async function helpCommand(ctx: BotContext): Promise<void> {
       "/list — List your subscriptions with buttons\n" +
       "/view <id> — View a subscription (short ID or full ID)\n" +
       "/edit <id> date|price|cycle <value> — Edit a subscription\n" +
-      "/delete <id> — Delete a subscription (short ID or full ID)\n\n" +
+      "/delete <id> — Delete a subscription (short ID or full ID)\n" +
+      "/reminders — Show upcoming renewals within the reminder window\n\n" +
       "Interactive style:\n" +
       "/add with no arguments — Add step by step (supports names with spaces)\n" +
       "/list — Click View, Edit, or Delete on each subscription\n" +

@@ -2,6 +2,7 @@ import { Conversation } from "@grammyjs/conversations";
 import { BotContext, BaseBotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
+import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { Subscription, BillingCycle } from "../../models/subscription.js";
 import { shortId } from "../../utils/shortId.js";
 import { createLogger } from "../../utils/logger.js";
@@ -234,7 +235,8 @@ export async function addConversation(
 
   await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(outsideCtx.env.SUBSCRIPTION_KV);
+    const service = createSubscriptionService(repo, reminderRepo);
     await service.create(userKey, sub, encryptionKey);
   });
 

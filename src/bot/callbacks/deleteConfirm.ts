@@ -1,6 +1,7 @@
 import { BotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
+import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createLogger } from "../../utils/logger.js";
 import { parseDeleteCallbackData } from "../../utils/callbackParser.js";
 
@@ -44,7 +45,8 @@ export async function deleteConfirmCallback(ctx: BotContext): Promise<void> {
     }
 
     const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     // Verify it still exists before deleting (idempotency: if already gone, report safely)
     const sub = await service.get(ctx.userKey, parsed.subId, ctx.env.ENCRYPTION_KEY);

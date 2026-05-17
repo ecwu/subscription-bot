@@ -22,4 +22,17 @@ export const envSchema = z.object({
   ADMIN_USER_ID: z.string().optional(),
   SUBSCRIPTION_KV: z.custom<KVNamespace>((val) => val !== undefined),
   APP_ENV: z.enum(["development", "production", "test"]).optional(),
+  REMINDER_DAYS_AHEAD: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (val === undefined || val === "") return true;
+        const parsed = Number(val);
+        return Number.isFinite(parsed) && parsed >= 0;
+      },
+      {
+        message: "REMINDER_DAYS_AHEAD must be a non-negative integer",
+      }
+    ),
 });

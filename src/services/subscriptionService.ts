@@ -1,4 +1,5 @@
 import { SubscriptionRepository } from "../repositories/subscriptionRepository.js";
+import { ReminderRepository } from "../repositories/reminderRepository.js";
 import { Subscription, StoredSubscription } from "../models/subscription.js";
 import { encrypt, decrypt, serializeEncryptedPayload, parseEncryptedPayload } from "../crypto/encryption.js";
 import { shortId } from "../utils/shortId.js";
@@ -19,7 +20,8 @@ export interface SubscriptionService {
 }
 
 export function createSubscriptionService(
-  repo: SubscriptionRepository
+  repo: SubscriptionRepository,
+  reminderRepo: ReminderRepository
 ): SubscriptionService {
   return {
     async create(userKey: string, sub: Subscription, encryptionKey: string): Promise<void> {
@@ -34,6 +36,7 @@ export function createSubscriptionService(
         updatedAt: sub.updatedAt,
       };
       await repo.save(userKey, stored);
+      await reminderRepo.addEntry(sub.nextBillingDate, userKey, sub.id);
     },
 
     async list(userKey: string, encryptionKey: string): Promise<Subscription[]> {
@@ -58,6 +61,9 @@ export function createSubscriptionService(
     },
 
     async update(userKey: string, sub: Subscription, encryptionKey: string): Promise<void> {
+      // Load the old stored version to know the previous nextBillingDate
+      const oldStored = await repo.get(userKey, sub.id);
+
       const payload = JSON.stringify(sub);
       const encrypted = await encrypt(payload, encryptionKey);
       const stored: StoredSubscription = {
@@ -69,13 +75,30 @@ export function createSubscriptionService(
         updatedAt: sub.updatedAt,
       };
       await repo.save(userKey, stored);
+
+      // Best-effort: update reminder index when billing date changes
+      if (oldStored && oldStored.nextBillingDate !== sub.nextBillingDate) {
+        await reminderRepo.removeEntry(oldStored.nextBillingDate, userKey, sub.id);
+        await reminderRepo.addEntry(sub.nextBillingDate, userKey, sub.id);
+      }
     },
 
     async remove(userKey: string, subId: string): Promise<void> {
+      const stored = await repo.get(userKey, subId);
+      if (stored) {
+        await reminderRepo.removeEntry(stored.nextBillingDate, userKey, subId);
+      }
       await repo.delete(userKey, subId);
     },
 
     async removeAll(userKey: string): Promise<void> {
+      const ids = await repo.listIds(userKey);
+      for (const subId of ids) {
+        const stored = await repo.get(userKey, subId);
+        if (stored) {
+          await reminderRepo.removeEntry(stored.nextBillingDate, userKey, subId);
+        }
+      }
       await repo.deleteAll(userKey);
     },
 

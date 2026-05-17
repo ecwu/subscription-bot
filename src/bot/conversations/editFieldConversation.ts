@@ -2,6 +2,7 @@ import { Conversation } from "@grammyjs/conversations";
 import { BotContext, BaseBotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
+import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createLogger } from "../../utils/logger.js";
 import { InlineKeyboard } from "grammy";
 import { BillingCycle } from "../../models/subscription.js";
@@ -78,7 +79,8 @@ export async function editFieldConversation(
 
   const sub = await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(outsideCtx.env.SUBSCRIPTION_KV);
+    const service = createSubscriptionService(repo, reminderRepo);
     return service.get(userKey, subId, encryptionKey);
   });
 
@@ -152,7 +154,8 @@ export async function editFieldConversation(
 
   await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(outsideCtx.env.SUBSCRIPTION_KV);
+    const service = createSubscriptionService(repo, reminderRepo);
     await service.update(userKey, updated, encryptionKey);
   });
 
@@ -190,7 +193,8 @@ export async function editCycleConversation(
 
   const sub = await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(outsideCtx.env.SUBSCRIPTION_KV);
+    const service = createSubscriptionService(repo, reminderRepo);
     return service.get(userKey, subId, encryptionKey);
   });
 
@@ -221,7 +225,8 @@ export async function editCycleConversation(
 
   await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(outsideCtx.env.SUBSCRIPTION_KV);
+    const service = createSubscriptionService(repo, reminderRepo);
     await service.update(userKey, updated, encryptionKey);
   });
 

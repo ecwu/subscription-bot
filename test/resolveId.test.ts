@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createSubscriptionService } from "../src/services/subscriptionService.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
+import { createReminderRepository } from "../src/repositories/reminderRepository.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
 const VALID_KEY = Buffer.from(
@@ -32,7 +33,8 @@ describe("subscriptionService.resolveId", () => {
   it("resolves exact full ID", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     const userKey = "user-1";
     const fullId = "aaaaaaaa-1111-2222-3333-444444444444";
@@ -59,7 +61,8 @@ describe("subscriptionService.resolveId", () => {
   it("resolves short ID", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     const userKey = "user-1";
     const fullId = "aaaaaaaa-1111-2222-3333-444444444444";
@@ -86,7 +89,8 @@ describe("subscriptionService.resolveId", () => {
   it("returns not_found for non-existent ID", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     const result = await service.resolveId("user-1", "notexist", VALID_KEY);
     expect(result).toEqual({ kind: "not_found" });
@@ -95,7 +99,8 @@ describe("subscriptionService.resolveId", () => {
   it("returns ambiguous for multiple matching short IDs", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     const userKey = "user-1";
 
@@ -136,7 +141,8 @@ describe("subscriptionService.resolveId", () => {
   it("does not leak other users' subscriptions", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     const userA = "user-a";
     const userB = "user-b";
@@ -164,7 +170,8 @@ describe("subscriptionService.resolveId", () => {
   it("resolves by prefix of full ID", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);
-    const service = createSubscriptionService(repo);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
 
     const userKey = "user-1";
     const fullId = "cccccccc-1111-2222-3333-444444444444";

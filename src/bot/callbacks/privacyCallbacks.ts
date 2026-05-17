@@ -2,6 +2,8 @@ import { BotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createPrivacyService } from "../../services/privacyService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
+import { createReminderRepository } from "../../repositories/reminderRepository.js";
+import { createUserRepository } from "../../repositories/userRepository.js";
 import { createLogger } from "../../utils/logger.js";
 import { parsePrivacyCallbackData } from "../../utils/callbackParser.js";
 
@@ -46,9 +48,15 @@ export async function privacyDeleteConfirmCallback(
       return;
     }
 
-    const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
-    const subscriptionService = createSubscriptionService(repo);
-    const privacyService = createPrivacyService(subscriptionService);
+    const subRepo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
+    const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
+    const userRepo = createUserRepository(ctx.env.SUBSCRIPTION_KV);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const privacyService = createPrivacyService(
+      subscriptionService,
+      userRepo,
+      reminderRepo
+    );
 
     // Exit any active conversations before deleting data
     try {

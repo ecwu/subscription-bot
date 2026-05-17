@@ -1,54 +1,81 @@
 import { KVNamespace } from "@cloudflare/workers-types";
-import { Reminder } from "../models/reminder.js";
-import { reminderDate } from "../utils/kvKeys.js";
+import { reminderDate, reminderSent } from "../utils/kvKeys.js";
+
+export interface ReminderEntry {
+  userKey: string;
+  subscriptionId: string;
+}
 
 export interface ReminderRepository {
-  save(reminder: Reminder): Promise<void>;
-  listByDate(date: string): Promise<Reminder[]>;
-  markSent(reminderId: string, date: string, sentAt: string): Promise<void>;
-  delete(reminderId: string, date: string): Promise<void>;
+  addEntry(date: string, userKey: string, subscriptionId: string): Promise<void>;
+  removeEntry(date: string, userKey: string, subscriptionId: string): Promise<void>;
+  listEntries(date: string): Promise<ReminderEntry[]>;
+  hasSent(userKey: string, subscriptionId: string, billingDate: string): Promise<boolean>;
+  markSent(userKey: string, subscriptionId: string, billingDate: string): Promise<void>;
 }
 
 export function createReminderRepository(kv: KVNamespace): ReminderRepository {
   return {
-    async save(reminder: Reminder): Promise<void> {
-      const key = reminderDate(reminder.remindAt);
+    async addEntry(
+      date: string,
+      userKey: string,
+      subscriptionId: string
+    ): Promise<void> {
+      const key = reminderDate(date);
       const existing = await kv.get(key);
-      const reminders: Reminder[] = existing ? JSON.parse(existing) : [];
-      reminders.push(reminder);
-      await kv.put(key, JSON.stringify(reminders));
+      const entries: ReminderEntry[] = existing ? JSON.parse(existing) : [];
+
+      // Deduplicate
+      const alreadyExists = entries.some(
+        (e) => e.userKey === userKey && e.subscriptionId === subscriptionId
+      );
+      if (alreadyExists) return;
+
+      entries.push({ userKey, subscriptionId });
+      await kv.put(key, JSON.stringify(entries));
     },
 
-    async listByDate(date: string): Promise<Reminder[]> {
+    async removeEntry(
+      date: string,
+      userKey: string,
+      subscriptionId: string
+    ): Promise<void> {
+      const key = reminderDate(date);
+      const existing = await kv.get(key);
+      if (!existing) return;
+
+      const entries: ReminderEntry[] = JSON.parse(existing);
+      const filtered = entries.filter(
+        (e) => !(e.userKey === userKey && e.subscriptionId === subscriptionId)
+      );
+
+      if (filtered.length === entries.length) return;
+      await kv.put(key, JSON.stringify(filtered));
+    },
+
+    async listEntries(date: string): Promise<ReminderEntry[]> {
       const key = reminderDate(date);
       const data = await kv.get(key);
       return data ? JSON.parse(data) : [];
     },
 
-    async markSent(
-      reminderId: string,
-      date: string,
-      sentAt: string
-    ): Promise<void> {
-      const key = reminderDate(date);
+    async hasSent(
+      userKey: string,
+      subscriptionId: string,
+      billingDate: string
+    ): Promise<boolean> {
+      const key = reminderSent(userKey, subscriptionId, billingDate);
       const data = await kv.get(key);
-      if (!data) return;
-
-      const reminders: Reminder[] = JSON.parse(data);
-      const updated = reminders.map((r) =>
-        r.id === reminderId ? { ...r, sentAt } : r
-      );
-      await kv.put(key, JSON.stringify(updated));
+      return data !== null;
     },
 
-    async delete(reminderId: string, date: string): Promise<void> {
-      const key = reminderDate(date);
-      const data = await kv.get(key);
-      if (!data) return;
-
-      const reminders: Reminder[] = JSON.parse(data);
-      const filtered = reminders.filter((r) => r.id !== reminderId);
-      await kv.put(key, JSON.stringify(filtered));
+    async markSent(
+      userKey: string,
+      subscriptionId: string,
+      billingDate: string
+    ): Promise<void> {
+      const key = reminderSent(userKey, subscriptionId, billingDate);
+      await kv.put(key, "1");
     },
   };
 }
@@ -58,4 +85,8 @@ export function createReminderRepository(kv: KVNamespace): ReminderRepository {
  * Cloudflare KV values have a size limit (currently 25 MiB).
  * At scale, this design may need to be sharded (e.g., by user prefix or hour)
  * to avoid exceeding the limit.
+ *
+ * WARNING: KV does not support atomic multi-key transactions.
+ * Concurrent addEntry/removeEntry calls for the same date may race and
+ * overwrite each other. The design is best-effort only.
  */

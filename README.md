@@ -59,6 +59,7 @@ pnpm format
 | `USER_HASH_SECRET` | Yes | High-entropy random string |
 | `ADMIN_USER_ID` | No | Restrict bot to one Telegram user ID |
 | `APP_ENV` | No | `development` (default), `production`, `test` |
+| `REMINDER_DAYS_AHEAD` | No | Number of days ahead to send renewal reminders (default: 3) |
 
 ### Generating ENCRYPTION_KEY
 
