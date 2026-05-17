@@ -25,7 +25,7 @@ export interface RateLimitOptions {
 }
 
 const DEFAULT_OPTIONS: RateLimitOptions = {
-  maxRequests: 10,
+  maxRequests: 60,
   windowMs: 60_000, // 1 minute
 };
 
