@@ -36,6 +36,9 @@ pnpm install
 # Run dev server
 pnpm dev
 
+# Push Telegram slash-command menu
+pnpm command:push
+
 # Run tests
 pnpm test
 
