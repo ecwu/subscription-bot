@@ -5,11 +5,35 @@ import { createSubscriptionRepository } from "../../repositories/subscriptionRep
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { validateEditDate } from "./editFieldConversation.js";
 import { formatStatus } from "../../utils/labels.js";
+import {
+  buildDetailKeyboard,
+  formatDetailText,
+} from "../keyboards/listManagerKeyboard.js";
+
+interface ResumeConversationOptions {
+  source?: "listManager";
+  page?: number;
+}
+
+function isFromListManager(options?: ResumeConversationOptions): boolean {
+  return options?.source === "listManager";
+}
+
+async function replyWithListManagerDetail(
+  ctx: BaseBotContext,
+  sub: Parameters<typeof formatDetailText>[0],
+  page: number,
+): Promise<void> {
+  await ctx.reply(formatDetailText(sub), {
+    reply_markup: buildDetailKeyboard(sub.id, page, sub.status),
+  });
+}
 
 export async function resumeConversation(
   conversation: Conversation<BotContext, BaseBotContext>,
   ctx: BaseBotContext,
   subId: string,
+  options?: ResumeConversationOptions,
 ): Promise<void> {
   const ctxData = await conversation.external((outsideCtx) => ({
     userKey: outsideCtx.userKey ?? null,
@@ -40,6 +64,9 @@ export async function resumeConversation(
 
   if (sub.status === "active") {
     await ctx.reply(`"${sub.name}" 已经是${formatStatus("active")}状态。`);
+    if (isFromListManager(options)) {
+      await replyWithListManagerDetail(ctx, sub, options?.page ?? 0);
+    }
     return;
   }
 
@@ -55,7 +82,12 @@ export async function resumeConversation(
     return;
   }
 
-  if (input === "正确" || input === "确认" || input === "yes" || input === "y") {
+  if (
+    input === "正确" ||
+    input === "确认" ||
+    input === "yes" ||
+    input === "y"
+  ) {
     const resumed = await conversation.external(async (outsideCtx) => {
       const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
       const reminderRepo = createReminderRepository(
@@ -70,6 +102,14 @@ export async function resumeConversation(
       return;
     }
 
+    if (isFromListManager(options)) {
+      await ctx.reply(
+        `已恢复"${resumed.name}"。\n下次扣款日期：${resumed.nextBillingDate}`,
+      );
+      await replyWithListManagerDetail(ctx, resumed, options?.page ?? 0);
+      return;
+    }
+
     await ctx.reply(
       `已恢复"${resumed.name}"。\n下次扣款日期：${resumed.nextBillingDate}`,
     );
@@ -79,7 +119,10 @@ export async function resumeConversation(
   const dateResult = validateEditDate(input);
   if (dateResult.error) {
     await ctx.reply(
-      dateResult.error + "\n请发送 /resume 重新开始。",
+      dateResult.error +
+        (isFromListManager(options)
+          ? "\n请重新从详情中选择恢复。"
+          : "\n请发送 /resume 重新开始。"),
     );
     return;
   }
@@ -96,6 +139,14 @@ export async function resumeConversation(
 
   if (!resumed) {
     await ctx.reply("恢复失败，请稍后再试。");
+    return;
+  }
+
+  if (isFromListManager(options)) {
+    await ctx.reply(
+      `已恢复"${resumed.name}"。\n下次扣款日期：${resumed.nextBillingDate}`,
+    );
+    await replyWithListManagerDetail(ctx, resumed, options?.page ?? 0);
     return;
   }
 

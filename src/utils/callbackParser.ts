@@ -236,3 +236,84 @@ export function parsePrivacyCallbackData(
   }
   return null;
 }
+
+export type ListCallbackData =
+  | { action: "page"; page: number }
+  | { action: "select"; subId: string; page: number }
+  | { action: "detail"; subId: string; page: number }
+  | { action: "back"; page: number }
+  | { action: "edit"; subId: string; page: number }
+  | { action: "pause"; subId: string; page: number }
+  | { action: "resume"; subId: string; page: number }
+  | { action: "del"; subId: string; page: number }
+  | { action: "delok"; subId: string; page: number }
+  | { action: "delno"; subId: string; page: number }
+  | { action: "editField"; subId: string; field: string; page: number };
+
+/**
+ * Parse list manager callback data.
+ *
+ * Expected formats:
+ *   list:page:<page>
+ *   list:select:<subId>:<page>
+ *   list:detail:<subId>:<page>
+ *   list:back:<page>
+ *   list:edit:<subId>:<page>
+ *   list:pause:<subId>:<page>
+ *   list:resume:<subId>:<page>
+ *   list:del:<subId>:<page>
+ *   list:delok:<subId>:<page>
+ *   list:delno:<subId>:<page>
+ *   list:ef:<field>:<subId>:<page>
+ */
+export function parseListCallbackData(
+  callbackData: string,
+): ListCallbackData | null {
+  const prefix = "list:";
+  if (!callbackData.startsWith(prefix)) return null;
+  const rest = callbackData.slice(prefix.length);
+
+  const [action, ...parts] = rest.split(":");
+
+  if (action === "page") {
+    const page = Number(parts[0]);
+    if (!Number.isFinite(page) || page < 0) return null;
+    return { action: "page", page };
+  }
+
+  if (action === "back") {
+    const page = Number(parts[0]);
+    if (!Number.isFinite(page) || page < 0) return null;
+    return { action: "back", page };
+  }
+
+  if (
+    action === "select" ||
+    action === "detail" ||
+    action === "edit" ||
+    action === "pause" ||
+    action === "resume" ||
+    action === "del" ||
+    action === "delok" ||
+    action === "delno"
+  ) {
+    const pageStr = parts[parts.length - 1];
+    const subIdParts = parts.slice(0, parts.length - 1);
+    const subId = subIdParts.join(":");
+    const page = Number(pageStr);
+    if (!subId || !Number.isFinite(page) || page < 0) return null;
+    return { action, subId, page } as ListCallbackData;
+  }
+
+  if (action === "ef") {
+    const field = parts[0];
+    const pageStr = parts[parts.length - 1];
+    const subIdParts = parts.slice(1, parts.length - 1);
+    const subId = subIdParts.join(":");
+    const page = Number(pageStr);
+    if (!field || !subId || !Number.isFinite(page) || page < 0) return null;
+    return { action: "editField", subId, field, page };
+  }
+
+  return null;
+}

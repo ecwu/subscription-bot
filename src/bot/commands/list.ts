@@ -2,14 +2,15 @@ import { BotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
-import {
-  formatSubscriptionFullLine,
-  formatSubscriptionLine,
-} from "../../utils/formatSubscription.js";
-import { subscriptionActionsKeyboard } from "../keyboards/subscriptionActionsKeyboard.js";
+import { formatSubscriptionLine } from "../../utils/formatSubscription.js";
 import { createLogger } from "../../utils/logger.js";
 import type { Subscription } from "../../models/subscription.js";
 import { formatDate } from "../../utils/date.js";
+import {
+  getTotalPages,
+  buildListPageText,
+  buildListPageKeyboard,
+} from "../keyboards/listManagerKeyboard.js";
 
 const MAX_LIST_MESSAGE_LENGTH = 3900;
 
@@ -99,17 +100,13 @@ export async function listFullCommand(ctx: BotContext): Promise<void> {
     return;
   }
 
-  await ctx.reply("你的订阅（完整）：");
+  const tp = getTotalPages(subs);
+  const text = buildListPageText(0, tp);
+  const keyboard = buildListPageKeyboard(subs, 0);
 
-  for (let i = 0; i < subs.length; i++) {
-    const sub = subs[i];
-    const line = formatSubscriptionFullLine(sub, i);
-    await ctx.reply(line, {
-      reply_markup: subscriptionActionsKeyboard(sub.id, sub.status),
-    });
-  }
+  await ctx.reply(text, { reply_markup: keyboard });
 
-  logger.info("Listed full subscriptions", {
+  logger.info("Listed full subscriptions (inline)", {
     count: subs.length,
   });
 }

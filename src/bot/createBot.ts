@@ -1,7 +1,10 @@
-import { Bot, session } from "grammy";
+import { Bot, Context, session } from "grammy";
 import { conversations, createConversation } from "@grammyjs/conversations";
 import { BotContext, BaseBotContext, SessionData } from "../types/context.js";
 import { Env } from "../types/env.js";
+import { hashUserId } from "../crypto/userHash.js";
+import { KvSessionStorage } from "./session/kvSessionStorage.js";
+import { sequentialize } from "./middleware/sequentialize.js";
 import { requestContext } from "./middleware/requestContext.js";
 import { auth } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -46,22 +49,48 @@ import {
   editFieldCallback,
   editCancelCallback,
 } from "./callbacks/editCallbacks.js";
+import {
+  listPageCallback,
+  listSelectCallback,
+  listDetailCallback,
+  listBackCallback,
+  listEditCallback,
+  listPauseCallback,
+  listResumeCallback,
+  listDelCallback,
+  listDeleteConfirmCallback,
+  listDeleteCancelCallback,
+  listEditFieldCallback,
+} from "./callbacks/listCallbacks.js";
+
+function createGetSessionKey(env: Env) {
+  return async (ctx: Context): Promise<string | undefined> => {
+    if (!ctx.from?.id) return undefined;
+    return hashUserId(ctx.from.id, env.USER_HASH_SECRET);
+  };
+}
 
 export function createBot(env: Env): Bot<BotContext> {
   const bot = new Bot<BotContext>(env.BOT_TOKEN);
 
-  // Session and conversations.
-  // NOTE: Session is in-memory per Cloudflare Worker isolate.
-  // On Cloudflare Workers, each request may run in a different isolate,
-  // and isolates are recycled/evicted unpredictably. This means:
-  //   - Conversations may reset between requests if isolates change.
-  //   - Users may need to restart /add or /edit flows unexpectedly.
-  //   - Session data is NOT shared across isolates.
-  // For MVP this is acceptable. A KV-backed session adapter could be
-  // implemented later, but it adds latency and complexity (session
-  // serialization, encryption, TTL). grammY's default in-memory session
-  // is the pragmatic choice for a stateless Worker.
-  bot.use(session<SessionData, BotContext>({ initial: () => ({}) }));
+  const getSessionKey = createGetSessionKey(env);
+
+  // Sequentialize updates sharing the same session key to prevent
+  // read-modify-write races on KV-backed session data.
+  bot.use(sequentialize(getSessionKey));
+
+  // Session and conversations backed by Cloudflare KV with 1-hour TTL.
+  // Session keys are prefixed with "session:" and encrypted at rest using
+  // a per-user key derived from the master key and the session key.
+  // The TTL is refreshed on every write, so active conversations stay alive.
+  // Expired sessions are cleaned up automatically by KV.
+  bot.use(
+    session<SessionData, BotContext>({
+      initial: () => ({}),
+      getSessionKey,
+      storage: new KvSessionStorage(env.SUBSCRIPTION_KV, env.ENCRYPTION_KEY),
+    }),
+  );
 
   // Core middleware stack.
   // requestContext must run before any handler (including conversation
@@ -142,6 +171,19 @@ export function createBot(env: Env): Bot<BotContext> {
   // Privacy callbacks
   bot.callbackQuery(/^privacy:delete_confirm$/, privacyDeleteConfirmCallback);
   bot.callbackQuery(/^privacy:delete_cancel$/, privacyDeleteCancelCallback);
+
+  // List manager inline panel callbacks
+  bot.callbackQuery(/^list:page:/, listPageCallback);
+  bot.callbackQuery(/^list:select:/, listSelectCallback);
+  bot.callbackQuery(/^list:detail:/, listDetailCallback);
+  bot.callbackQuery(/^list:back:/, listBackCallback);
+  bot.callbackQuery(/^list:edit:/, listEditCallback);
+  bot.callbackQuery(/^list:pause:/, listPauseCallback);
+  bot.callbackQuery(/^list:resume:/, listResumeCallback);
+  bot.callbackQuery(/^list:del:/, listDelCallback);
+  bot.callbackQuery(/^list:delok:/, listDeleteConfirmCallback);
+  bot.callbackQuery(/^list:delno:/, listDeleteCancelCallback);
+  bot.callbackQuery(/^list:ef:/, listEditFieldCallback);
 
   // Fallback handlers for conversation-specific callbacks.
   // These fire when a conversation button is clicked after the

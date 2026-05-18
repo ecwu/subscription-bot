@@ -5,11 +5,44 @@ import { createSubscriptionRepository } from "../../repositories/subscriptionRep
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createLogger } from "../../utils/logger.js";
 import { InlineKeyboard } from "grammy";
-import { BillingCycle, BillingInterval } from "../../models/subscription.js";
+import {
+  BillingCycle,
+  BillingInterval,
+  Subscription,
+} from "../../models/subscription.js";
 import { formatBillingCycle } from "../../utils/labels.js";
 import { getBillingAnchorDay } from "../../utils/date.js";
 import { parseBillingCycleText } from "../../utils/billingCycle.js";
 import { ValidationError } from "../../utils/errors.js";
+import {
+  buildDetailKeyboard,
+  formatDetailText,
+} from "../keyboards/listManagerKeyboard.js";
+
+interface ListManagerConversationOptions {
+  source?: "listManager";
+  page?: number;
+}
+
+function isFromListManager(options?: ListManagerConversationOptions): boolean {
+  return options?.source === "listManager";
+}
+
+function restartHint(options?: ListManagerConversationOptions): string {
+  return isFromListManager(options)
+    ? "\n请重新从详情中选择编辑。"
+    : "\n请发送 /edit 重新开始。";
+}
+
+async function replyWithListManagerDetail(
+  ctx: BaseBotContext,
+  sub: Subscription,
+  page: number,
+): Promise<void> {
+  await ctx.reply(formatDetailText(sub), {
+    reply_markup: buildDetailKeyboard(sub.id, page, sub.status),
+  });
+}
 
 // TODO: grammY conversations do not have built-in timeout handling.
 // If a user starts an edit flow and never completes it, the conversation
@@ -74,6 +107,7 @@ export async function editFieldConversation(
   ctx: BaseBotContext,
   subId: string,
   field: "name" | "price" | "currency" | "date",
+  options?: ListManagerConversationOptions,
 ): Promise<void> {
   // grammY conversations do not inherit custom middleware properties.
   // Read required fields from the outside context via external().
@@ -142,28 +176,28 @@ export async function editFieldConversation(
   if (field === "name") {
     const error = validateEditName(input);
     if (error) {
-      await ctx.reply(error + "\n请发送 /edit 重新开始。");
+      await ctx.reply(error + restartHint(options));
       return;
     }
     updated.name = input.trim();
   } else if (field === "price") {
     const result = validateEditPrice(input);
     if (result.error) {
-      await ctx.reply(result.error + "\n请发送 /edit 重新开始。");
+      await ctx.reply(result.error + restartHint(options));
       return;
     }
     updated.price = result.price;
   } else if (field === "currency") {
     const result = validateEditCurrency(input);
     if (result.error) {
-      await ctx.reply(result.error + "\n请发送 /edit 重新开始。");
+      await ctx.reply(result.error + restartHint(options));
       return;
     }
     updated.currency = result.currency;
   } else if (field === "date") {
     const result = validateEditDate(input);
     if (result.error) {
-      await ctx.reply(result.error + "\n请发送 /edit 重新开始。");
+      await ctx.reply(result.error + restartHint(options));
       return;
     }
     updated.nextBillingDate = result.date!;
@@ -184,6 +218,12 @@ export async function editFieldConversation(
     field,
   });
 
+  if (isFromListManager(options)) {
+    await ctx.reply(`已更新“${updated.name}”的${fieldLabels[field]}。`);
+    await replyWithListManagerDetail(ctx, updated, options?.page ?? 0);
+    return;
+  }
+
   await ctx.reply(
     `已更新“${updated.name}”的${fieldLabels[field]}。\n发送 /view 查看结果。`,
   );
@@ -193,6 +233,7 @@ export async function editCycleConversation(
   conversation: Conversation<BotContext, BaseBotContext>,
   ctx: BaseBotContext,
   subId: string,
+  options?: ListManagerConversationOptions,
 ): Promise<void> {
   // grammY conversations do not inherit custom middleware properties.
   // Read required fields from the outside context via external().
@@ -269,7 +310,7 @@ export async function editCycleConversation(
       billingInterval = parsedCycle.billingInterval;
     } catch (err) {
       if (err instanceof ValidationError) {
-        await ctx.reply(err.message + "\n请发送 /edit 重新开始。");
+        await ctx.reply(err.message + restartHint(options));
         return;
       }
       throw err;
@@ -294,6 +335,17 @@ export async function editCycleConversation(
   });
 
   logger.info("Subscription cycle updated via conversation", { subId, cycle });
+
+  if (isFromListManager(options)) {
+    await ctx.reply(
+      `已将“${updated.name}”的周期更新为${formatBillingCycle(
+        cycle,
+        billingInterval,
+      )}。`,
+    );
+    await replyWithListManagerDetail(ctx, updated, options?.page ?? 0);
+    return;
+  }
 
   await ctx.reply(
     `已将“${updated.name}”的周期更新为${formatBillingCycle(

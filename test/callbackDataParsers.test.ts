@@ -8,6 +8,7 @@ import {
   parseAddCurrencyCallbackData,
   parseAddDateCallbackData,
   parseEditCycleCallbackData,
+  parseListCallbackData,
 } from "../src/utils/callbackParser.js";
 
 describe("parseSubCallbackData", () => {
@@ -191,5 +192,179 @@ describe("parseEditCycleCallbackData", () => {
   });
   it("returns null for missing subId", () => {
     expect(parseEditCycleCallbackData("editcycle:monthly")).toBeNull();
+  });
+});
+
+describe("parseListCallbackData", () => {
+  describe("page action", () => {
+    it("parses page callback", () => {
+      const result = parseListCallbackData("list:page:0");
+      expect(result).toEqual({ action: "page", page: 0 });
+    });
+    it("parses page callback with multi-digit page", () => {
+      const result = parseListCallbackData("list:page:12");
+      expect(result).toEqual({ action: "page", page: 12 });
+    });
+    it("returns null for negative page", () => {
+      expect(parseListCallbackData("list:page:-1")).toBeNull();
+    });
+    it("returns null for non-numeric page", () => {
+      expect(parseListCallbackData("list:page:abc")).toBeNull();
+    });
+  });
+
+  describe("back action", () => {
+    it("parses back callback", () => {
+      const result = parseListCallbackData("list:back:2");
+      expect(result).toEqual({ action: "back", page: 2 });
+    });
+  });
+
+  describe("select action", () => {
+    it("parses select callback", () => {
+      const result = parseListCallbackData("list:select:abc-123:0");
+      expect(result).toEqual({ action: "select", subId: "abc-123", page: 0 });
+    });
+    it("handles subId with colons", () => {
+      const result = parseListCallbackData("list:select:abc:123:xyz:0");
+      expect(result).toEqual({
+        action: "select",
+        subId: "abc:123:xyz",
+        page: 0,
+      });
+    });
+  });
+
+  describe("detail action", () => {
+    it("parses detail callback", () => {
+      const result = parseListCallbackData("list:detail:abc-123:1");
+      expect(result).toEqual({ action: "detail", subId: "abc-123", page: 1 });
+    });
+  });
+
+  describe("edit action", () => {
+    it("parses edit callback", () => {
+      const result = parseListCallbackData("list:edit:abc-123:0");
+      expect(result).toEqual({ action: "edit", subId: "abc-123", page: 0 });
+    });
+  });
+
+  describe("pause action", () => {
+    it("parses pause callback", () => {
+      const result = parseListCallbackData("list:pause:abc-123:0");
+      expect(result).toEqual({ action: "pause", subId: "abc-123", page: 0 });
+    });
+  });
+
+  describe("resume action", () => {
+    it("parses resume callback", () => {
+      const result = parseListCallbackData("list:resume:abc-123:0");
+      expect(result).toEqual({ action: "resume", subId: "abc-123", page: 0 });
+    });
+  });
+
+  describe("del action", () => {
+    it("parses del callback", () => {
+      const result = parseListCallbackData("list:del:abc-123:0");
+      expect(result).toEqual({ action: "del", subId: "abc-123", page: 0 });
+    });
+  });
+
+  describe("delok action", () => {
+    it("parses delok callback", () => {
+      const result = parseListCallbackData("list:delok:abc-123:0");
+      expect(result).toEqual({ action: "delok", subId: "abc-123", page: 0 });
+    });
+  });
+
+  describe("delno action", () => {
+    it("parses delno callback", () => {
+      const result = parseListCallbackData("list:delno:abc-123:0");
+      expect(result).toEqual({ action: "delno", subId: "abc-123", page: 0 });
+    });
+  });
+
+  describe("editField action", () => {
+    it("parses name field", () => {
+      const result = parseListCallbackData("list:ef:name:abc-123:0");
+      expect(result).toEqual({
+        action: "editField",
+        subId: "abc-123",
+        field: "name",
+        page: 0,
+      });
+    });
+    it("parses price field", () => {
+      const result = parseListCallbackData("list:ef:price:abc-123:0");
+      expect(result).toEqual({
+        action: "editField",
+        subId: "abc-123",
+        field: "price",
+        page: 0,
+      });
+    });
+    it("parses currency field", () => {
+      const result = parseListCallbackData("list:ef:currency:abc-123:0");
+      expect(result).toEqual({
+        action: "editField",
+        subId: "abc-123",
+        field: "currency",
+        page: 0,
+      });
+    });
+    it("parses cycle field", () => {
+      const result = parseListCallbackData("list:ef:cycle:abc-123:0");
+      expect(result).toEqual({
+        action: "editField",
+        subId: "abc-123",
+        field: "cycle",
+        page: 0,
+      });
+    });
+    it("parses date field", () => {
+      const result = parseListCallbackData("list:ef:date:abc-123:0");
+      expect(result).toEqual({
+        action: "editField",
+        subId: "abc-123",
+        field: "date",
+        page: 0,
+      });
+    });
+    it("handles subId with colons", () => {
+      const result = parseListCallbackData("list:ef:name:abc:123:5");
+      expect(result).toEqual({
+        action: "editField",
+        subId: "abc:123",
+        field: "name",
+        page: 5,
+      });
+    });
+    it("returns null for missing field", () => {
+      expect(parseListCallbackData("list:ef::abc-123:0")).toBeNull();
+    });
+    it("returns null for missing subId", () => {
+      expect(parseListCallbackData("list:ef:name::0")).toBeNull();
+    });
+    it("returns null for negative page", () => {
+      expect(parseListCallbackData("list:ef:name:abc-123:-1")).toBeNull();
+    });
+  });
+
+  describe("invalid inputs", () => {
+    it("returns null for invalid prefix", () => {
+      expect(parseListCallbackData("sub:page:0")).toBeNull();
+    });
+    it("returns null for unknown action", () => {
+      expect(parseListCallbackData("list:unknown:abc:0")).toBeNull();
+    });
+    it("returns null for empty string", () => {
+      expect(parseListCallbackData("")).toBeNull();
+    });
+    it("returns null for select without page", () => {
+      expect(parseListCallbackData("list:select:abc-123")).toBeNull();
+    });
+    it("returns null for select with non-numeric page", () => {
+      expect(parseListCallbackData("list:select:abc-123:abc")).toBeNull();
+    });
   });
 });
