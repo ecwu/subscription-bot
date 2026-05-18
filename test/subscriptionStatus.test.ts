@@ -230,7 +230,10 @@ describe("subscriptionService status", () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    const encrypted = await encrypt(JSON.stringify(subWithoutStatus), VALID_KEY);
+    const encrypted = await encrypt(
+      JSON.stringify(subWithoutStatus),
+      VALID_KEY,
+    );
     await repo.save("user-1", {
       id: "sub-1",
       encryptedPayload: serializeEncryptedPayload(encrypted),
@@ -245,6 +248,59 @@ describe("subscriptionService status", () => {
     const retrieved = await service.get("user-1", "sub-1", VALID_KEY);
     expect(retrieved).not.toBeNull();
     expect(retrieved!.status).toBe("active");
+    expect(retrieved!.isTrial).toBe(false);
+    expect(retrieved!.autoRenew).toBe(true);
+  });
+
+  it("does not advance trial subscriptions but keeps their reminder entry", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const sub = createSub({
+      nextBillingDate: "2026-01-31",
+      billingAnchorDay: 31,
+      isTrial: true,
+    });
+    await service.create("user-1", sub, VALID_KEY);
+
+    const advanced = await service.advancePastDue(
+      "user-1",
+      "sub-1",
+      VALID_KEY,
+      "2026-02-28",
+    );
+
+    expect(advanced).not.toBeNull();
+    expect(advanced!.nextBillingDate).toBe("2026-01-31");
+    expect(await reminderRepo.listEntries("2026-01-31")).toEqual([
+      { userKey: "user-1", subscriptionId: "sub-1" },
+    ]);
+  });
+
+  it("does not advance non-renewing subscriptions", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const sub = createSub({
+      nextBillingDate: "2026-01-31",
+      billingAnchorDay: 31,
+      autoRenew: false,
+    });
+    await service.create("user-1", sub, VALID_KEY);
+
+    const advanced = await service.advancePastDue(
+      "user-1",
+      "sub-1",
+      VALID_KEY,
+      "2026-02-28",
+    );
+
+    expect(advanced).not.toBeNull();
+    expect(advanced!.nextBillingDate).toBe("2026-01-31");
   });
 
   it("pause returns null for non-existent subscription", async () => {

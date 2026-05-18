@@ -4,6 +4,11 @@ import { createSubscriptionRepository } from "../../repositories/subscriptionRep
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createLogger } from "../../utils/logger.js";
 import { formatBillingCycle, formatStatus } from "../../utils/labels.js";
+import {
+  formatAutoRenew,
+  formatBillingDateLabel,
+  formatSubscriptionType,
+} from "../../utils/subscriptionFlags.js";
 
 export async function viewCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
@@ -64,7 +69,9 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
   lines.push(
     `周期：${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
   );
-  lines.push(`下次扣款：${sub.nextBillingDate}`);
+  lines.push(`类型：${formatSubscriptionType(sub)}`);
+  lines.push(`自动续费：${formatAutoRenew(sub)}`);
+  lines.push(`${formatBillingDateLabel(sub)}：${sub.nextBillingDate}`);
   lines.push(`状态：${formatStatus(sub.status)}`);
 
   if (sub.category) {

@@ -68,6 +68,8 @@ function normalizeStatus(sub: Subscription): Subscription {
   return {
     ...sub,
     status: sub.status ?? DEFAULT_STATUS,
+    isTrial: sub.isTrial ?? false,
+    autoRenew: sub.autoRenew ?? true,
   };
 }
 
@@ -115,6 +117,8 @@ export function createSubscriptionService(
         billingInterval: finalSub.billingInterval,
         billingAnchorDay,
         status: finalSub.status,
+        isTrial: finalSub.isTrial,
+        autoRenew: finalSub.autoRenew,
         createdAt: finalSub.createdAt,
         updatedAt: finalSub.updatedAt,
       };
@@ -172,6 +176,8 @@ export function createSubscriptionService(
         billingInterval: finalSub.billingInterval,
         billingAnchorDay,
         status: finalSub.status,
+        isTrial: finalSub.isTrial,
+        autoRenew: finalSub.autoRenew,
         createdAt: finalSub.createdAt,
         updatedAt: finalSub.updatedAt,
       };
@@ -203,7 +209,11 @@ export function createSubscriptionService(
       if (sub.status === "paused") return sub;
 
       const now = new Date().toISOString();
-      const updated: Subscription = { ...sub, status: "paused", updatedAt: now };
+      const updated: Subscription = {
+        ...sub,
+        status: "paused",
+        updatedAt: now,
+      };
       await this.update(userKey, updated, encryptionKey);
 
       await reminderRepo.removeEntry(sub.nextBillingDate, userKey, subId);
@@ -246,6 +256,7 @@ export function createSubscriptionService(
       const sub = await this.get(userKey, subId, encryptionKey);
       if (!sub) return null;
       if (sub.status === "paused") return sub;
+      if (sub.isTrial || sub.autoRenew === false) return sub;
 
       if (sub.nextBillingDate > today) return sub;
 

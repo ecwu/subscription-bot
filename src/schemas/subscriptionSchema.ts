@@ -35,6 +35,8 @@ export const subscriptionInputSchema = z
     category: z.string().max(50).optional(),
     note: z.string().max(500).optional(),
     status: subscriptionStatusSchema,
+    isTrial: z.boolean().optional(),
+    autoRenew: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
     if (value.billingCycle === "interval" && !value.billingInterval) {

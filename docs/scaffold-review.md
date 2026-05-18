@@ -1,6 +1,6 @@
 # Scaffold Review
 
-Date: 2026-05-17
+Date: 2026-05-18
 
 ## Findings
 
@@ -21,9 +21,7 @@ Uses `ctx.from?.id` with optional chaining. Sets `ctx.isAdmin = true` when the u
 ### 3. `errorHandler.ts` — update sanitization
 **Status: ACCEPTABLE**
 
-Does not log `ctx.update`, message text, or chat content. It logs only `error.message` and `ctx.from?.id`. The user ID is useful for debugging while being a numeric identifier rather than PII like username or message text.
-
-**Minor note:** If stricter privacy is desired later, `ctx.from?.id` can be replaced with a truncated hash or omitted entirely.
+Does not log `ctx.update`, message text, chat content, raw Telegram user IDs, or usernames. It logs only sanitized error text and boolean flags such as `hasUserKey`.
 
 ### 4. `webhook.ts` — secret token validation
 **Status: ACCEPTABLE WITH CAVEAT**
@@ -75,15 +73,41 @@ Does not leak Telegram user ID, username, message text, or secrets.
 
 Added per-isolate in-memory rate limiting (`rateLimiter` middleware). Default: 60 requests per minute per userKey. Resets on isolate recycle, which is acceptable for MVP.
 
-### 10. Conversations
+### 10. Conversations and KV session storage
 **Status: ADDED**
 
-Multi-step flows (`/add`, `/edit`) are implemented using `@grammyjs/conversations`. Fallback handlers are registered for conversation-specific callbacks to handle stale button clicks after conversations end.
+Multi-step flows (`/add`, `/list_full` edit actions, `/resume`) are implemented using `@grammyjs/conversations`. Fallback handlers are registered for conversation-specific callbacks to handle stale button clicks after conversations end.
+
+The bot now uses `KvSessionStorage` instead of the default in-memory grammY session storage:
+- Session keys are HMAC-hashed Telegram user IDs.
+- Session values are encrypted before KV storage.
+- Session values expire after 1 hour.
+- `sequentialize(getSessionKey)` reduces same-user session write races.
+
+This mitigates conversation loss on isolate changes, but KV eventual consistency still means sessions are not transactional.
+
+### 11. Subscription lifecycle flags
+**Status: ADDED**
+
+Subscriptions now include:
+- `status`: `active` or `paused`
+- `isTrial`: marks trial/intro subscriptions
+- `autoRenew`: marks whether billing continues automatically
+- `billingAnchorDay`: preserves calendar-month billing behavior
+- `billingInterval`: supports day/week/month/year interval cycles
+
+Paused subscriptions are excluded from reminders, spending reports, and automatic date advancement. Trial and non-auto-renewing subscriptions use different reminder/report behavior.
+
+### 12. Reports
+**Status: ADDED**
+
+`/report` generates PNG reports for monthly-equivalent spending, current-month due spending, and future 12-month projected spending. `/report_text` provides Telegram-safe text chunks with current-month and projected line items.
 
 ## Remaining Risks
 
 1. **KV Eventual Consistency:** Reads after writes may return stale data for a few seconds. This is a KV platform behavior, not a code bug. For subscription edits, it is usually acceptable.
 2. **Reminder KV Value Size:** `reminderRepository` stores all daily reminders in one value. At scale, this may need sharding by user or by hour.
 3. **Per-Isolate Rate Limiting:** The in-memory rate limiter resets when the isolate is recycled. This is acceptable for MVP but not a hard guarantee against abuse.
-4. **Session Loss on Isolate Change:** grammY conversations are stored in-memory per isolate. If the isolate changes between messages, active conversations disappear and users must restart flows. Documented as acceptable MVP behavior.
-5. **Non-Atomic Delete All:** `SubscriptionRepository.deleteAll()` deletes subscription records, index, and profile key sequentially. Best-effort only.
+4. **KV Session Consistency:** Conversations are KV-backed and encrypted, but KV is eventually consistent. `sequentialize` helps per running instance but does not make sessions globally transactional.
+5. **Session Expiration:** Session TTL is 1 hour. Users who abandon a flow for longer than that need to restart it.
+6. **Non-Atomic Delete All:** `SubscriptionRepository.deleteAll()` deletes subscription records, index, and profile key sequentially. Best-effort only.

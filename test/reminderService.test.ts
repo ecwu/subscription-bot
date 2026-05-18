@@ -162,6 +162,120 @@ describe("reminderService.processDay", () => {
     expect(await reminderRepo.hasSent(userKey, subId, date)).toBe(true);
   });
 
+  it("uses trial reminder wording for trial subscriptions", async () => {
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const env = createMockEnv();
+    env.SUBSCRIPTION_KV = kv;
+
+    const userKey = "user-1";
+    const subId = "sub-1";
+    const date = "2026-06-01";
+
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+
+    const sub = {
+      id: subId,
+      name: "Trial Service",
+      price: 12.99,
+      currency: "EUR",
+      billingCycle: "monthly" as const,
+      nextBillingDate: date,
+      isTrial: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await subRepo.save(userKey, {
+      id: subId,
+      encryptedPayload: await (async () => {
+        const { encrypt, serializeEncryptedPayload } = await import(
+          "../src/crypto/encryption.js"
+        );
+        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
+        return serializeEncryptedPayload(encrypted);
+      })(),
+      nextBillingDate: date,
+      billingCycle: "monthly",
+      isTrial: true,
+      createdAt: sub.createdAt,
+      updatedAt: sub.updatedAt,
+    });
+    await reminderRepo.addEntry(date, userKey, subId);
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    const service = createReminderService(env, reminderRepo, subRepo, userRepo);
+    await service.processDay(date);
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.text).toContain("体验到期提醒");
+    expect(body.text).toContain("之后可能开始扣款");
+  });
+
+  it("uses service-end wording for non-renewing subscriptions", async () => {
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const env = createMockEnv();
+    env.SUBSCRIPTION_KV = kv;
+
+    const userKey = "user-1";
+    const subId = "sub-1";
+    const date = "2026-06-01";
+
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+
+    const sub = {
+      id: subId,
+      name: "Cancelled Service",
+      price: 12.99,
+      currency: "EUR",
+      billingCycle: "monthly" as const,
+      nextBillingDate: date,
+      autoRenew: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await subRepo.save(userKey, {
+      id: subId,
+      encryptedPayload: await (async () => {
+        const { encrypt, serializeEncryptedPayload } = await import(
+          "../src/crypto/encryption.js"
+        );
+        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
+        return serializeEncryptedPayload(encrypted);
+      })(),
+      nextBillingDate: date,
+      billingCycle: "monthly",
+      autoRenew: false,
+      createdAt: sub.createdAt,
+      updatedAt: sub.updatedAt,
+    });
+    await reminderRepo.addEntry(date, userKey, subId);
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    const service = createReminderService(env, reminderRepo, subRepo, userRepo);
+    await service.processDay(date);
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.text).toContain("服务到期提醒");
+    expect(body.text).toContain("已关闭自动续费");
+  });
+
   it("skips stale entries when subscription is missing", async () => {
     const kv = createMockKV();
     const reminderRepo = createReminderRepository(kv);

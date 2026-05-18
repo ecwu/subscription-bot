@@ -88,4 +88,26 @@ describe("formatSubscription", () => {
 
     expect(line).toBe("1. Netflix — 12.99 USD — 下次扣款：14 天后");
   });
+
+  it("shows trial label and trial date wording", () => {
+    const line = formatSubscriptionLine(
+      createSubscription({ isTrial: true }),
+      0,
+      "2026-05-18",
+    );
+
+    expect(line).toBe(
+      "1. [体验] Netflix — 12.99 USD — 体验到期/首次扣款：14 天后",
+    );
+  });
+
+  it("shows non-renewing label and service end wording", () => {
+    const line = formatSubscriptionLine(
+      createSubscription({ autoRenew: false }),
+      0,
+      "2026-05-18",
+    );
+
+    expect(line).toBe("1. [已停续费] Netflix — 12.99 USD — 服务到期：14 天后");
+  });
 });

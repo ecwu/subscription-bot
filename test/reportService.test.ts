@@ -196,8 +196,33 @@ describe("buildReportData", () => {
       noPrice: 1,
       noCurrency: 1,
       customCycle: 1,
+      trial: 0,
+      nonRenewing: 0,
     });
     expect(report.currentMonthly.totalBase).toBe(10);
+  });
+
+  it("excludes trial and non-renewing subscriptions from report totals", () => {
+    const report = buildReportData(
+      [
+        sub({ id: "trial", price: 10, currency: "CNY", isTrial: true }),
+        sub({
+          id: "non-renewing",
+          price: 10,
+          currency: "CNY",
+          autoRenew: false,
+        }),
+        sub({ id: "valid", price: 10, currency: "CNY" }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.currentMonthly.includedCount).toBe(1);
+    expect(report.currentMonthly.totalBase).toBe(10);
+    expect(report.currentMonthly.excluded.trial).toBe(1);
+    expect(report.currentMonthly.excluded.nonRenewing).toBe(1);
+    expect(report.yearlyProjection.totalBase).toBe(120);
   });
 
   it("groups by currency and reports missing exchange rates", () => {
@@ -508,6 +533,20 @@ describe("buildReportData", () => {
     expect(text).toContain("当月支出");
     expect(text).toContain("年度预期支出");
     expect(text).not.toContain("Private Service");
+  });
+
+  it("mentions excluded trial and non-renewing counts in fallback text", () => {
+    const report = buildReportData(
+      [
+        sub({ id: "trial", price: 10, currency: "CNY", isTrial: true }),
+        sub({ id: "off", price: 10, currency: "CNY", autoRenew: false }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    const text = formatReportText(report);
+    expect(text).toContain("未计入金额：体验 1，已停续费 1");
   });
 
   it("projects monthly subscription across 12 months", () => {

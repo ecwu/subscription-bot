@@ -30,7 +30,7 @@ export function createPrivacyService(
         encryptionKey,
       );
       return {
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         subscriptions,
       };

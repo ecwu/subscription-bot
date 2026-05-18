@@ -7,6 +7,10 @@ import { sendMessage } from "./telegramService.js";
 import { decrypt, parseEncryptedPayload } from "../crypto/encryption.js";
 import { log } from "../utils/logger.js";
 import { formatDate } from "../utils/date.js";
+import {
+  isAutoRenewing,
+  isTrialSubscription,
+} from "../utils/subscriptionFlags.js";
 
 export interface ReminderService {
   processDay(date: string): Promise<void>;
@@ -21,9 +25,19 @@ function getReminderDaysAhead(env: Env): number {
 }
 
 function formatReminderMessage(sub: Subscription): string {
-  const lines: string[] = [
-    `扣款提醒：\n${sub.name} 将在 ${sub.nextBillingDate} 扣款。`,
-  ];
+  const lines: string[] = [];
+
+  if (isTrialSubscription(sub)) {
+    lines.push(
+      `体验到期提醒：\n${sub.name} 将在 ${sub.nextBillingDate} 到期，之后可能开始扣款。`,
+    );
+  } else if (!isAutoRenewing(sub)) {
+    lines.push(
+      `服务到期提醒：\n${sub.name} 将在 ${sub.nextBillingDate} 到期，已关闭自动续费。`,
+    );
+  } else {
+    lines.push(`扣款提醒：\n${sub.name} 将在 ${sub.nextBillingDate} 扣款。`);
+  }
 
   if (sub.price !== undefined) {
     lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());

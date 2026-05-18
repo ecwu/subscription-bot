@@ -46,10 +46,7 @@ export function buildReportSvg(report: ReportData): string {
       .map((item, index) => {
         const actualH =
           item.actualTotal > 0
-            ? Math.max(
-                2,
-                (item.actualTotal / maxDistribution) * BAR_MAX_HEIGHT,
-              )
+            ? Math.max(2, (item.actualTotal / maxDistribution) * BAR_MAX_HEIGHT)
             : 0;
 
         const x = CHART_X + index * barStep + (barStep - barWidth) / 2;
@@ -105,10 +102,7 @@ export function buildReportSvg(report: ReportData): string {
             : 0;
         const actualH =
           item.actualTotal > 0
-            ? Math.max(
-                2,
-                (item.actualTotal / maxDistribution) * BAR_MAX_HEIGHT,
-              )
+            ? Math.max(2, (item.actualTotal / maxDistribution) * BAR_MAX_HEIGHT)
             : 0;
 
         const x = CHART_X + index * barStep + (barStep - barWidth) / 2;
@@ -131,9 +125,7 @@ export function buildReportSvg(report: ReportData): string {
         const showLabel = labelValue > 0;
 
         const showDayLabel =
-          index === 0 ||
-          index === daysInMonth - 1 ||
-          item.day % 5 === 0;
+          index === 0 || index === daysInMonth - 1 || item.day % 5 === 0;
 
         return `
           ${monthlyRect}
@@ -199,7 +191,7 @@ export function buildReportSvg(report: ReportData): string {
   )}</text>
   <text x="98" y="314" class="note">${report.convertedCount} 个订阅已换算为 ${
     report.baseCurrency
-  }</text>
+  }${formatExcludedNote(report)}</text>
 
   <text x="80" y="360" class="section">${escapeXml(report.chartTitle)}</text>
   <text x="80" y="390" class="note">${escapeXml(chartSubtitle)}</text>
@@ -227,6 +219,15 @@ function compactAmount(amount: number): string {
   if (amount >= 10000) return `${Math.round(amount / 1000)}k`;
   if (amount >= 1000) return `${(amount / 1000).toFixed(1)}k`;
   return Math.round(amount).toString();
+}
+
+function formatExcludedNote(report: ReportData): string {
+  const notes: string[] = [];
+  if (report.excluded.trial > 0) notes.push(`体验 ${report.excluded.trial}`);
+  if (report.excluded.nonRenewing > 0) {
+    notes.push(`已停续费 ${report.excluded.nonRenewing}`);
+  }
+  return notes.length > 0 ? ` · 未计入：${notes.join("，")}` : "";
 }
 
 function monthNameFromKey(monthKey: string): string {

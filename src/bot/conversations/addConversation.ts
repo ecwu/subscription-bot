@@ -224,6 +224,27 @@ function billingPreviewKeyboard(): InlineKeyboard {
     .text("❌ 取消", "addpreview:cancel");
 }
 
+function yesNoKeyboard(
+  prefix: string,
+  yesLabel = "是",
+  noLabel = "否",
+): InlineKeyboard {
+  return new InlineKeyboard()
+    .text(yesLabel, `${prefix}:yes`)
+    .text(noLabel, `${prefix}:no`)
+    .row()
+    .text("取消", `${prefix}:cancel`);
+}
+
+function parseYesNoCallbackData(
+  callbackData: string,
+  prefix: string,
+): boolean | null {
+  if (callbackData === `${prefix}:yes`) return true;
+  if (callbackData === `${prefix}:no`) return false;
+  return null;
+}
+
 export function buildBillingDatePreview(
   nextBillingDate: string,
   billingCycle: BillingCycle,
@@ -538,13 +559,49 @@ export async function addConversation(
     return;
   }
 
+  await ctx.reply("这是体验订阅吗？", {
+    reply_markup: yesNoKeyboard("addtrial"),
+  });
+  const trialCtx = await conversation.waitForCallbackQuery(/^addtrial:/);
+  const trialData = trialCtx.callbackQuery.data;
+  await trialCtx.answerCallbackQuery();
+  await safeDeleteMessage(trialCtx);
+  if (trialData === "addtrial:cancel") {
+    await ctx.reply("已取消。");
+    return;
+  }
+  const isTrial = parseYesNoCallbackData(trialData, "addtrial");
+  if (isTrial === null) {
+    await ctx.reply("已取消。");
+    return;
+  }
+
+  await ctx.reply("这个订阅会自动续费吗？", {
+    reply_markup: yesNoKeyboard("addrenew", "会", "不会"),
+  });
+  const renewCtx = await conversation.waitForCallbackQuery(/^addrenew:/);
+  const renewData = renewCtx.callbackQuery.data;
+  await renewCtx.answerCallbackQuery();
+  await safeDeleteMessage(renewCtx);
+  if (renewData === "addrenew:cancel") {
+    await ctx.reply("已取消。");
+    return;
+  }
+  const autoRenew = parseYesNoCallbackData(renewData, "addrenew");
+  if (autoRenew === null) {
+    await ctx.reply("已取消。");
+    return;
+  }
+
   // Review
   const reviewLines = [
     "请确认订阅信息：",
     `名称：${name}`,
     price !== undefined ? `价格：${price} ${currency ?? ""}`.trim() : null,
     `周期：${formatBillingCycle(cycle, billingInterval)}`,
-    `下次扣款：${nextBillingDate}`,
+    `类型：${isTrial ? "体验" : "付费"}`,
+    `自动续费：${autoRenew ? "是" : "否"}`,
+    `${isTrial ? "体验到期/首次扣款" : autoRenew ? "下次扣款" : "服务到期"}：${nextBillingDate}`,
   ].filter((l): l is string => l !== null);
 
   await ctx.reply(reviewLines.join("\n"), {
@@ -579,6 +636,8 @@ export async function addConversation(
     nextBillingDate,
     billingAnchorDay: getBillingAnchorDay(nextBillingDate),
     status: "active",
+    isTrial,
+    autoRenew,
     createdAt: now,
     updatedAt: now,
   };

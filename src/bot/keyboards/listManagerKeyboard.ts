@@ -4,6 +4,14 @@ import type {
   SubscriptionStatus,
 } from "../../models/subscription.js";
 import { formatBillingCycle, formatStatus } from "../../utils/labels.js";
+import {
+  formatAutoRenew,
+  formatBillingDateLabel,
+  formatStatusPrefix,
+  formatSubscriptionType,
+  isAutoRenewing,
+  isTrialSubscription,
+} from "../../utils/subscriptionFlags.js";
 
 export const LIST_PAGE_SIZE = 8;
 
@@ -30,10 +38,13 @@ export function buildListPageKeyboard(
 
   for (let i = 0; i < pageSubs.length; i++) {
     const sub = pageSubs[i];
-    const label =
-      sub.status === "paused"
-        ? `⏸ ${truncateName(sub.name)}`
-        : truncateName(sub.name);
+    const icon = sub.status === "paused" ? "⏸ " : "";
+    const suffix = isTrialSubscription(sub)
+      ? " · 体验"
+      : !isAutoRenewing(sub)
+        ? " · 已停"
+        : "";
+    const label = `${icon}${truncateName(sub.name)}${suffix}`;
     kb.text(label, `list:select:${sub.id}:${page}`);
     if (i % 2 === 1) {
       kb.row();
@@ -57,14 +68,16 @@ export function buildListPageKeyboard(
 }
 
 export function formatDetailText(sub: Subscription): string {
-  const lines: string[] = [sub.name];
+  const lines: string[] = [`${formatStatusPrefix(sub)}${sub.name}`];
   if (sub.price !== undefined) {
     lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
   }
   lines.push(
     `周期：${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
   );
-  lines.push(`下次扣款：${sub.nextBillingDate}`);
+  lines.push(`类型：${formatSubscriptionType(sub)}`);
+  lines.push(`自动续费：${formatAutoRenew(sub)}`);
+  lines.push(`${formatBillingDateLabel(sub)}：${sub.nextBillingDate}`);
   lines.push(`状态：${formatStatus(sub.status)}`);
   if (sub.category) lines.push(`分类：${sub.category}`);
   if (sub.note) lines.push(`备注：${sub.note}`);
@@ -102,6 +115,9 @@ export function buildEditFieldKeyboard(
     .text("周期", `list:ef:cycle:${subId}:${page}`)
     .row()
     .text("下次扣款日期", `list:ef:date:${subId}:${page}`)
+    .row()
+    .text("切换体验", `list:ef:trial:${subId}:${page}`)
+    .text("切换自动续费", `list:ef:autorenew:${subId}:${page}`)
     .row()
     .text("← 返回详情", `list:detail:${subId}:${page}`);
 }

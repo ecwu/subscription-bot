@@ -25,6 +25,8 @@ export interface Subscription {
   category?: string;
   note?: string;
   status: SubscriptionStatus;
+  isTrial?: boolean;
+  autoRenew?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,6 +39,8 @@ export interface StoredSubscription {
   billingInterval?: BillingInterval;
   billingAnchorDay?: number;
   status: SubscriptionStatus;
+  isTrial?: boolean;
+  autoRenew?: boolean;
   createdAt: string;
   updatedAt: string;
 }

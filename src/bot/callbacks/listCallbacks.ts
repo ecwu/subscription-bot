@@ -694,6 +694,58 @@ export async function listEditFieldCallback(ctx: BotContext): Promise<void> {
 
     const { subId, field, page } = parsed;
 
+    if (field === "trial" || field === "autorenew") {
+      const service = createService(ctx);
+      const sub = await service.get(ctx.userKey, subId, ctx.env.ENCRYPTION_KEY);
+
+      if (!sub) {
+        await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+        const subs = await fetchSortedSubscriptions(
+          ctx.userKey,
+          ctx.env.SUBSCRIPTION_KV,
+          ctx.env.ENCRYPTION_KEY,
+        );
+        if (subs.length === 0) {
+          await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
+        } else {
+          await showListPage(ctx, subs, page);
+        }
+        return;
+      }
+
+      const updated: Subscription =
+        field === "trial"
+          ? {
+              ...sub,
+              isTrial: !sub.isTrial,
+              updatedAt: new Date().toISOString(),
+            }
+          : {
+              ...sub,
+              autoRenew: sub.autoRenew === false,
+              updatedAt: new Date().toISOString(),
+            };
+
+      await service.update(ctx.userKey, updated, ctx.env.ENCRYPTION_KEY);
+      await safeAnswerCallbackQuery(
+        ctx,
+        field === "trial"
+          ? updated.isTrial
+            ? "已标记为体验。"
+            : "已取消体验标记。"
+          : updated.autoRenew
+            ? "已开启自动续费。"
+            : "已关闭自动续费。",
+      );
+      await showDetail(ctx, updated, page);
+
+      logger.info("Subscription flag toggled via list callback", {
+        subId,
+        field,
+      });
+      return;
+    }
+
     if (field === "cycle") {
       await safeAnswerCallbackQuery(ctx);
       await disableCurrentInlineKeyboard(ctx, logger);

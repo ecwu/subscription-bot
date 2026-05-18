@@ -1,7 +1,11 @@
 import type { Subscription } from "../models/subscription.js";
 import { shortId } from "./shortId.js";
-import { formatBillingCycle, formatStatus } from "./labels.js";
+import { formatBillingCycle } from "./labels.js";
 import { formatDate } from "./date.js";
+import {
+  formatBillingDateLabel,
+  formatStatusPrefix,
+} from "./subscriptionFlags.js";
 
 function formatPrice(sub: Subscription): string {
   if (sub.price !== undefined && sub.currency) {
@@ -29,19 +33,18 @@ export function formatRelativeBillingDate(
   return `已过期 ${Math.abs(days)} 天`;
 }
 
-function statusPrefix(sub: Subscription): string {
-  return sub.status === "paused" ? `[${formatStatus(sub.status)}] ` : "";
-}
-
 export function formatSubscriptionLine(
   sub: Subscription,
   index: number,
   today = formatDate(new Date()),
 ): string {
   const parts = [
-    `${statusPrefix(sub)}${sub.name}`,
+    `${formatStatusPrefix(sub)}${sub.name}`,
     formatPrice(sub),
-    `下次扣款：${formatRelativeBillingDate(sub.nextBillingDate, today)}`,
+    `${formatBillingDateLabel(sub)}：${formatRelativeBillingDate(
+      sub.nextBillingDate,
+      today,
+    )}`,
   ].filter(Boolean);
   return `${index + 1}. ${parts.join(" — ")}`;
 }
@@ -51,10 +54,10 @@ export function formatSubscriptionFullLine(
   index: number,
 ): string {
   const parts = [
-    `${statusPrefix(sub)}${sub.name}`,
+    `${formatStatusPrefix(sub)}${sub.name}`,
     formatPrice(sub),
     formatBillingCycle(sub.billingCycle, sub.billingInterval),
-    `下次扣款：${sub.nextBillingDate}`,
+    `${formatBillingDateLabel(sub)}：${sub.nextBillingDate}`,
     `ID：${shortId(sub.id)}`,
   ].filter(Boolean);
   return `${index + 1}. ${parts.join(" — ")}`;

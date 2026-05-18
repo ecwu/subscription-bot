@@ -9,9 +9,12 @@ The `/add` command starts a multi-step conversation when called without argument
 1. **Name** — asks for subscription name. Empty input is rejected.
 2. **Price** — asks for price. User may type `skip` to leave unset.
 3. **Currency** — inline keyboard with common currencies (CNY, USD, HKD, TWD, EUR, JPY, GBP, SGD). User can choose **其他** to type a custom 3-letter code, or **不填写** if no price was set. Required if price was set.
-4. **Billing cycle** — inline keyboard with Weekly, Monthly, Quarterly, Yearly, Custom, and Advanced interval. Advanced interval prompts for `every 30 days`, `every 4 weeks`, `30d`, `4w`, `每30天`, or `每4周`.
+4. **Billing cycle** — inline keyboard with Weekly, Monthly, Quarterly, Yearly, Custom, and Advanced interval. Advanced interval prompts for `every 30 days`, `every 4 weeks`, `every 6 months`, `30d`, `4w`, `6m`, `2y`, `每30天`, `每4周`, `每6个月`, or `每2年`.
 5. **Next billing date** — inline calendar keyboard. User can navigate months with ‹ ›, pick a day, or select **今天**.
-6. **Review** — shows a summary with Confirm/Cancel inline buttons.
+6. **Billing date preview** — shows the next five expected billing dates. User can confirm, go back to change cycle/date, or cancel.
+7. **Trial flag** — asks whether this is a trial subscription.
+8. **Auto-renewal flag** — asks whether this subscription auto-renews.
+9. **Review** — shows a summary with Confirm/Cancel inline buttons.
 
 If the user sends `/cancel` at any step, the conversation exits immediately and **no partial subscription is saved**.
 
@@ -20,16 +23,18 @@ If validation fails at any step, the conversation ends with an error message and
 ### Legacy one-line usage
 `/add Netflix 12.99 CNY monthly 2026-06-01` still works and bypasses the conversation.
 Interval cycles also work in one-line usage, for example `/add Gym 30 CNY 30d 2026-06-01`.
+One-line usage creates active, paid, auto-renewing subscriptions.
 
 ## /edit Conversation Behavior
 
-Two interactive edit paths exist:
+One interactive edit path exists, and one-line edit remains available for common fields:
 
 ### Inline edit menu (callback-based)
-1. User clicks **Edit** from a `/list` message.
-2. Bot shows an inline keyboard: Name, Price, Currency, Cycle, Next billing date, Cancel.
+1. User clicks a subscription from `/list_full`, then clicks **编辑**.
+2. Bot shows an inline keyboard: Name, Price, Currency, Cycle, Next billing date, Trial flag, Auto-renewal flag, Back.
 3. Clicking a text field starts `editField` conversation.
 4. Clicking **Cycle** starts `editCycle` conversation with an inline keyboard.
+5. Trial and auto-renewal buttons toggle immediately and return to the detail view.
 
 ### editField conversation
 - Prompts for the new value.
@@ -47,59 +52,76 @@ Two interactive edit paths exist:
 `/edit <id> date|price|cycle <value>` still works.
 Cycle values can be fixed cycles or interval values such as `30d` and `every 4 weeks`.
 
+## /list_full Behavior
+
+`/list_full` opens a paginated inline list manager:
+
+- Each page shows up to 8 subscriptions.
+- Active subscriptions sort before paused subscriptions.
+- Selecting a subscription opens a detail view.
+- Detail actions support edit, delete, pause/resume, and back navigation.
+- Delete still requires confirmation.
+- Pause happens immediately.
+- Resume starts a short confirmation/date conversation.
+
+Older list messages may show stale state; callback handlers re-load from KV before mutating.
+
 ## /cancel Behavior
 
 - `/cancel` calls `ctx.conversation.exitAll()`, which safely ends all active conversations for the current chat.
 - It is safe to use **outside** a conversation; the bot simply replies "已取消。"
 - During `/add`, cancelling before the final Confirm step guarantees **no partial data is written to KV**.
 
+## /pause and /resume Behavior
+
+`/pause <id>` marks a subscription as paused and removes it from the reminder index for its next billing date. Paused subscriptions remain visible but are excluded from reminders, automatic date advancement, and spending reports.
+
+`/resume <id>` starts `resumeConversation`:
+- If the subscription is already active, the bot says so and exits.
+- The bot shows the current next billing date.
+- User can reply `正确`, `确认`, `yes`, or `y` to keep that date.
+- User can enter a new `YYYY-MM-DD` date before resuming.
+- `/cancel` or `取消` aborts without saving.
+
 ## /reminders Behavior
 
 The `/reminders` command lists subscriptions with upcoming renewals within the configured reminder window (default 3 days, controlled by `REMINDER_DAYS_AHEAD`).
 
 - Loads all subscriptions, filters those with `nextBillingDate` between today and today + days ahead.
+- Skips paused subscriptions.
 - Sorts by billing date ascending.
 - Shows name, price (if set), and billing date for each upcoming subscription.
 - If no subscriptions are due within the window, replies "近期没有即将扣款的订阅。"
+Trial subscriptions and non-auto-renewing subscriptions remain visible when due. Scheduled reminder messages use expiration-specific wording; `/reminders` itself uses the compact `扣款日` list label.
 
 This is a single-shot command; no conversation or callback state is involved.
 
-## Session Limitations on Cloudflare Workers
+## Session Behavior on Cloudflare Workers
 
-grammY's default session storage is **in-memory per isolate**.
+The bot now uses `KvSessionStorage` instead of grammY's default in-memory storage.
 
-On Cloudflare Workers:
-- Each incoming request may run in a **different isolate**.
-- Isolates are **recycled/evicted unpredictably** after periods of inactivity or on deployments.
-- Session data is **not shared** across isolates.
+- Session keys are derived from the HMAC-hashed Telegram user ID.
+- Session values are encrypted before being written to KV.
+- Session keys are prefixed with `session:`.
+- Session TTL is 1 hour and refreshes on writes.
+- `sequentialize(getSessionKey)` serializes updates for the same user key to reduce KV read-modify-write races.
 
 ### Impact
-- An active `/add` or `/edit` conversation may disappear if the isolate changes before the user responds.
-- The user will see no error; the next message will simply not be recognized as part of a conversation.
-- Users can safely restart the flow with `/add` or `/edit`.
+- Active `/add`, edit, and resume conversations can survive isolate changes as long as the session has not expired.
+- Conversations can still expire after roughly 1 hour of inactivity.
+- If a conversation expires, old inline buttons hit fallback handlers and tell the user to restart the flow.
 
-### Decision for MVP
-This behavior is **acceptable for MVP**. The bot is stateless and KV-backed for persistent data; transient conversation state is a minor UX trade-off.
-
-### Future option: KV-backed session adapter
-A KV-backed session adapter is technically possible:
-- Serialize session state to KV with a key like `session:<userHash>`.
-- Set a TTL (e.g., 1 hour) to avoid stale sessions.
-- Encrypt session data if it contains sensitive metadata.
-
-**Risks:**
-- Adds latency (extra KV read/write per update).
-- Race conditions if multiple isolates handle updates for the same user concurrently.
-- grammY conversation state includes generator snapshots; serialization is non-trivial.
-
-**Recommendation:** Defer until user feedback justifies the complexity.
+### Remaining caveats
+- KV is eventually consistent, so near-simultaneous updates may still see stale data.
+- Session writes add KV latency to every update with a session key.
+- Conversation state is still transient by design and should not contain long-lived business data.
 
 ## Stale Callback Handling
 
 Callback buttons from old messages may still be clickable. The following protections are in place:
 
 ### Subscription no longer exists
-All subscription-related callbacks (`sub:view`, `sub:edit`, `sub:delete`, `delete:confirm`) verify the subscription still exists in KV before acting. If it was deleted:
+All subscription-related callbacks (`sub:view`, `sub:edit`, `sub:delete`, `sub:pause`, `sub:resume`, list manager actions, `delete:confirm`) verify the subscription still exists in KV before acting. If it was deleted:
 - The callback query is answered with "Subscription not found." or "Already deleted."
 - The message text is edited to "Subscription not found or already deleted."
 
@@ -109,7 +131,7 @@ All callbacks use `parse*CallbackData` helpers. If parsing fails:
 - No further action is taken.
 
 ### Expired conversation buttons
-Buttons specific to active conversations (`cycle:`, `editcycle:`, `add:confirm`, `add:cancel`) have **fallback handlers** registered after the conversation handlers. If a conversation has ended (isolate recycled, user cancelled, or abandoned), these fallback handlers:
+Buttons specific to active conversations (`cycle:`, `editcycle:`, `addcurrency:`, `adddate:`, `addpreview:`, `addtrial:`, `addrenew:`, `add:confirm`, `add:cancel`) have **fallback handlers** registered after the conversation handlers. If a conversation has ended (session expired, user cancelled, or abandoned), these fallback handlers:
 - Answer the callback query with "This selection has expired..."
 - Prevent the Telegram loading spinner from spinning indefinitely.
 
@@ -161,13 +183,13 @@ What **is** logged:
 
 ## Remaining UX Limitations
 
-1. **No conversation timeout.** If a user starts `/add` and abandons it, the conversation waits indefinitely until the isolate is recycled. The user must send `/cancel` or start a new command. A future enhancement could track conversation start timestamps and auto-exit stale ones.
+1. **Coarse conversation timeout.** KV session TTL is 1 hour and refreshes on writes. There is no per-conversation timeout message; abandoned flows simply expire later.
 
-2. **Session loss on isolate change.** As documented above, conversations may reset between requests. This is rare during active use but possible after long pauses.
+2. **KV eventual consistency.** Session and subscription state are stored in KV, which is eventually consistent. `sequentialize` helps within the same running instance but does not make KV transactional.
 
-3. **Inline buttons on old `/list` messages.** After editing or deleting a subscription, older `/list` messages still show `[View] [Edit] [Delete]` buttons for the old state. Clicking them triggers the stale-subscription handlers gracefully, but the UI is slightly misleading.
+3. **Inline buttons on old `/list_full` messages.** After editing, pausing, resuming, or deleting a subscription, older list-manager messages can show old state. Clicking them triggers re-validation against KV, but the UI may be slightly misleading.
 
-4. **No batch operations.** Each subscription in `/list` is a separate message. There is no "Delete all" or multi-select flow.
+4. **No batch operations.** `/list_full` supports one subscription at a time. There is no multi-select edit/delete flow.
 
 5. **No undo.** Deletion is permanent. The confirmation step mitigates accidental clicks, but there is no trash bin or recovery.
 

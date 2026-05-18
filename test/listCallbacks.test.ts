@@ -52,9 +52,7 @@ function createListCallbackContext(
     },
     callbackQuery: {
       data,
-      message: options?.messageDate
-        ? { date: options.messageDate }
-        : undefined,
+      message: options?.messageDate ? { date: options.messageDate } : undefined,
     },
     answerCallbackQuery: vi.fn().mockResolvedValue(undefined),
     editMessageReplyMarkup,
@@ -131,6 +129,70 @@ describe("list manager callbacks", () => {
       source: "listManager",
       page: 3,
     });
+  });
+
+  it("toggles trial flag from the list edit menu", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    await service.create(
+      "user-key",
+      {
+        id: "sub-1",
+        name: "Netflix",
+        price: 12.99,
+        currency: "USD",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-06-01",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const ctx = createListCallbackContext("list:ef:trial:sub-1:0", { kv });
+
+    await listEditFieldCallback(ctx as any);
+
+    const updated = await service.get("user-key", "sub-1", VALID_KEY);
+    expect(updated!.isTrial).toBe(true);
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已标记为体验。");
+    expect(ctx.editMessageText).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggles auto-renew flag from the list edit menu", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    await service.create(
+      "user-key",
+      {
+        id: "sub-1",
+        name: "Netflix",
+        price: 12.99,
+        currency: "USD",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-06-01",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const ctx = createListCallbackContext("list:ef:autorenew:sub-1:0", {
+      kv,
+    });
+
+    await listEditFieldCallback(ctx as any);
+
+    const updated = await service.get("user-key", "sub-1", VALID_KEY);
+    expect(updated!.autoRenew).toBe(false);
+    expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已关闭自动续费。");
+    expect(ctx.editMessageText).toHaveBeenCalledTimes(1);
   });
 });
 

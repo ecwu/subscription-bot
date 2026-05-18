@@ -65,7 +65,7 @@ describe("privacyService", () => {
 
     const exported = await privacyService.exportUserData(userKey, VALID_KEY);
 
-    expect(exported.version).toBe(1);
+    expect(exported.version).toBe(2);
     expect(typeof exported.exportedAt).toBe("string");
     expect(exported.subscriptions).toHaveLength(1);
     expect(exported.subscriptions[0].id).toBe("sub-1");
@@ -211,7 +211,7 @@ describe("privacyService", () => {
       VALID_KEY,
     );
 
-    expect(exported.version).toBe(1);
+    expect(exported.version).toBe(2);
     expect(exported.subscriptions).toHaveLength(0);
   });
 

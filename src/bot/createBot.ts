@@ -207,6 +207,12 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.callbackQuery(/^addpreview:/, async (ctx) => {
     await ctx.answerCallbackQuery("这次预览已过期，请发送 /add 重新开始。");
   });
+  bot.callbackQuery(/^addtrial:/, async (ctx) => {
+    await ctx.answerCallbackQuery("这次选择已过期，请发送 /add 重新开始。");
+  });
+  bot.callbackQuery(/^addrenew:/, async (ctx) => {
+    await ctx.answerCallbackQuery("这次选择已过期，请发送 /add 重新开始。");
+  });
   bot.callbackQuery(/^add:confirm$/, async (ctx) => {
     await ctx.answerCallbackQuery("这次确认已过期，请发送 /add 重新开始。");
   });

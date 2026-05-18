@@ -1,31 +1,41 @@
 # Subscription Bot
 
-A privacy-oriented Telegram bot for managing personal subscription services. Runs on Cloudflare Workers with application-level encryption.
+A privacy-oriented Telegram bot for managing personal subscription services. Runs on Cloudflare Workers, stores data in Cloudflare KV, encrypts sensitive payloads at the application layer, and hashes Telegram user IDs before using them in storage keys.
 
 ## Tech Stack
 
-- **Runtime**: Cloudflare Workers
-- **Language**: TypeScript
+- **Runtime**: Cloudflare Workers (`nodejs_compat`)
+- **Language**: TypeScript (strict)
 - **Telegram SDK**: grammY + @grammyjs/conversations
 - **Storage**: Cloudflare KV
 - **Validation**: Zod
 - **Testing**: Vitest
-- **Crypto**: Web Crypto API
+- **Crypto**: Web Crypto API (AES-GCM, HKDF, HMAC-SHA-256)
+- **Reports**: SVG + resvg PNG rendering
 
 ## Project Structure
 
 ```
 src/
-├── bot/          # Telegram bot setup, commands, conversations, callbacks, keyboards, middleware
-├── handlers/     # Worker fetch/scheduled handlers
-├── services/     # Business logic layer
-├── repositories/ # KV storage access layer
-├── crypto/       # Encryption, hashing, key derivation
-├── models/       # TypeScript type definitions
-├── schemas/      # Zod validation schemas
-├── utils/        # Helpers and utilities
-└── types/        # Shared type definitions
+├── bot/              # Telegram bot setup, commands, conversations, callbacks, keyboards, middleware, KV session storage
+├── handlers/         # Worker fetch/scheduled/health handlers
+├── services/         # Subscription, reminder, report, export, privacy, Telegram API logic
+├── repositories/     # KV storage access layer and config readers
+├── crypto/           # Encryption, hashing, key derivation, master key parsing
+├── models/           # TypeScript type definitions
+├── schemas/          # Zod validation schemas
+├── utils/            # Parsers, formatting, date/math helpers, report rendering
+└── types/            # Shared Env and grammY context types
 ```
+
+## Features
+
+- Add subscriptions interactively or with one-line commands.
+- Track fixed cycles (`weekly`, `monthly`, `quarterly`, `yearly`), manual `custom` cycles, and interval cycles such as `30d`, `4w`, `6m`, `2y`, `every 30 days`, and `每30天`.
+- Mark subscriptions as trial or non-auto-renewing so reports and reminder wording match the real billing state.
+- Pause and resume subscriptions. Paused subscriptions are excluded from reminders, date advancement, and spending reports.
+- View compact lists, paginated inline list management, subscription details, JSON export, PNG reports, and text reports.
+- Send scheduled renewal reminders through Cloudflare Cron Triggers.
 
 ## Development
 
@@ -40,7 +50,7 @@ pnpm dev
 pnpm command:push
 
 # Run tests
-pnpm test
+pnpm test:run
 
 # Type check
 pnpm types:check
@@ -52,6 +62,14 @@ pnpm lint
 pnpm format
 ```
 
+Before merging a code change, run:
+
+```bash
+pnpm types:check
+pnpm test:run
+pnpm lint
+```
+
 ## Environment Variables
 
 | Variable | Required | Format / Notes |
@@ -60,30 +78,35 @@ pnpm format
 | `TELEGRAM_WEBHOOK_SECRET` | Yes | High-entropy random string |
 | `ENCRYPTION_KEY` | Yes | Base64url-encoded 32-byte value |
 | `USER_HASH_SECRET` | Yes | High-entropy random string |
-| `ADMIN_USER_ID` | No | Telegram user ID granted admin privileges (e.g. for future admin-only commands) |
+| `ADMIN_USER_ID` | No | Telegram user ID marked as admin |
 | `APP_ENV` | No | `development` (default), `production`, `test` |
 | `REMINDER_DAYS_AHEAD` | No | Number of days ahead to send renewal reminders (default: 3) |
 
+Secrets belong in `.dev.vars` locally and in Wrangler secrets for production:
+
+```bash
+wrangler secret put BOT_TOKEN
+wrangler secret put TELEGRAM_WEBHOOK_SECRET
+wrangler secret put ENCRYPTION_KEY
+wrangler secret put USER_HASH_SECRET
+```
+
 ## Report Exchange Rates
 
-`/report` generates two PNG reports: current monthly run-rate and current-month
-due spending. Known currencies are converted to CNY using a manually maintained
-KV config item. Seed or update the fixed key `config:exchange-rates:v1` with
-JSON like:
+`/report` generates PNG reports for monthly-equivalent spending, current-month due spending, and future 12-month projected spending. `/report_text` generates a Telegram text version with current-month line items and 12-month projected line items.
+
+Known currencies are converted to CNY using a manually maintained KV config item. Seed or update the fixed key `config:exchange-rates:v1` with JSON like:
 
 ```json
 { "base": "CNY", "rates": { "CNY": 1, "USD": 7.2, "EUR": 7.8 } }
 ```
 
-Missing currencies are shown in the report but are not included in the CNY
-converted total.
+Missing currencies are shown where possible but are not included in converted CNY totals. Paused subscriptions, trial subscriptions, non-auto-renewing subscriptions, custom cycles, and entries without price/currency are excluded from calculated spending totals.
 
 ## Billing Cycles
 
 Subscriptions support fixed cycles (`weekly`, `monthly`, `quarterly`, `yearly`),
-`custom` cycles that do not auto-advance, and interval cycles in days or weeks.
-One-line commands accept examples such as `30d`, `4w`, `every 30 days`,
-`every 4 weeks`, `每30天`, and `每4周`.
+`custom` cycles that do not auto-advance, and interval cycles in days, weeks, months, or years. One-line commands accept examples such as `30d`, `4w`, `6m`, `2y`, `every 30 days`, `every 4 weeks`, `every 6 months`, `每30天`, `每4周`, `每6个月`, and `每2年`.
 
 ### Generating ENCRYPTION_KEY
 
@@ -93,7 +116,7 @@ The master encryption key must be exactly 32 bytes (256 bits), base64url-encoded
 node -e "console.log(Buffer.from(crypto.randomBytes(32)).toString('base64url'))"
 ```
 
-This key is used with HKDF to derive per-user encryption keys. Never commit it to version control.
+This key is used for application-level encryption. KV-backed session data derives a per-session AES-GCM key from it with HKDF. Never commit it to version control.
 
 ## Architecture
 

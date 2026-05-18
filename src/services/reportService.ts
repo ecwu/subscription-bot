@@ -8,6 +8,10 @@ import {
   getPreviousBillingDate,
 } from "../utils/date.js";
 import { formatMoney } from "../utils/money.js";
+import {
+  isAutoRenewing,
+  isTrialSubscription,
+} from "../utils/subscriptionFlags.js";
 
 export const REPORT_BASE_CURRENCY = "CNY";
 
@@ -38,6 +42,8 @@ export interface ReportExcludedCounts {
   noPrice: number;
   noCurrency: number;
   customCycle: number;
+  trial: number;
+  nonRenewing: number;
 }
 
 export interface TextReportSubscriptionItem {
@@ -58,6 +64,8 @@ export interface TextReportData {
   generatedAt: string;
   baseCurrency: string;
   currentMonthKey: string;
+  trialCount: number;
+  nonRenewingCount: number;
   currentMonthItems: TextReportSubscriptionItem[];
   currentMonthTotal: number;
   yearMonthItems: TextReportMonthItems[];
@@ -217,6 +225,8 @@ function buildReportView({
     noPrice: 0,
     noCurrency: 0,
     customCycle: 0,
+    trial: 0,
+    nonRenewing: 0,
   };
 
   let includedCount = 0;
@@ -225,6 +235,16 @@ function buildReportView({
 
   for (const sub of subscriptions) {
     if (sub.status === "paused") {
+      continue;
+    }
+
+    if (isTrialSubscription(sub)) {
+      excluded.trial += 1;
+      continue;
+    }
+
+    if (!isAutoRenewing(sub)) {
+      excluded.nonRenewing += 1;
       continue;
     }
 
@@ -307,6 +327,8 @@ function buildFullMonthDayDistribution(
 
   for (const sub of subscriptions) {
     if (sub.status === "paused") continue;
+    if (isTrialSubscription(sub)) continue;
+    if (!isAutoRenewing(sub)) continue;
     if (sub.price === undefined) continue;
     if (!sub.currency) continue;
     if (sub.billingCycle === "custom") continue;
@@ -380,6 +402,17 @@ function appendReportSection(lines: string[], report: ReportData): void {
     }
   }
 
+  const excludedNotes: string[] = [];
+  if (report.excluded.trial > 0) {
+    excludedNotes.push(`体验 ${report.excluded.trial}`);
+  }
+  if (report.excluded.nonRenewing > 0) {
+    excludedNotes.push(`已停续费 ${report.excluded.nonRenewing}`);
+  }
+  if (excludedNotes.length > 0) {
+    lines.push("", `未计入金额：${excludedNotes.join("，")}`);
+  }
+
   if (report.monthDistribution && report.monthDistribution.length > 0) {
     const nonZeroMonths = report.monthDistribution.filter(
       (item) => item.actualTotal > 0,
@@ -401,7 +434,9 @@ function appendReportSection(lines: string[], report: ReportData): void {
       for (const item of nonZeroDays) {
         const parts: string[] = [];
         if (item.actualTotal > 0) {
-          parts.push(`实际 ${formatMoney(item.actualTotal, report.baseCurrency)}`);
+          parts.push(
+            `实际 ${formatMoney(item.actualTotal, report.baseCurrency)}`,
+          );
         }
         if (item.monthlyEquivalentTotal > 0) {
           parts.push(
@@ -577,6 +612,8 @@ function projectedAmountsByMonth(
   sub: Subscription,
   today: string,
 ): Map<string, number> | null {
+  if (isTrialSubscription(sub)) return null;
+  if (!isAutoRenewing(sub)) return null;
   if (sub.billingCycle === "custom") return null;
   if (sub.price === undefined) return null;
   if (!sub.currency) return null;
@@ -649,10 +686,7 @@ function projectedAmountsByMonth(
   return result.size > 0 ? result : null;
 }
 
-function totalProjectedInYear(
-  sub: Subscription,
-  today: string,
-): number | null {
+function totalProjectedInYear(sub: Subscription, today: string): number | null {
   const amounts = projectedAmountsByMonth(sub, today);
   if (!amounts) return null;
   let total = 0;
@@ -679,6 +713,8 @@ function buildYearMonthDistribution(
 
   for (const sub of subscriptions) {
     if (sub.status === "paused") continue;
+    if (isTrialSubscription(sub)) continue;
+    if (!isAutoRenewing(sub)) continue;
     if (sub.price === undefined) continue;
     if (!sub.currency) continue;
     if (sub.billingCycle === "custom") continue;
@@ -713,10 +749,21 @@ export function buildTextReportData(
   const today = now.toISOString().slice(0, 10);
   const currentMonthKey = today.slice(0, 7);
   const generatedAt = now.toISOString();
+  const trialCount = subscriptions.filter(
+    (sub) => sub.status !== "paused" && isTrialSubscription(sub),
+  ).length;
+  const nonRenewingCount = subscriptions.filter(
+    (sub) =>
+      sub.status !== "paused" &&
+      !isTrialSubscription(sub) &&
+      !isAutoRenewing(sub),
+  ).length;
 
   const currentMonthItems: TextReportSubscriptionItem[] = [];
   for (const sub of subscriptions) {
     if (sub.status === "paused") continue;
+    if (isTrialSubscription(sub)) continue;
+    if (!isAutoRenewing(sub)) continue;
     if (sub.price === undefined) continue;
     if (!sub.currency) continue;
     if (sub.billingCycle === "custom") continue;
@@ -726,8 +773,7 @@ export function buildTextReportData(
 
     const currency = sub.currency.toUpperCase();
     const rate = exchangeRates?.rates[currency];
-    const convertedAmount =
-      rate !== undefined ? sub.price * rate : undefined;
+    const convertedAmount = rate !== undefined ? sub.price * rate : undefined;
 
     currentMonthItems.push({
       name: sub.name,
@@ -763,6 +809,8 @@ export function buildTextReportData(
 
   for (const sub of subscriptions) {
     if (sub.status === "paused") continue;
+    if (isTrialSubscription(sub)) continue;
+    if (!isAutoRenewing(sub)) continue;
     if (sub.price === undefined) continue;
     if (!sub.currency) continue;
     if (sub.billingCycle === "custom") continue;
@@ -815,6 +863,8 @@ export function buildTextReportData(
     generatedAt,
     baseCurrency: REPORT_BASE_CURRENCY,
     currentMonthKey,
+    trialCount,
+    nonRenewingCount,
     currentMonthItems,
     currentMonthTotal,
     yearMonthItems,
@@ -841,8 +891,7 @@ export function formatTextReport(data: TextReportData): string[] {
   const fmtItem = (item: TextReportSubscriptionItem): string => {
     const money = formatMoney(item.amount, item.currency);
     const arrow =
-      item.convertedAmount !== undefined &&
-      item.currency !== data.baseCurrency
+      item.convertedAmount !== undefined && item.currency !== data.baseCurrency
         ? ` → ${formatMoney(item.convertedAmount, data.baseCurrency)}`
         : "";
     const day = item.billingDay !== undefined ? `  ${item.billingDay}日` : "";
@@ -850,6 +899,14 @@ export function formatTextReport(data: TextReportData): string[] {
   };
 
   push(`当月支出 · ${data.currentMonthKey}`);
+  if (data.trialCount > 0 || data.nonRenewingCount > 0) {
+    const notes: string[] = [];
+    if (data.trialCount > 0) notes.push(`体验 ${data.trialCount}`);
+    if (data.nonRenewingCount > 0) {
+      notes.push(`已停续费 ${data.nonRenewingCount}`);
+    }
+    push(`未计入金额：${notes.join("，")}`);
+  }
 
   if (data.currentMonthItems.length === 0) {
     push("暂无扣款");
@@ -861,14 +918,18 @@ export function formatTextReport(data: TextReportData): string[] {
   }
 
   push("───");
-  push(`年度预期 · ${data.currentMonthKey}~${data.yearMonthItems.length > 0 ? data.yearMonthItems[data.yearMonthItems.length - 1].monthKey : data.currentMonthKey}`);
+  push(
+    `年度预期 · ${data.currentMonthKey}~${data.yearMonthItems.length > 0 ? data.yearMonthItems[data.yearMonthItems.length - 1].monthKey : data.currentMonthKey}`,
+  );
 
   let yearHasItems = false;
   for (const month of data.yearMonthItems) {
     if (month.items.length === 0) continue;
     yearHasItems = true;
 
-    push(`${month.monthKey} · ${formatMoney(month.totalConverted, data.baseCurrency)}`);
+    push(
+      `${month.monthKey} · ${formatMoney(month.totalConverted, data.baseCurrency)}`,
+    );
     for (const item of month.items) {
       push(`  ${fmtItem(item)}`);
     }
