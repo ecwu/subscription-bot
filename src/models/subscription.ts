@@ -6,6 +6,8 @@ export type BillingCycle =
   | "custom"
   | "interval";
 
+export type SubscriptionStatus = "active" | "paused";
+
 export interface BillingInterval {
   unit: "day" | "week";
   count: number;
@@ -18,21 +20,23 @@ export interface Subscription {
   currency?: string;
   billingCycle: BillingCycle;
   billingInterval?: BillingInterval;
-  nextBillingDate: string; // ISO 8601 date (YYYY-MM-DD)
-  billingAnchorDay?: number; // Original billing day of month for month-like cycles
+  nextBillingDate: string;
+  billingAnchorDay?: number;
   category?: string;
   note?: string;
+  status: SubscriptionStatus;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface StoredSubscription {
   id: string;
-  encryptedPayload: string; // base64url-encoded encrypted JSON
+  encryptedPayload: string;
   nextBillingDate: string;
   billingCycle: BillingCycle;
   billingInterval?: BillingInterval;
   billingAnchorDay?: number;
+  status: SubscriptionStatus;
   createdAt: string;
   updatedAt: string;
 }

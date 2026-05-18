@@ -34,6 +34,7 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
   const subs = await service.list(ctx.userKey, ctx.env.ENCRYPTION_KEY);
 
   const upcoming = subs
+    .filter((sub) => sub.status !== "paused")
     .filter(
       (sub) => sub.nextBillingDate >= today && sub.nextBillingDate <= maxDate,
     )

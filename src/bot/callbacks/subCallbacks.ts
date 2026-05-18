@@ -4,10 +4,12 @@ import { createSubscriptionRepository } from "../../repositories/subscriptionRep
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { confirmationKeyboard } from "../keyboards/confirmationKeyboard.js";
 import { editMenuKeyboard } from "../keyboards/editMenuKeyboard.js";
+import { subscriptionActionsKeyboard } from "../keyboards/subscriptionActionsKeyboard.js";
 import { createLogger } from "../../utils/logger.js";
 import { parseSubCallbackData } from "../../utils/callbackParser.js";
 import { InlineKeyboard } from "grammy";
-import { formatBillingCycle } from "../../utils/labels.js";
+import { formatBillingCycle, formatStatus } from "../../utils/labels.js";
+import type { Subscription } from "../../models/subscription.js";
 
 async function safeAnswerCallbackQuery(
   ctx: BotContext,
@@ -30,6 +32,21 @@ async function safeEditMessageText(
   } catch {
     // Message may have been deleted or already edited
   }
+}
+
+function formatSubDetails(sub: Subscription): string {
+  const lines: string[] = [`${sub.name}`];
+  if (sub.price !== undefined) {
+    lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
+  }
+  lines.push(
+    `周期：${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
+  );
+  lines.push(`下次扣款：${sub.nextBillingDate}`);
+  lines.push(`状态：${formatStatus(sub.status)}`);
+  if (sub.category) lines.push(`分类：${sub.category}`);
+  if (sub.note) lines.push(`备注：${sub.note}`);
+  return lines.join("\n");
 }
 
 export async function subViewCallback(ctx: BotContext): Promise<void> {
@@ -62,19 +79,9 @@ export async function subViewCallback(ctx: BotContext): Promise<void> {
       return;
     }
 
-    const lines: string[] = [`${sub.name}`];
-    if (sub.price !== undefined) {
-      lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
-    }
-    lines.push(
-      `周期：${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
-    );
-    lines.push(`下次扣款：${sub.nextBillingDate}`);
-    if (sub.category) lines.push(`分类：${sub.category}`);
-    if (sub.note) lines.push(`备注：${sub.note}`);
-
+    const text = formatSubDetails(sub);
     await safeAnswerCallbackQuery(ctx);
-    await safeEditMessageText(ctx, lines.join("\n"));
+    await safeEditMessageText(ctx, text);
 
     logger.info("Viewed subscription via callback", { subId: parsed.subId });
   } catch (error) {
@@ -116,7 +123,7 @@ export async function subEditCallback(ctx: BotContext): Promise<void> {
     }
 
     await safeAnswerCallbackQuery(ctx);
-    await safeEditMessageText(ctx, `要编辑“${sub.name}”的哪一项？`, {
+    await safeEditMessageText(ctx, `要编辑"${sub.name}"的哪一项？`, {
       reply_markup: editMenuKeyboard(parsed.subId),
     });
 
@@ -164,11 +171,79 @@ export async function subDeleteCallback(ctx: BotContext): Promise<void> {
     });
 
     await safeAnswerCallbackQuery(ctx);
-    await safeEditMessageText(ctx, `确认删除“${sub.name}”吗？`, {
+    await safeEditMessageText(ctx, `确认删除"${sub.name}"吗？`, {
       reply_markup: confirmationKeyboard("delete", parsed.subId),
     });
   } catch (error) {
     logger.error("Error in subDeleteCallback", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+  }
+}
+
+export async function subPauseCallback(ctx: BotContext): Promise<void> {
+  const logger = createLogger(ctx.requestId);
+
+  try {
+    if (!ctx.userKey) {
+      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      return;
+    }
+
+    const parsed = parseSubCallbackData(ctx.callbackQuery?.data ?? "");
+    if (!parsed || parsed.action !== "pause") {
+      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      return;
+    }
+
+    const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
+    const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
+    const service = createSubscriptionService(repo, reminderRepo);
+    const sub = await service.pause(
+      ctx.userKey,
+      parsed.subId,
+      ctx.env.ENCRYPTION_KEY,
+    );
+
+    if (!sub) {
+      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+      return;
+    }
+
+    await safeAnswerCallbackQuery(ctx);
+    await safeEditMessageText(ctx, `已暂停"${sub.name}"。`, {
+      reply_markup: subscriptionActionsKeyboard(sub.id, sub.status),
+    });
+
+    logger.info("Subscription paused via callback", { subId: parsed.subId });
+  } catch (error) {
+    logger.error("Error in subPauseCallback", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+  }
+}
+
+export async function subResumeCallback(ctx: BotContext): Promise<void> {
+  const logger = createLogger(ctx.requestId);
+
+  try {
+    if (!ctx.userKey) {
+      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      return;
+    }
+
+    const parsed = parseSubCallbackData(ctx.callbackQuery?.data ?? "");
+    if (!parsed || parsed.action !== "resume") {
+      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      return;
+    }
+
+    await safeAnswerCallbackQuery(ctx);
+    await ctx.conversation.enter("resume", parsed.subId);
+  } catch (error) {
+    logger.error("Error in subResumeCallback", {
       error: error instanceof Error ? error.message : String(error),
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");

@@ -19,11 +19,14 @@ import { deleteMeCommand } from "./commands/deleteMe.js";
 import { remindersCommand } from "./commands/reminders.js";
 import { debugMeCommand } from "./commands/debugMe.js";
 import { cancelCommand } from "./commands/cancel.js";
+import { pauseCommand } from "./commands/pause.js";
+import { resumeCommand } from "./commands/resume.js";
 import { addConversation } from "./conversations/addConversation.js";
 import {
   editFieldConversation,
   editCycleConversation,
 } from "./conversations/editFieldConversation.js";
+import { resumeConversation } from "./conversations/resumeConversation.js";
 import {
   deleteConfirmCallback,
   deleteCancelCallback,
@@ -36,6 +39,8 @@ import {
   subViewCallback,
   subEditCallback,
   subDeleteCallback,
+  subPauseCallback,
+  subResumeCallback,
 } from "./callbacks/subCallbacks.js";
 import {
   editFieldCallback,
@@ -86,6 +91,12 @@ export function createBot(env: Env): Bot<BotContext> {
       "editCycle",
     ),
   );
+  bot.use(
+    createConversation<BotContext, BaseBotContext>(
+      resumeConversation,
+      "resume",
+    ),
+  );
 
   // Commands
   bot.command("start", startCommand);
@@ -101,6 +112,8 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.command("delete_me", deleteMeCommand);
   bot.command("reminders", remindersCommand);
   bot.command("cancel", cancelCommand);
+  bot.command("pause", pauseCommand);
+  bot.command("resume", resumeCommand);
 
   // Dev-only commands
   if (env.APP_ENV !== "production") {
@@ -115,6 +128,8 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.callbackQuery(/^sub:view:/, subViewCallback);
   bot.callbackQuery(/^sub:edit:/, subEditCallback);
   bot.callbackQuery(/^sub:delete:/, subDeleteCallback);
+  bot.callbackQuery(/^sub:pause:/, subPauseCallback);
+  bot.callbackQuery(/^sub:resume:/, subResumeCallback);
 
   // Edit field callbacks
   bot.callbackQuery(/^edit:name:/, editFieldCallback);

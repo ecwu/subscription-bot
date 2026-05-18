@@ -3,14 +3,14 @@ import { createSubscriptionService } from "../../services/subscriptionService.js
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createLogger } from "../../utils/logger.js";
-import { formatBillingCycle, formatStatus } from "../../utils/labels.js";
+import { formatStatus } from "../../utils/labels.js";
 
-export async function viewCommand(ctx: BotContext): Promise<void> {
+export async function pauseCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
 
   if (!ctx.userKey) {
     await ctx.reply("无法识别用户，请稍后再试。");
-    logger.warn("View command without userKey");
+    logger.warn("Pause command without userKey");
     return;
   }
 
@@ -18,7 +18,7 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
   const args = text.trim().split(/\s+/);
 
   if (args.length < 2) {
-    await ctx.reply("用法：/view <id>\n发送 /list 查看你的订阅。");
+    await ctx.reply("用法：/pause <id>\n发送 /list 查看你的订阅。");
     return;
   }
 
@@ -44,7 +44,7 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const sub = await service.get(
+  const sub = await service.pause(
     ctx.userKey,
     resolved.id,
     ctx.env.ENCRYPTION_KEY,
@@ -55,30 +55,9 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const lines: string[] = [`${sub.name}`];
-
-  if (sub.price !== undefined) {
-    lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
-  }
-
-  lines.push(
-    `周期：${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
+  await ctx.reply(
+    `已暂停"${sub.name}"。\n状态：${formatStatus(sub.status)}\n\n发送 /resume <id> 恢复订阅。`,
   );
-  lines.push(`下次扣款：${sub.nextBillingDate}`);
-  lines.push(`状态：${formatStatus(sub.status)}`);
 
-  if (sub.category) {
-    lines.push(`分类：${sub.category}`);
-  }
-
-  if (sub.note) {
-    lines.push(`备注：${sub.note}`);
-  }
-
-  await ctx.reply(lines.join("\n"));
-
-  logger.info("Viewed subscription", {
-    subId: resolved.id,
-    // Do not log subscription details
-  });
+  logger.info("Subscription paused", { subId: resolved.id });
 }

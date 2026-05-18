@@ -26,11 +26,15 @@ async function listSubscriptions(
   const service = createSubscriptionService(repo, reminderRepo);
 
   const subs = await service.list(ctx.userKey, ctx.env.ENCRYPTION_KEY);
-  return subs.sort(
-    (a, b) =>
+  return subs.sort((a, b) => {
+    const statusA = a.status === "paused" ? 1 : 0;
+    const statusB = b.status === "paused" ? 1 : 0;
+    if (statusA !== statusB) return statusA - statusB;
+    return (
       new Date(a.nextBillingDate).getTime() -
-      new Date(b.nextBillingDate).getTime(),
-  );
+      new Date(b.nextBillingDate).getTime()
+    );
+  });
 }
 
 function buildListMessages(header: string, lines: string[]): string[] {
@@ -101,7 +105,7 @@ export async function listFullCommand(ctx: BotContext): Promise<void> {
     const sub = subs[i];
     const line = formatSubscriptionFullLine(sub, i);
     await ctx.reply(line, {
-      reply_markup: subscriptionActionsKeyboard(sub.id),
+      reply_markup: subscriptionActionsKeyboard(sub.id, sub.status),
     });
   }
 

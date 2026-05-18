@@ -10,6 +10,8 @@ export const billingCycleSchema = z.enum([
   "interval",
 ]) satisfies z.ZodType<BillingCycle>;
 
+export const subscriptionStatusSchema = z.enum(["active", "paused"]);
+
 export const billingIntervalSchema = z.discriminatedUnion("unit", [
   z.object({
     unit: z.literal("day"),
@@ -32,6 +34,7 @@ export const subscriptionInputSchema = z
     billingAnchorDay: z.number().int().min(1).max(31).optional(),
     category: z.string().max(50).optional(),
     note: z.string().max(500).optional(),
+    status: subscriptionStatusSchema,
   })
   .superRefine((value, ctx) => {
     if (value.billingCycle === "interval" && !value.billingInterval) {

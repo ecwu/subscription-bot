@@ -1,6 +1,10 @@
 import { SubscriptionRepository } from "../repositories/subscriptionRepository.js";
 import { ReminderRepository } from "../repositories/reminderRepository.js";
-import { Subscription, StoredSubscription } from "../models/subscription.js";
+import {
+  Subscription,
+  StoredSubscription,
+  SubscriptionStatus,
+} from "../models/subscription.js";
 import {
   encrypt,
   decrypt,
@@ -9,6 +13,8 @@ import {
 } from "../crypto/encryption.js";
 import { shortId } from "../utils/shortId.js";
 import { getBillingAnchorDay, getNextBillingDate } from "../utils/date.js";
+
+const DEFAULT_STATUS: SubscriptionStatus = "active";
 
 export type ResolveResult =
   | { kind: "found"; id: string }
@@ -32,6 +38,17 @@ export interface SubscriptionService {
     sub: Subscription,
     encryptionKey: string,
   ): Promise<void>;
+  pause(
+    userKey: string,
+    subId: string,
+    encryptionKey: string,
+  ): Promise<Subscription | null>;
+  resume(
+    userKey: string,
+    subId: string,
+    encryptionKey: string,
+    nextBillingDate?: string,
+  ): Promise<Subscription | null>;
   advancePastDue(
     userKey: string,
     subId: string,
@@ -45,6 +62,13 @@ export interface SubscriptionService {
     inputId: string,
     encryptionKey: string,
   ): Promise<ResolveResult>;
+}
+
+function normalizeStatus(sub: Subscription): Subscription {
+  return {
+    ...sub,
+    status: sub.status ?? DEFAULT_STATUS,
+  };
 }
 
 export function createSubscriptionService(
@@ -65,7 +89,9 @@ export function createSubscriptionService(
   ): Promise<Subscription> {
     const encrypted = parseEncryptedPayload(stored.encryptedPayload);
     const decrypted = await decrypt(encrypted, encryptionKey);
-    return withBillingAnchorDay(JSON.parse(decrypted));
+    const parsed = JSON.parse(decrypted) as Subscription;
+    const normalized = normalizeStatus(parsed);
+    return withBillingAnchorDay(normalized);
   }
 
   return {
@@ -74,23 +100,30 @@ export function createSubscriptionService(
       sub: Subscription,
       encryptionKey: string,
     ): Promise<void> {
+      const normalizedSub = normalizeStatus(sub);
       const billingAnchorDay =
-        sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
-      const normalizedSub = { ...sub, billingAnchorDay };
-      const normalizedPayload = JSON.stringify(normalizedSub);
-      const encrypted = await encrypt(normalizedPayload, encryptionKey);
+        normalizedSub.billingAnchorDay ??
+        getBillingAnchorDay(normalizedSub.nextBillingDate);
+      const finalSub = { ...normalizedSub, billingAnchorDay };
+      const payload = JSON.stringify(finalSub);
+      const encrypted = await encrypt(payload, encryptionKey);
       const stored: StoredSubscription = {
-        id: sub.id,
+        id: finalSub.id,
         encryptedPayload: serializeEncryptedPayload(encrypted),
-        nextBillingDate: sub.nextBillingDate,
-        billingCycle: sub.billingCycle,
-        billingInterval: sub.billingInterval,
+        nextBillingDate: finalSub.nextBillingDate,
+        billingCycle: finalSub.billingCycle,
+        billingInterval: finalSub.billingInterval,
         billingAnchorDay,
-        createdAt: sub.createdAt,
-        updatedAt: sub.updatedAt,
+        status: finalSub.status,
+        createdAt: finalSub.createdAt,
+        updatedAt: finalSub.updatedAt,
       };
       await repo.save(userKey, stored);
-      await reminderRepo.addEntry(sub.nextBillingDate, userKey, sub.id);
+      await reminderRepo.addEntry(
+        finalSub.nextBillingDate,
+        userKey,
+        finalSub.id,
+      );
     },
 
     async list(
@@ -122,35 +155,86 @@ export function createSubscriptionService(
       sub: Subscription,
       encryptionKey: string,
     ): Promise<void> {
-      // Load the old stored version to know the previous nextBillingDate
       const oldStored = await repo.get(userKey, sub.id);
 
+      const normalizedSub = normalizeStatus(sub);
       const billingAnchorDay =
-        sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
-      const normalizedSub = { ...sub, billingAnchorDay };
-      const payload = JSON.stringify(normalizedSub);
+        normalizedSub.billingAnchorDay ??
+        getBillingAnchorDay(normalizedSub.nextBillingDate);
+      const finalSub = { ...normalizedSub, billingAnchorDay };
+      const payload = JSON.stringify(finalSub);
       const encrypted = await encrypt(payload, encryptionKey);
       const stored: StoredSubscription = {
-        id: sub.id,
+        id: finalSub.id,
         encryptedPayload: serializeEncryptedPayload(encrypted),
-        nextBillingDate: sub.nextBillingDate,
-        billingCycle: sub.billingCycle,
-        billingInterval: sub.billingInterval,
+        nextBillingDate: finalSub.nextBillingDate,
+        billingCycle: finalSub.billingCycle,
+        billingInterval: finalSub.billingInterval,
         billingAnchorDay,
-        createdAt: sub.createdAt,
-        updatedAt: sub.updatedAt,
+        status: finalSub.status,
+        createdAt: finalSub.createdAt,
+        updatedAt: finalSub.updatedAt,
       };
       await repo.save(userKey, stored);
 
-      // Best-effort: update reminder index when billing date changes
-      if (oldStored && oldStored.nextBillingDate !== sub.nextBillingDate) {
+      if (oldStored && oldStored.nextBillingDate !== finalSub.nextBillingDate) {
         await reminderRepo.removeEntry(
           oldStored.nextBillingDate,
           userKey,
-          sub.id,
+          finalSub.id,
         );
-        await reminderRepo.addEntry(sub.nextBillingDate, userKey, sub.id);
+        if (finalSub.status === "active") {
+          await reminderRepo.addEntry(
+            finalSub.nextBillingDate,
+            userKey,
+            finalSub.id,
+          );
+        }
       }
+    },
+
+    async pause(
+      userKey: string,
+      subId: string,
+      encryptionKey: string,
+    ): Promise<Subscription | null> {
+      const sub = await this.get(userKey, subId, encryptionKey);
+      if (!sub) return null;
+      if (sub.status === "paused") return sub;
+
+      const now = new Date().toISOString();
+      const updated: Subscription = { ...sub, status: "paused", updatedAt: now };
+      await this.update(userKey, updated, encryptionKey);
+
+      await reminderRepo.removeEntry(sub.nextBillingDate, userKey, subId);
+
+      return updated;
+    },
+
+    async resume(
+      userKey: string,
+      subId: string,
+      encryptionKey: string,
+      nextBillingDate?: string,
+    ): Promise<Subscription | null> {
+      const sub = await this.get(userKey, subId, encryptionKey);
+      if (!sub) return null;
+      if (sub.status === "active") return sub;
+
+      const now = new Date().toISOString();
+      const newDate = nextBillingDate ?? sub.nextBillingDate;
+      const updated: Subscription = {
+        ...sub,
+        status: "active",
+        nextBillingDate: newDate,
+        billingAnchorDay: getBillingAnchorDay(newDate),
+        updatedAt: now,
+      };
+      await this.update(userKey, updated, encryptionKey);
+
+      await reminderRepo.addEntry(newDate, userKey, subId);
+
+      return updated;
     },
 
     async advancePastDue(
@@ -161,6 +245,8 @@ export function createSubscriptionService(
     ): Promise<Subscription | null> {
       const sub = await this.get(userKey, subId, encryptionKey);
       if (!sub) return null;
+      if (sub.status === "paused") return sub;
+
       if (sub.nextBillingDate > today) return sub;
 
       let nextBillingDate = sub.nextBillingDate;
@@ -218,13 +304,11 @@ export function createSubscriptionService(
     ): Promise<ResolveResult> {
       const allSubs = await this.list(userKey, encryptionKey);
 
-      // Exact match wins
       const exact = allSubs.find((s) => s.id === inputId);
       if (exact) {
         return { kind: "found", id: exact.id };
       }
 
-      // Prefix match on short ID
       const matches = allSubs.filter((s) => shortId(s.id) === inputId);
       if (matches.length === 1) {
         return { kind: "found", id: matches[0].id };
@@ -236,7 +320,6 @@ export function createSubscriptionService(
         };
       }
 
-      // Also try prefix match on full ID (user typed partial UUID)
       const prefixMatches = allSubs.filter((s) => s.id.startsWith(inputId));
       if (prefixMatches.length === 1) {
         return { kind: "found", id: prefixMatches[0].id };

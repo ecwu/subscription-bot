@@ -158,6 +158,10 @@ function buildReportView({
   let totalBase = 0;
 
   for (const sub of subscriptions) {
+    if (sub.status === "paused") {
+      continue;
+    }
+
     if (sub.price === undefined) {
       excluded.noPrice += 1;
       continue;

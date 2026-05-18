@@ -51,6 +51,7 @@ export async function addCommand(ctx: BotContext): Promise<void> {
     billingCycle: parsed.billingCycle,
     billingInterval: parsed.billingInterval,
     nextBillingDate: parsed.nextBillingDate,
+    status: "active",
     createdAt: now,
     updatedAt: now,
   };

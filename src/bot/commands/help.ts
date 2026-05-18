@@ -12,6 +12,8 @@ export async function helpCommand(ctx: BotContext): Promise<void> {
       "/list_full — 查看带操作按钮的完整订阅列表\n" +
       "/view <id> — 查看订阅详情（短 ID 或完整 ID）\n" +
       "/edit <id> date|price|cycle <值> — 修改订阅，周期支持 30d/4w\n" +
+      "/pause <id> — 暂停订阅（不再提醒和扣款推进）\n" +
+      "/resume <id> — 恢复订阅（可确认或修改下次扣款日期）\n" +
       "/delete <id> — 删除订阅（短 ID 或完整 ID）\n" +
       "/reminders — 查看近期即将扣款的订阅\n\n" +
       "/report — 生成月度订阅支出报告\n\n" +

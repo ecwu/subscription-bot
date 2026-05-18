@@ -30,7 +30,7 @@ export function parseDeleteCallbackData(
 }
 
 export interface SubCallbackData {
-  action: "view" | "edit" | "delete";
+  action: "view" | "edit" | "delete" | "pause" | "resume";
   subId: string;
 }
 
@@ -41,6 +41,8 @@ export interface SubCallbackData {
  *   sub:view:<subId>
  *   sub:edit:<subId>
  *   sub:delete:<subId>
+ *   sub:pause:<subId>
+ *   sub:resume:<subId>
  */
 export function parseSubCallbackData(
   callbackData: string,
@@ -50,7 +52,8 @@ export function parseSubCallbackData(
   const rest = callbackData.slice(prefix.length);
   const [action, ...subIdParts] = rest.split(":");
   const subId = subIdParts.join(":");
-  if (!subId || !["view", "edit", "delete"].includes(action)) return null;
+  if (!subId || !["view", "edit", "delete", "pause", "resume"].includes(action))
+    return null;
   return { action: action as SubCallbackData["action"], subId };
 }
 

@@ -578,6 +578,7 @@ export async function addConversation(
     billingInterval,
     nextBillingDate,
     billingAnchorDay: getBillingAnchorDay(nextBillingDate),
+    status: "active",
     createdAt: now,
     updatedAt: now,
   };

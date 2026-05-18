@@ -70,6 +70,16 @@ export function createReminderService(
           const encryptedSub = parseEncryptedPayload(stored.encryptedPayload);
           const decryptedSub = await decrypt(encryptedSub, env.ENCRYPTION_KEY);
           const sub: Subscription = JSON.parse(decryptedSub);
+          const status = sub.status ?? "active";
+
+          // 2b. Skip paused subscriptions
+          if (status === "paused") {
+            log("info", "Skipping reminder: subscription paused", {
+              date,
+              subId: entry.subscriptionId,
+            });
+            continue;
+          }
 
           // 3. Load user profile and decrypt chatId
           const userProfile = await userRepo.getUserProfile(
