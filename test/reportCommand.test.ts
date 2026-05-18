@@ -137,7 +137,7 @@ describe("reportCommand", () => {
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(text).toContain("订阅支出报告");
-    expect(text).toContain("当前月度支出");
+    expect(text).toContain("月度摊平支出");
     expect(text).toContain("当月支出");
     expect(text).not.toContain("Very Private Name");
   });

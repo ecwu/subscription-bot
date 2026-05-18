@@ -18,7 +18,8 @@ export interface ReportCurrencySummary {
 
 export interface ReportDayDistribution {
   day: number;
-  convertedTotal: number;
+  actualTotal: number;
+  monthlyEquivalentTotal: number;
 }
 
 export interface ReportExcludedCounts {
@@ -92,15 +93,21 @@ export function buildReportData(
   now: Date = new Date(),
 ): SplitReportData {
   const generatedAt = now.toISOString();
+  const dayDistribution = buildFullMonthDayDistribution(
+    subscriptions,
+    exchangeRates,
+    now,
+  );
   const currentMonthly = buildReportView({
-    title: "当前月度支出",
-    totalLabel: "月度等值支出",
-    chartTitle: "扣款日分布",
-    chartSubtitle: "按次扣款日汇总的月度等值支出",
+    title: "月度摊平支出",
+    totalLabel: "月度摊平支出",
+    chartTitle: "月度摊平分布",
+    chartSubtitle: "按扣款日汇总的月度摊平支出",
     subscriptions,
     exchangeRates,
     now,
     amountForSubscription: monthlyAmountIfCurrentlyActive,
+    dayDistribution,
   });
   const currentMonthDue = buildReportView({
     title: "当月支出",
@@ -111,6 +118,7 @@ export function buildReportData(
     exchangeRates,
     now,
     amountForSubscription: actualAmountIfDueThisMonth,
+    dayDistribution,
   });
 
   return {
@@ -131,6 +139,7 @@ interface BuildReportViewOptions {
   exchangeRates: ExchangeRateConfig | null;
   now: Date;
   amountForSubscription: (sub: Subscription, today: string) => number | null;
+  dayDistribution: ReportDayDistribution[];
 }
 
 function buildReportView({
@@ -142,10 +151,10 @@ function buildReportView({
   exchangeRates,
   now,
   amountForSubscription,
+  dayDistribution,
 }: BuildReportViewOptions): ReportData {
   const today = now.toISOString().slice(0, 10);
   const byCurrency = new Map<string, ReportCurrencySummary>();
-  const distribution = new Map<number, number>();
   const missingRateCurrencies = new Set<string>();
   const excluded: ReportExcludedCounts = {
     noPrice: 0,
@@ -201,9 +210,6 @@ function buildReportView({
       summary.convertedTotal = (summary.convertedTotal ?? 0) + converted;
       totalBase += converted;
       convertedCount += 1;
-
-      const day = getBillingDay(sub.nextBillingDate);
-      distribution.set(day, (distribution.get(day) ?? 0) + converted);
     }
 
     byCurrency.set(currency, summary);
@@ -223,12 +229,60 @@ function buildReportView({
     byCurrency: Array.from(byCurrency.values()).sort((a, b) =>
       a.currency.localeCompare(b.currency),
     ),
-    dayDistribution: Array.from(distribution.entries())
-      .map(([day, convertedTotal]) => ({ day, convertedTotal }))
-      .sort((a, b) => a.day - b.day),
+    dayDistribution,
     missingRateCurrencies: Array.from(missingRateCurrencies).sort(),
     excluded,
   };
+}
+
+function buildFullMonthDayDistribution(
+  subscriptions: Subscription[],
+  exchangeRates: ExchangeRateConfig | null,
+  now: Date,
+): ReportDayDistribution[] {
+  const today = now.toISOString().slice(0, 10);
+  const year = Number(today.slice(0, 4));
+  const month = Number(today.slice(5, 7));
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  const actualByDay = new Map<number, number>();
+  const monthlyByDay = new Map<number, number>();
+
+  for (const sub of subscriptions) {
+    if (sub.status === "paused") continue;
+    if (sub.price === undefined) continue;
+    if (!sub.currency) continue;
+    if (sub.billingCycle === "custom") continue;
+
+    const currency = sub.currency.toUpperCase();
+    const rate = exchangeRates?.rates[currency];
+    if (rate === undefined) continue;
+
+    const day = getBillingDay(sub.nextBillingDate);
+
+    const monthlyAmount = monthlyAmountIfCurrentlyActive(sub, today);
+    if (monthlyAmount !== null) {
+      monthlyByDay.set(
+        day,
+        (monthlyByDay.get(day) ?? 0) + monthlyAmount * rate,
+      );
+    }
+
+    const actualAmount = actualAmountIfDueThisMonth(sub, today);
+    if (actualAmount !== null) {
+      actualByDay.set(day, (actualByDay.get(day) ?? 0) + actualAmount * rate);
+    }
+  }
+
+  const distribution: ReportDayDistribution[] = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    distribution.push({
+      day,
+      actualTotal: actualByDay.get(day) ?? 0,
+      monthlyEquivalentTotal: monthlyByDay.get(day) ?? 0,
+    });
+  }
+  return distribution;
 }
 
 export function formatReportText(report: SplitReportData): string {
@@ -264,14 +318,23 @@ function appendReportSection(lines: string[], report: ReportData): void {
     }
   }
 
-  if (report.dayDistribution.length > 0) {
+  const nonZeroDays = report.dayDistribution.filter(
+    (item) => item.actualTotal > 0 || item.monthlyEquivalentTotal > 0,
+  );
+  if (nonZeroDays.length > 0) {
     lines.push("", "按扣款日分布：");
-    for (const item of report.dayDistribution) {
+    for (const item of nonZeroDays) {
+      const parts: string[] = [];
+      if (item.actualTotal > 0) {
+        parts.push(`实际 ${formatMoney(item.actualTotal, report.baseCurrency)}`);
+      }
+      if (item.monthlyEquivalentTotal > 0) {
+        parts.push(
+          `等值 ${formatMoney(item.monthlyEquivalentTotal, report.baseCurrency)}`,
+        );
+      }
       lines.push(
-        `- ${String(item.day).padStart(2, "0")} 日：${formatMoney(
-          item.convertedTotal,
-          report.baseCurrency,
-        )}`,
+        `- ${String(item.day).padStart(2, "0")} 日：${parts.join("，")}`,
       );
     }
   }

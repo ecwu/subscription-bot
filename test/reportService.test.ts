@@ -221,7 +221,7 @@ describe("buildReportData", () => {
     });
   });
 
-  it("aggregates converted monthly totals by next billing day", () => {
+  it("builds a full current-month day distribution with both totals", () => {
     const report = buildReportData(
       [
         sub({
@@ -253,13 +253,57 @@ describe("buildReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(report.currentMonthly.dayDistribution).toEqual([
-      { day: 1, convertedTotal: 210 },
-      { day: 15, convertedTotal: 40 },
-    ]);
+    // May has 31 days
+    expect(report.currentMonthly.dayDistribution).toHaveLength(31);
+    expect(report.currentMonthDue.dayDistribution).toHaveLength(31);
+
+    // Both views share the same full-month distribution
+    expect(report.currentMonthly.dayDistribution).toEqual(
+      report.currentMonthDue.dayDistribution,
+    );
+
+    const day1 = report.currentMonthly.dayDistribution.find(
+      (item) => item.day === 1,
+    )!;
+    expect(day1.monthlyEquivalentTotal).toBeCloseTo(210);
+    expect(day1.actualTotal).toBe(0);
+
+    const day15 = report.currentMonthly.dayDistribution.find(
+      (item) => item.day === 15,
+    )!;
+    expect(day15.monthlyEquivalentTotal).toBeCloseTo(40);
+    expect(day15.actualTotal).toBe(0);
+
+    // Zero-total days exist
+    const day10 = report.currentMonthly.dayDistribution.find(
+      (item) => item.day === 10,
+    )!;
+    expect(day10.monthlyEquivalentTotal).toBe(0);
+    expect(day10.actualTotal).toBe(0);
   });
 
-  it("calculates current-month due spending with actual payment amounts", () => {
+  it("handles February month length correctly", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "feb",
+          price: 10,
+          currency: "USD",
+          nextBillingDate: "2026-02-20",
+        }),
+      ],
+      rates,
+      new Date("2026-02-15T00:00:00.000Z"),
+    );
+
+    expect(report.currentMonthly.dayDistribution).toHaveLength(28);
+    const day20 = report.currentMonthly.dayDistribution.find(
+      (item) => item.day === 20,
+    )!;
+    expect(day20.monthlyEquivalentTotal).toBeCloseTo(70);
+  });
+
+  it("allows actual and monthly-equivalent totals to coexist on the same day", () => {
     const report = buildReportData(
       [
         sub({
@@ -288,6 +332,32 @@ describe("buildReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
+    // May has 31 days
+    expect(report.currentMonthly.dayDistribution).toHaveLength(31);
+    expect(report.currentMonthDue.dayDistribution).toHaveLength(31);
+
+    // Day 20: yearly due in May + active
+    const day20 = report.currentMonthDue.dayDistribution.find(
+      (item) => item.day === 20,
+    )!;
+    expect(day20.actualTotal).toBeCloseTo(120 * 7);
+    expect(day20.monthlyEquivalentTotal).toBeCloseTo(10 * 7);
+
+    // Day 31: quarterly due in May + active
+    const day31 = report.currentMonthDue.dayDistribution.find(
+      (item) => item.day === 31,
+    )!;
+    expect(day31.actualTotal).toBeCloseTo(30 * 8);
+    expect(day31.monthlyEquivalentTotal).toBeCloseTo(10 * 8);
+
+    // Day 1: next-month subscription is active but not due in May
+    const day1 = report.currentMonthDue.dayDistribution.find(
+      (item) => item.day === 1,
+    )!;
+    expect(day1.actualTotal).toBe(0);
+    expect(day1.monthlyEquivalentTotal).toBeCloseTo(10 * 7);
+
+    // Current report totals remain unchanged
     expect(report.currentMonthDue.includedCount).toBe(2);
     expect(report.currentMonthDue.totalBase).toBe(120 * 7 + 30 * 8);
     expect(report.currentMonthDue.byCurrency).toEqual([
@@ -318,7 +388,7 @@ describe("buildReportData", () => {
 
     const text = formatReportText(report);
     expect(text).toContain("订阅支出报告");
-    expect(text).toContain("当前月度支出");
+    expect(text).toContain("月度摊平支出");
     expect(text).toContain("当月支出");
     expect(text).not.toContain("Private Service");
   });
