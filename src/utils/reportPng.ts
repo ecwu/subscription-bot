@@ -1,5 +1,7 @@
 import type { ReportData } from "../services/reportService.js";
 import { buildReportSvg } from "./reportSvg.js";
+import notoSansSc106Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-106-700-normal.woff2";
+import notoSansSc106Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-106-400-normal.woff2";
 import notoSansSc113Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-113-700-normal.woff2";
 import notoSansSc113Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-113-400-normal.woff2";
 import notoSansSc114Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-114-700-normal.woff2";
@@ -30,6 +32,8 @@ export async function renderReportPng(report: ReportData): Promise<Uint8Array> {
       fontBuffers: [
         toFontBuffer(notoSansScLatinRegular),
         toFontBuffer(notoSansScLatinBold),
+        toFontBuffer(notoSansSc106Regular),
+        toFontBuffer(notoSansSc106Bold),
         toFontBuffer(notoSansSc113Regular),
         toFontBuffer(notoSansSc113Bold),
         toFontBuffer(notoSansSc114Regular),

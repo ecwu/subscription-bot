@@ -34,7 +34,7 @@ function getLastDayOfMonth(year: number, monthIndex: number): number {
   return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
 }
 
-function addMonthsAnchored(
+export function addMonthsAnchored(
   dateStr: string,
   months: number,
   billingAnchorDay: number,
@@ -71,6 +71,32 @@ export function getNextBillingDate(
   }
   if (billingCycle === "yearly") {
     return addMonthsAnchored(currentDate, 12, billingAnchorDay);
+  }
+  return null;
+}
+
+export function getPreviousBillingDate(
+  currentDate: string,
+  billingCycle: BillingCycle,
+  billingAnchorDay: number,
+  billingInterval?: BillingInterval,
+): string | null {
+  if (billingCycle === "interval") {
+    if (!billingInterval) return null;
+    if (billingInterval.unit === "day") {
+      return addDays(currentDate, -billingInterval.count);
+    }
+    return addDays(currentDate, -(billingInterval.count * 7));
+  }
+  if (billingCycle === "weekly") return addDays(currentDate, -7);
+  if (billingCycle === "monthly") {
+    return addMonthsAnchored(currentDate, -1, billingAnchorDay);
+  }
+  if (billingCycle === "quarterly") {
+    return addMonthsAnchored(currentDate, -3, billingAnchorDay);
+  }
+  if (billingCycle === "yearly") {
+    return addMonthsAnchored(currentDate, -12, billingAnchorDay);
   }
   return null;
 }

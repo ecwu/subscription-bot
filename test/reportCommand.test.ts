@@ -119,8 +119,8 @@ describe("reportCommand", () => {
 
     await reportCommand(ctx);
 
-    expect(renderReportPngMock).toHaveBeenCalledTimes(2);
-    expect(ctx.replyWithPhoto).toHaveBeenCalledTimes(2);
+    expect(renderReportPngMock).toHaveBeenCalledTimes(3);
+    expect(ctx.replyWithPhoto).toHaveBeenCalledTimes(3);
     expect(ctx.reply).not.toHaveBeenCalled();
   });
 
@@ -139,6 +139,7 @@ describe("reportCommand", () => {
     expect(text).toContain("订阅支出报告");
     expect(text).toContain("月度摊平支出");
     expect(text).toContain("当月支出");
+    expect(text).toContain("年度预期支出");
     expect(text).not.toContain("Very Private Name");
   });
 
@@ -152,7 +153,7 @@ describe("reportCommand", () => {
 
     await reportCommand(ctx);
 
-    expect(renderReportPngMock).toHaveBeenCalledTimes(2);
+    expect(renderReportPngMock).toHaveBeenCalledTimes(3);
     expect(ctx.replyWithPhoto).toHaveBeenCalledTimes(1);
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     expect((ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0]).toContain(

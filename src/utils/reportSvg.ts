@@ -7,6 +7,8 @@ const CHART_X = 80;
 const CHART_Y = 390;
 const CHART_WIDTH = 1040;
 const CHART_HEIGHT = 260;
+const BAR_LABEL_TOP_PADDING = 28;
+const BAR_MAX_HEIGHT = CHART_HEIGHT - BAR_LABEL_TOP_PADDING;
 
 const COLORS = {
   ink: "#162326",
@@ -25,88 +27,141 @@ const COLORS = {
 
 export function buildReportSvg(report: ReportData): string {
   const isMonthlyView = report.title === "月度摊平支出";
+  const isYearView = report.monthDistribution !== undefined;
 
-  const maxDistribution = Math.max(
-    ...report.dayDistribution.map((item) =>
-      isMonthlyView
-        ? item.actualTotal + item.monthlyEquivalentTotal
-        : item.actualTotal,
-    ),
-    1,
-  );
-  const barStep = Math.floor(
-    CHART_WIDTH / Math.max(report.dayDistribution.length, 1),
-  );
-  const barWidth = Math.min(40, Math.max(10, barStep - 6));
-  const daysInMonth = report.dayDistribution.length;
+  let bars = "";
+  let chartEmpty = true;
+  let legendItems = "";
 
-  const bars = report.dayDistribution
-    .map((item, index) => {
-      const monthlyH =
-        isMonthlyView && item.monthlyEquivalentTotal > 0
-          ? Math.max(
-              2,
-              (item.monthlyEquivalentTotal / maxDistribution) *
-                CHART_HEIGHT,
-            )
-          : 0;
-      const actualH =
-        item.actualTotal > 0
-          ? Math.max(
-              2,
-              (item.actualTotal / maxDistribution) * CHART_HEIGHT,
-            )
-          : 0;
+  if (isYearView && report.monthDistribution) {
+    const monthData = report.monthDistribution;
+    const maxDistribution = Math.max(
+      ...monthData.map((item) => item.actualTotal),
+      1,
+    );
+    const barStep = Math.floor(CHART_WIDTH / Math.max(monthData.length, 1));
+    const barWidth = Math.min(70, Math.max(16, barStep - 12));
 
-      const x = CHART_X + index * barStep + (barStep - barWidth) / 2;
-      const monthlyY = CHART_Y + CHART_HEIGHT - monthlyH;
-      const actualY = monthlyY - actualH;
+    bars = monthData
+      .map((item, index) => {
+        const actualH =
+          item.actualTotal > 0
+            ? Math.max(
+                2,
+                (item.actualTotal / maxDistribution) * BAR_MAX_HEIGHT,
+              )
+            : 0;
 
-      const monthlyRect =
-        monthlyH > 0
-          ? `<rect x="${x}" y="${monthlyY.toFixed(1)}" width="${barWidth}" height="${monthlyH.toFixed(1)}" rx="3" fill="${COLORS.teal}"/>`
-          : "";
-      const actualRect =
-        actualH > 0
-          ? `<rect x="${x}" y="${actualY.toFixed(1)}" width="${barWidth}" height="${actualH.toFixed(1)}" rx="3" fill="${COLORS.gold}"${isMonthlyView ? ' fill-opacity="0.45"' : ""}/>`
-          : "";
+        const x = CHART_X + index * barStep + (barStep - barWidth) / 2;
+        const actualY = CHART_Y + CHART_HEIGHT - actualH;
 
-      const topY = actualH > 0 ? actualY : monthlyY;
-      const labelValue = isMonthlyView
-        ? item.monthlyEquivalentTotal
-        : item.actualTotal;
-      const showLabel = labelValue > 0 && topY - 8 > CHART_Y - 4;
+        const actualRect =
+          actualH > 0
+            ? `<rect x="${x}" y="${actualY.toFixed(1)}" width="${barWidth}" height="${actualH.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`
+            : "";
 
-      const showDayLabel =
-        index === 0 ||
-        index === daysInMonth - 1 ||
-        item.day % 5 === 0;
+        const showLabel = item.actualTotal > 0;
 
-      return `
-        ${monthlyRect}
-        ${actualRect}
-        ${showDayLabel ? `<text x="${x + barWidth / 2}" y="${CHART_Y + CHART_HEIGHT + 24}" text-anchor="middle" class="axis">D${String(item.day).padStart(2, "0")}</text>` : ""}
-        ${showLabel ? `<text x="${x + barWidth / 2}" y="${Math.max(topY - 8, CHART_Y - 4).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(compactAmount(labelValue))}</text>` : ""}`;
-    })
-    .join("");
+        const monthLabel = monthNameFromKey(item.monthKey);
 
-  const chartEmpty = report.dayDistribution.every(
-    (item) => item.actualTotal === 0 && item.monthlyEquivalentTotal === 0,
-  );
-  const chartSubtitle = chartEmpty ? "暂无已换算订阅" : report.chartSubtitle;
+        return `
+          ${actualRect}
+          <text x="${x + barWidth / 2}" y="${CHART_Y + CHART_HEIGHT + 24}" text-anchor="middle" class="axis">${escapeXml(monthLabel)}</text>
+          ${showLabel ? `<text x="${x + barWidth / 2}" y="${Math.max(actualY - 8, CHART_Y - 4).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(compactAmount(item.actualTotal))}</text>` : ""}`;
+      })
+      .join("");
 
-  const legendX = CHART_X + CHART_WIDTH - 280;
-  const legendY = 346;
+    chartEmpty = monthData.every((item) => item.actualTotal === 0);
 
-  const legendItems = isMonthlyView
-    ? `
+    const legendX = CHART_X + CHART_WIDTH - 160;
+    const legendY = 346;
+    legendItems = `
+  <rect x="${legendX}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.gold}"/>
+  <text x="${legendX + 24}" y="${legendY + 14}" class="legend">预期扣款</text>`;
+  } else {
+    const maxDistribution = Math.max(
+      ...report.dayDistribution.map((item) =>
+        isMonthlyView
+          ? item.actualTotal + item.monthlyEquivalentTotal
+          : item.actualTotal,
+      ),
+      1,
+    );
+    const barStep = Math.floor(
+      CHART_WIDTH / Math.max(report.dayDistribution.length, 1),
+    );
+    const barWidth = Math.min(40, Math.max(10, barStep - 6));
+    const daysInMonth = report.dayDistribution.length;
+
+    bars = report.dayDistribution
+      .map((item, index) => {
+        const monthlyH =
+          isMonthlyView && item.monthlyEquivalentTotal > 0
+            ? Math.max(
+                2,
+                (item.monthlyEquivalentTotal / maxDistribution) *
+                  BAR_MAX_HEIGHT,
+              )
+            : 0;
+        const actualH =
+          item.actualTotal > 0
+            ? Math.max(
+                2,
+                (item.actualTotal / maxDistribution) * BAR_MAX_HEIGHT,
+              )
+            : 0;
+
+        const x = CHART_X + index * barStep + (barStep - barWidth) / 2;
+        const monthlyY = CHART_Y + CHART_HEIGHT - monthlyH;
+        const actualY = monthlyY - actualH;
+
+        const monthlyRect =
+          monthlyH > 0
+            ? `<rect x="${x}" y="${monthlyY.toFixed(1)}" width="${barWidth}" height="${monthlyH.toFixed(1)}" rx="3" fill="${COLORS.teal}"/>`
+            : "";
+        const actualRect =
+          actualH > 0
+            ? `<rect x="${x}" y="${actualY.toFixed(1)}" width="${barWidth}" height="${actualH.toFixed(1)}" rx="3" fill="${COLORS.gold}"${isMonthlyView ? ' fill-opacity="0.45"' : ""}/>`
+            : "";
+
+        const topY = actualH > 0 ? actualY : monthlyY;
+        const labelValue = isMonthlyView
+          ? item.monthlyEquivalentTotal
+          : item.actualTotal;
+        const showLabel = labelValue > 0;
+
+        const showDayLabel =
+          index === 0 ||
+          index === daysInMonth - 1 ||
+          item.day % 5 === 0;
+
+        return `
+          ${monthlyRect}
+          ${actualRect}
+          ${showDayLabel ? `<text x="${x + barWidth / 2}" y="${CHART_Y + CHART_HEIGHT + 24}" text-anchor="middle" class="axis">D${String(item.day).padStart(2, "0")}</text>` : ""}
+          ${showLabel ? `<text x="${x + barWidth / 2}" y="${Math.max(topY - 8, CHART_Y - 4).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(compactAmount(labelValue))}</text>` : ""}`;
+      })
+      .join("");
+
+    chartEmpty = report.dayDistribution.every(
+      (item) => item.actualTotal === 0 && item.monthlyEquivalentTotal === 0,
+    );
+
+    const legendX = CHART_X + CHART_WIDTH - 280;
+    const legendY = 346;
+
+    legendItems = isMonthlyView
+      ? `
   <rect x="${legendX}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.teal}"/>
   <text x="${legendX + 24}" y="${legendY + 14}" class="legend">月度摊平</text>
   <rect x="${legendX + 140}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.gold}" fill-opacity="0.45"/>
   <text x="${legendX + 164}" y="${legendY + 14}" class="legend">实际扣款</text>`
-    : `
+      : `
   <rect x="${legendX + 70}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.gold}"/>
   <text x="${legendX + 94}" y="${legendY + 14}" class="legend">实际扣款</text>`;
+  }
+
+  const chartSubtitle = chartEmpty ? "暂无已换算订阅" : report.chartSubtitle;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
   <style>
@@ -172,6 +227,11 @@ function compactAmount(amount: number): string {
   if (amount >= 10000) return `${Math.round(amount / 1000)}k`;
   if (amount >= 1000) return `${(amount / 1000).toFixed(1)}k`;
   return Math.round(amount).toString();
+}
+
+function monthNameFromKey(monthKey: string): string {
+  const month = Number(monthKey.slice(5, 7));
+  return `${month}月`;
 }
 
 function escapeXml(value: string): string {

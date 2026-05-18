@@ -1,5 +1,12 @@
 import type { BillingCycle, Subscription } from "../models/subscription.js";
-import { addDays, addMonths, addYears } from "../utils/date.js";
+import {
+  addDays,
+  addMonths,
+  addYears,
+  getBillingAnchorDay,
+  getNextBillingDate,
+  getPreviousBillingDate,
+} from "../utils/date.js";
 import { formatMoney } from "../utils/money.js";
 
 export const REPORT_BASE_CURRENCY = "CNY";
@@ -22,6 +29,11 @@ export interface ReportDayDistribution {
   monthlyEquivalentTotal: number;
 }
 
+export interface ReportMonthDistribution {
+  monthKey: string;
+  actualTotal: number;
+}
+
 export interface ReportExcludedCounts {
   noPrice: number;
   noCurrency: number;
@@ -41,6 +53,7 @@ export interface ReportData {
   totalBase: number;
   byCurrency: ReportCurrencySummary[];
   dayDistribution: ReportDayDistribution[];
+  monthDistribution?: ReportMonthDistribution[];
   missingRateCurrencies: string[];
   excluded: ReportExcludedCounts;
 }
@@ -51,6 +64,7 @@ export interface SplitReportData {
   subscriptionCount: number;
   currentMonthly: ReportData;
   currentMonthDue: ReportData;
+  yearlyProjection: ReportData;
 }
 
 export function parseExchangeRateConfig(
@@ -121,12 +135,31 @@ export function buildReportData(
     dayDistribution,
   });
 
+  const yearMonthDistribution = buildYearMonthDistribution(
+    subscriptions,
+    exchangeRates,
+    now,
+  );
+  const yearlyProjection = buildReportView({
+    title: "年度预期支出",
+    totalLabel: "未来12个月预期扣款",
+    chartTitle: "月度预期扣款分布",
+    chartSubtitle: "按月汇总的未来12个月预期扣款金额",
+    subscriptions,
+    exchangeRates,
+    now,
+    amountForSubscription: totalProjectedInYear,
+    dayDistribution: [],
+  });
+  yearlyProjection.monthDistribution = yearMonthDistribution;
+
   return {
     generatedAt,
     baseCurrency: REPORT_BASE_CURRENCY,
     subscriptionCount: subscriptions.length,
     currentMonthly,
     currentMonthDue,
+    yearlyProjection,
   };
 }
 
@@ -293,6 +326,7 @@ export function formatReportText(report: SplitReportData): string {
 
   appendReportSection(lines, report.currentMonthly);
   appendReportSection(lines, report.currentMonthDue);
+  appendReportSection(lines, report.yearlyProjection);
 
   return lines.join("\n");
 }
@@ -318,24 +352,38 @@ function appendReportSection(lines: string[], report: ReportData): void {
     }
   }
 
-  const nonZeroDays = report.dayDistribution.filter(
-    (item) => item.actualTotal > 0 || item.monthlyEquivalentTotal > 0,
-  );
-  if (nonZeroDays.length > 0) {
-    lines.push("", "按扣款日分布：");
-    for (const item of nonZeroDays) {
-      const parts: string[] = [];
-      if (item.actualTotal > 0) {
-        parts.push(`实际 ${formatMoney(item.actualTotal, report.baseCurrency)}`);
-      }
-      if (item.monthlyEquivalentTotal > 0) {
-        parts.push(
-          `等值 ${formatMoney(item.monthlyEquivalentTotal, report.baseCurrency)}`,
+  if (report.monthDistribution && report.monthDistribution.length > 0) {
+    const nonZeroMonths = report.monthDistribution.filter(
+      (item) => item.actualTotal > 0,
+    );
+    if (nonZeroMonths.length > 0) {
+      lines.push("", "按月分布：");
+      for (const item of nonZeroMonths) {
+        lines.push(
+          `- ${item.monthKey}：实际 ${formatMoney(item.actualTotal, report.baseCurrency)}`,
         );
       }
-      lines.push(
-        `- ${String(item.day).padStart(2, "0")} 日：${parts.join("，")}`,
-      );
+    }
+  } else {
+    const nonZeroDays = report.dayDistribution.filter(
+      (item) => item.actualTotal > 0 || item.monthlyEquivalentTotal > 0,
+    );
+    if (nonZeroDays.length > 0) {
+      lines.push("", "按扣款日分布：");
+      for (const item of nonZeroDays) {
+        const parts: string[] = [];
+        if (item.actualTotal > 0) {
+          parts.push(`实际 ${formatMoney(item.actualTotal, report.baseCurrency)}`);
+        }
+        if (item.monthlyEquivalentTotal > 0) {
+          parts.push(
+            `等值 ${formatMoney(item.monthlyEquivalentTotal, report.baseCurrency)}`,
+          );
+        }
+        lines.push(
+          `- ${String(item.day).padStart(2, "0")} 日：${parts.join("，")}`,
+        );
+      }
     }
   }
 }
@@ -418,4 +466,136 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isValidCurrency(value: string): boolean {
   return /^[A-Z]{3}$/.test(value);
+}
+
+function projectedAmountsByMonth(
+  sub: Subscription,
+  today: string,
+): Map<string, number> | null {
+  if (sub.billingCycle === "custom") return null;
+  if (sub.price === undefined) return null;
+  if (!sub.currency) return null;
+
+  const yearAhead = addYears(today, 1);
+  if (sub.nextBillingDate > yearAhead) return null;
+
+  const anchorDay =
+    sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
+  const windowStartMonth = today.slice(0, 7);
+  const windowEndMonth = addMonths(windowStartMonth + "-01", 11).slice(0, 7);
+  const price = sub.price;
+  const result = new Map<string, number>();
+
+  // Advance past-due dates to the next future date
+  let nextDate = sub.nextBillingDate;
+  if (nextDate < today) {
+    let iterations = 0;
+    while (nextDate < today && iterations < 400) {
+      const next = getNextBillingDate(
+        nextDate,
+        sub.billingCycle,
+        anchorDay,
+        sub.billingInterval,
+      );
+      if (!next || next <= nextDate) break;
+      nextDate = next;
+      iterations++;
+    }
+    if (nextDate < today) return null;
+  }
+
+  // Lookback: check if the previous billing was in current month and already passed
+  const prevDate = getPreviousBillingDate(
+    nextDate,
+    sub.billingCycle,
+    anchorDay,
+    sub.billingInterval,
+  );
+  if (prevDate) {
+    const prevMonthKey = prevDate.slice(0, 7);
+    if (
+      prevMonthKey === windowStartMonth &&
+      prevDate <= today &&
+      sub.createdAt.slice(0, 10) <= prevDate
+    ) {
+      result.set(prevMonthKey, (result.get(prevMonthKey) ?? 0) + price);
+    }
+  }
+
+  // Forward projection from nextDate
+  let billingDate = nextDate;
+  let iterations = 0;
+  while (billingDate.slice(0, 7) <= windowEndMonth && iterations < 400) {
+    if (billingDate.slice(0, 7) >= windowStartMonth) {
+      const monthKey = billingDate.slice(0, 7);
+      result.set(monthKey, (result.get(monthKey) ?? 0) + price);
+    }
+    const next = getNextBillingDate(
+      billingDate,
+      sub.billingCycle,
+      anchorDay,
+      sub.billingInterval,
+    );
+    if (!next || next <= billingDate) break;
+    billingDate = next;
+    iterations++;
+  }
+
+  return result.size > 0 ? result : null;
+}
+
+function totalProjectedInYear(
+  sub: Subscription,
+  today: string,
+): number | null {
+  const amounts = projectedAmountsByMonth(sub, today);
+  if (!amounts) return null;
+  let total = 0;
+  for (const amount of amounts.values()) {
+    total += amount;
+  }
+  return total > 0 ? total : null;
+}
+
+function buildYearMonthDistribution(
+  subscriptions: Subscription[],
+  exchangeRates: ExchangeRateConfig | null,
+  now: Date,
+): ReportMonthDistribution[] {
+  const today = now.toISOString().slice(0, 10);
+  const windowStartMonth = today.slice(0, 7);
+
+  const monthTotals = new Map<string, number>();
+  let currentMonth = windowStartMonth;
+  for (let i = 0; i < 12; i++) {
+    monthTotals.set(currentMonth, 0);
+    currentMonth = addMonths(currentMonth + "-01", 1).slice(0, 7);
+  }
+
+  for (const sub of subscriptions) {
+    if (sub.status === "paused") continue;
+    if (sub.price === undefined) continue;
+    if (!sub.currency) continue;
+    if (sub.billingCycle === "custom") continue;
+
+    const currency = sub.currency.toUpperCase();
+    const rate = exchangeRates?.rates[currency];
+    if (rate === undefined) continue;
+
+    const amounts = projectedAmountsByMonth(sub, today);
+    if (!amounts) continue;
+
+    for (const [monthKey, amount] of amounts) {
+      if (monthTotals.has(monthKey)) {
+        monthTotals.set(
+          monthKey,
+          (monthTotals.get(monthKey) ?? 0) + amount * rate,
+        );
+      }
+    }
+  }
+
+  return Array.from(monthTotals.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([monthKey, actualTotal]) => ({ monthKey, actualTotal }));
 }

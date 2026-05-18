@@ -390,6 +390,144 @@ describe("buildReportData", () => {
     expect(text).toContain("订阅支出报告");
     expect(text).toContain("月度摊平支出");
     expect(text).toContain("当月支出");
+    expect(text).toContain("年度预期支出");
     expect(text).not.toContain("Private Service");
+  });
+
+  it("projects monthly subscription across 12 months", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "monthly",
+          price: 10,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-05-20",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.yearlyProjection.includedCount).toBe(1);
+    expect(report.yearlyProjection.totalBase).toBeCloseTo(840); // 12 * 10 * 7
+    expect(report.yearlyProjection.monthDistribution).toHaveLength(12);
+    for (const item of report.yearlyProjection.monthDistribution!) {
+      expect(item.actualTotal).toBeCloseTo(70); // 10 * 7 per month
+    }
+  });
+
+  it("lookback includes current-month already-paid subscription", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "monthly-paid",
+          price: 10,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-06-03", // advanced from 2026-05-03
+          createdAt: "2026-04-01T00:00:00.000Z",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.yearlyProjection.includedCount).toBe(1);
+    const may = report.yearlyProjection.monthDistribution!.find(
+      (item) => item.monthKey === "2026-05",
+    )!;
+    const jun = report.yearlyProjection.monthDistribution!.find(
+      (item) => item.monthKey === "2026-06",
+    )!;
+    expect(may.actualTotal).toBeCloseTo(70); // lookback
+    expect(jun.actualTotal).toBeCloseTo(70);
+  });
+
+  it("lookback excludes newly created subscription with phantom date", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "new-sub",
+          price: 10,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-06-15",
+          createdAt: "2026-05-20T00:00:00.000Z", // created after would-be prevDate 2026-05-15
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    const may = report.yearlyProjection.monthDistribution!.find(
+      (item) => item.monthKey === "2026-05",
+    )!;
+    expect(may.actualTotal).toBe(0);
+  });
+
+  it("excludes subscription with nextBillingDate beyond one year", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "far-future",
+          price: 100,
+          currency: "USD",
+          billingCycle: "yearly",
+          nextBillingDate: "2028-01-01",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.yearlyProjection.includedCount).toBe(0);
+    expect(report.yearlyProjection.totalBase).toBe(0);
+  });
+
+  it("yearly subscription only appears in its billing month", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "yearly",
+          price: 120,
+          currency: "USD",
+          billingCycle: "yearly",
+          nextBillingDate: "2027-03-15",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.yearlyProjection.includedCount).toBe(1);
+    const mar = report.yearlyProjection.monthDistribution!.find(
+      (item) => item.monthKey === "2027-03",
+    )!;
+    expect(mar.actualTotal).toBeCloseTo(840); // 120 * 7
+  });
+
+  it("handles weekly subscription distributed across months", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "weekly",
+          price: 12,
+          currency: "USD",
+          billingCycle: "weekly",
+          nextBillingDate: "2026-05-20",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.yearlyProjection.includedCount).toBe(1);
+    // Some months will have 4 payments, some 5
+    const totalSum = report.yearlyProjection.monthDistribution!.reduce(
+      (sum, item) => sum + item.actualTotal,
+      0,
+    );
+    expect(totalSum).toBeGreaterThan(0);
   });
 });

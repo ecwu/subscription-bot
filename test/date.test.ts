@@ -6,6 +6,8 @@ import {
   addYears,
   addWeeks,
   getNextBillingDate,
+  getPreviousBillingDate,
+  addMonthsAnchored,
 } from "../src/utils/date.js";
 
 describe("date utils", () => {
@@ -72,5 +74,47 @@ describe("date utils", () => {
         count: 4,
       }),
     ).toBe("2026-06-15");
+  });
+
+  it("addMonthsAnchored goes backward with negative months", () => {
+    expect(addMonthsAnchored("2026-06-15", -1, 15)).toBe("2026-05-15");
+    expect(addMonthsAnchored("2026-03-31", -1, 31)).toBe("2026-02-28");
+    expect(addMonthsAnchored("2027-01-15", -12, 15)).toBe("2026-01-15");
+  });
+
+  it("gets the previous monthly billing date", () => {
+    expect(getPreviousBillingDate("2026-06-18", "monthly", 18)).toBe(
+      "2026-05-18",
+    );
+  });
+
+  it("getPreviousBillingDate clamps anchor day across short months", () => {
+    expect(getPreviousBillingDate("2026-03-31", "monthly", 31)).toBe(
+      "2026-02-28",
+    );
+  });
+
+  it("handles yearly lookback with anchor", () => {
+    expect(getPreviousBillingDate("2027-05-15", "yearly", 15)).toBe(
+      "2026-05-15",
+    );
+  });
+
+  it("handles weekly and interval lookback", () => {
+    expect(getPreviousBillingDate("2026-06-15", "weekly", 15)).toBe(
+      "2026-06-08",
+    );
+    expect(
+      getPreviousBillingDate("2026-06-17", "interval", 18, {
+        unit: "day",
+        count: 30,
+      }),
+    ).toBe("2026-05-18");
+    expect(
+      getPreviousBillingDate("2026-06-15", "interval", 18, {
+        unit: "week",
+        count: 4,
+      }),
+    ).toBe("2026-05-18");
   });
 });

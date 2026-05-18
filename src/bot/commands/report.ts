@@ -41,6 +41,7 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
   try {
     const currentMonthlyPng = await renderReportPng(report.currentMonthly);
     const currentMonthDuePng = await renderReportPng(report.currentMonthDue);
+    const yearlyProjectionPng = await renderReportPng(report.yearlyProjection);
 
     await ctx.replyWithPhoto(
       new InputFile(currentMonthlyPng, "current-monthly-report.png"),
@@ -55,6 +56,13 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
         caption: "当月支出",
       },
     );
+
+    await ctx.replyWithPhoto(
+      new InputFile(yearlyProjectionPng, "yearly-projection-report.png"),
+      {
+        caption: "年度预期支出",
+      },
+    );
     logger.info("Report generated", {
       subscriptionCount: report.subscriptionCount,
       currentMonthlyIncludedCount: report.currentMonthly.includedCount,
@@ -65,6 +73,10 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
       currentMonthDueConvertedCount: report.currentMonthDue.convertedCount,
       currentMonthDueMissingRateCount:
         report.currentMonthDue.missingRateCurrencies.length,
+      yearlyProjectionIncludedCount: report.yearlyProjection.includedCount,
+      yearlyProjectionConvertedCount: report.yearlyProjection.convertedCount,
+      yearlyProjectionMissingRateCount:
+        report.yearlyProjection.missingRateCurrencies.length,
     });
   } catch (error) {
     logger.warn("Report PNG failed; sent text fallback", {
@@ -78,6 +90,10 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
       currentMonthDueConvertedCount: report.currentMonthDue.convertedCount,
       currentMonthDueMissingRateCount:
         report.currentMonthDue.missingRateCurrencies.length,
+      yearlyProjectionIncludedCount: report.yearlyProjection.includedCount,
+      yearlyProjectionConvertedCount: report.yearlyProjection.convertedCount,
+      yearlyProjectionMissingRateCount:
+        report.yearlyProjection.missingRateCurrencies.length,
     });
     await ctx.reply(fallbackText);
   }
