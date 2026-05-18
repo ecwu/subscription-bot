@@ -31,7 +31,7 @@ The Subscription Bot is a Cloudflare Worker that receives Telegram updates via w
 Business logic layer:
 - `subscriptionService.ts`: Encrypts/decrypts subscription payloads, manages CRUD, resolves IDs (short/prefix/UUID), and coordinates reminder index updates.
 - `reminderService.ts`: Processes daily reminders: loads entries, decrypts subscriptions, sends Telegram messages via `telegramService`, and marks reminders as sent.
-- `reportService.ts`: Builds report data (monthly run-rate, per-currency totals, day distribution) and formats text fallback reports.
+- `reportService.ts`: Builds report data (current monthly run-rate, current-month due spending, per-currency totals, day distribution) and formats text fallback reports.
 - `exportService.ts`: Aggregates user data for export.
 - `privacyService.ts`: Handles data export and full deletion.
 - `telegramService.ts`: Low-level Telegram Bot API client for sending messages.

@@ -63,9 +63,10 @@ pnpm format
 
 ## Report Exchange Rates
 
-`/report` generates a current monthly run-rate report and converts known
-currencies to CNY using a manually maintained KV config item. Seed or update the
-fixed key `config:exchange-rates:v1` with JSON like:
+`/report` generates two PNG reports: current monthly run-rate and current-month
+due spending. Known currencies are converted to CNY using a manually maintained
+KV config item. Seed or update the fixed key `config:exchange-rates:v1` with
+JSON like:
 
 ```json
 { "base": "CNY", "rates": { "CNY": 1, "USD": 7.2, "EUR": 7.8 } }

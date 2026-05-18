@@ -75,25 +75,71 @@ describe("buildReportData", () => {
     rates: { CNY: 1, USD: 7, EUR: 8 },
   };
 
-  it("normalizes supported billing cycles to monthly run-rate", () => {
+  it("normalizes currently active supported billing cycles to monthly run-rate", () => {
     const report = buildReportData(
       [
-        sub({ id: "monthly", price: 10, billingCycle: "monthly" }),
-        sub({ id: "yearly", price: 120, billingCycle: "yearly" }),
-        sub({ id: "quarterly", price: 30, billingCycle: "quarterly" }),
-        sub({ id: "weekly", price: 12, billingCycle: "weekly" }),
+        sub({
+          id: "monthly",
+          price: 10,
+          billingCycle: "monthly",
+          nextBillingDate: "2026-06-17",
+        }),
+        sub({
+          id: "yearly",
+          price: 120,
+          billingCycle: "yearly",
+          nextBillingDate: "2027-05-17",
+        }),
+        sub({
+          id: "quarterly",
+          price: 30,
+          billingCycle: "quarterly",
+          nextBillingDate: "2026-08-17",
+        }),
+        sub({
+          id: "weekly",
+          price: 12,
+          billingCycle: "weekly",
+          nextBillingDate: "2026-05-24",
+        }),
       ],
       rates,
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(report.includedCount).toBe(4);
-    expect(report.monthlyTotalBase).toBeCloseTo((10 + 10 + 10 + 52) * 7);
-    expect(report.byCurrency[0]).toMatchObject({
+    expect(report.currentMonthly.includedCount).toBe(4);
+    expect(report.currentMonthly.totalBase).toBeCloseTo(
+      (10 + 10 + 10 + 52) * 7,
+    );
+    expect(report.currentMonthly.byCurrency[0]).toMatchObject({
       currency: "USD",
       subscriptionCount: 4,
     });
-    expect(report.byCurrency[0].monthlyTotal).toBeCloseTo(82);
+    expect(report.currentMonthly.byCurrency[0].total).toBeCloseTo(82);
+  });
+
+  it("excludes far-future prepaid subscriptions from current monthly run-rate", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "active-yearly",
+          price: 120,
+          billingCycle: "yearly",
+          nextBillingDate: "2027-05-17",
+        }),
+        sub({
+          id: "far-future-yearly",
+          price: 120,
+          billingCycle: "yearly",
+          nextBillingDate: "2029-01-01",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.currentMonthly.includedCount).toBe(1);
+    expect(report.currentMonthly.totalBase).toBeCloseTo(70);
   });
 
   it("excludes custom cycle and subscriptions without price or currency", () => {
@@ -105,15 +151,16 @@ describe("buildReportData", () => {
         sub({ id: "valid", price: 10, currency: "CNY" }),
       ],
       rates,
+      new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(report.includedCount).toBe(1);
-    expect(report.excluded).toEqual({
+    expect(report.currentMonthly.includedCount).toBe(1);
+    expect(report.currentMonthly.excluded).toEqual({
       noPrice: 1,
       noCurrency: 1,
       customCycle: 1,
     });
-    expect(report.monthlyTotalBase).toBe(10);
+    expect(report.currentMonthly.totalBase).toBe(10);
   });
 
   it("groups by currency and reports missing exchange rates", () => {
@@ -124,17 +171,18 @@ describe("buildReportData", () => {
         sub({ id: "gbp", price: 10, currency: "GBP" }),
       ],
       rates,
+      new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(report.byCurrency).toHaveLength(3);
-    expect(report.monthlyTotalBase).toBe(150);
-    expect(report.convertedCount).toBe(2);
-    expect(report.missingRateCurrencies).toEqual(["GBP"]);
+    expect(report.currentMonthly.byCurrency).toHaveLength(3);
+    expect(report.currentMonthly.totalBase).toBe(150);
+    expect(report.currentMonthly.convertedCount).toBe(2);
+    expect(report.currentMonthly.missingRateCurrencies).toEqual(["GBP"]);
     expect(
-      report.byCurrency.find((item) => item.currency === "GBP"),
+      report.currentMonthly.byCurrency.find((item) => item.currency === "GBP"),
     ).toMatchObject({
-      monthlyTotal: 10,
-      convertedMonthlyTotal: undefined,
+      total: 10,
+      convertedTotal: undefined,
     });
   });
 
@@ -151,27 +199,75 @@ describe("buildReportData", () => {
           id: "b",
           price: 20,
           currency: "USD",
-          nextBillingDate: "2026-07-01",
+          nextBillingDate: "2026-06-01",
         }),
         sub({
           id: "c",
           price: 5,
           currency: "EUR",
-          nextBillingDate: "2026-07-15",
+          nextBillingDate: "2026-06-15",
         }),
         sub({
           id: "d",
           price: 5,
           currency: "GBP",
-          nextBillingDate: "2026-07-15",
+          nextBillingDate: "2026-06-15",
         }),
       ],
       rates,
+      new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(report.dayDistribution).toEqual([
-      { day: 1, convertedMonthlyTotal: 210 },
-      { day: 15, convertedMonthlyTotal: 40 },
+    expect(report.currentMonthly.dayDistribution).toEqual([
+      { day: 1, convertedTotal: 210 },
+      { day: 15, convertedTotal: 40 },
+    ]);
+  });
+
+  it("calculates current-month due spending with actual payment amounts", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "yearly",
+          price: 120,
+          currency: "USD",
+          billingCycle: "yearly",
+          nextBillingDate: "2026-05-20",
+        }),
+        sub({
+          id: "quarterly",
+          price: 30,
+          currency: "EUR",
+          billingCycle: "quarterly",
+          nextBillingDate: "2026-05-31",
+        }),
+        sub({
+          id: "next-month",
+          price: 10,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-06-01",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.currentMonthDue.includedCount).toBe(2);
+    expect(report.currentMonthDue.totalBase).toBe(120 * 7 + 30 * 8);
+    expect(report.currentMonthDue.byCurrency).toEqual([
+      {
+        currency: "EUR",
+        total: 30,
+        convertedTotal: 240,
+        subscriptionCount: 1,
+      },
+      {
+        currency: "USD",
+        total: 120,
+        convertedTotal: 840,
+        subscriptionCount: 1,
+      },
     ]);
   });
 
@@ -186,7 +282,9 @@ describe("buildReportData", () => {
     );
 
     const text = formatReportText(report);
-    expect(text).toContain("订阅月度支出报告");
+    expect(text).toContain("订阅支出报告");
+    expect(text).toContain("当前月度支出");
+    expect(text).toContain("当月支出");
     expect(text).not.toContain("Private Service");
   });
 });

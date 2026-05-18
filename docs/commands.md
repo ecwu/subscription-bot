@@ -12,7 +12,7 @@
 | `/edit`     | Edit a subscription field (interactive or one-line) | Implemented |
 | `/delete`   | Delete a specific subscription                   | Implemented   |
 | `/export`   | Export your subscription data as JSON            | Implemented   |
-| `/report`   | Generate a monthly run-rate PNG report           | Implemented   |
+| `/report`   | Generate two subscription spending PNG reports   | Implemented   |
 | `/reminders`| Show upcoming renewals within reminder window    | Implemented   |
 | `/delete_me`| Delete all your data from the bot                | Implemented   |
 | `/cancel`   | Exit all active conversations                    | Implemented   |
@@ -81,10 +81,10 @@ The export does **not** include `userKey`, raw Telegram ID, `chat_id`, or encryp
 
 ### `/report`
 
-Generates a PNG image report from the current subscription list. It shows:
-- Monthly run-rate spending
-- Per-currency totals
-- Monthly date distribution (by day of month)
+Generates two PNG image reports from the current subscription list:
+- 当前月度支出：monthly-equivalent run rate for subscriptions whose next billing date is within one billing-cycle window from today.
+- 当月支出：actual payment amounts due in the current calendar month.
+- Per-currency totals and date distribution for each report.
 
 Subscriptions without price or currency, and subscriptions with `custom` billing cycle, are excluded from the calculated total but counted in the report.
 

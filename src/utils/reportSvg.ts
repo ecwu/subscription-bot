@@ -28,7 +28,7 @@ const COLORS = {
 
 export function buildReportSvg(report: ReportData): string {
   const maxDistribution = Math.max(
-    ...report.dayDistribution.map((item) => item.convertedMonthlyTotal),
+    ...report.dayDistribution.map((item) => item.convertedTotal),
     1,
   );
   const barStep = Math.floor(
@@ -40,7 +40,7 @@ export function buildReportSvg(report: ReportData): string {
     .map((item, index) => {
       const height = Math.max(
         4,
-        (item.convertedMonthlyTotal / maxDistribution) * CHART_HEIGHT,
+        (item.convertedTotal / maxDistribution) * CHART_HEIGHT,
       );
       const x = CHART_X + index * barStep + (barStep - barWidth) / 2;
       const y = CHART_Y + CHART_HEIGHT - height;
@@ -55,7 +55,7 @@ export function buildReportSvg(report: ReportData): string {
           y - 10,
           CHART_Y - 4,
         ).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(
-          compactAmount(item.convertedMonthlyTotal),
+          compactAmount(item.convertedTotal),
         )}</text>`;
     })
     .join("");
@@ -65,15 +65,15 @@ export function buildReportSvg(report: ReportData): string {
     .map((summary, index) => {
       const y = 416 + index * 48;
       const converted =
-        summary.convertedMonthlyTotal !== undefined
-          ? formatMoney(summary.convertedMonthlyTotal, report.baseCurrency)
+        summary.convertedTotal !== undefined
+          ? formatMoney(summary.convertedTotal, report.baseCurrency)
           : "缺少汇率";
       return `
         <text x="800" y="${y}" class="row-currency">${escapeXml(
           summary.currency,
         )}</text>
         <text x="970" y="${y}" class="row-text" text-anchor="end">${escapeXml(
-          formatMoney(summary.monthlyTotal, summary.currency),
+          formatMoney(summary.total, summary.currency),
         )}</text>
         <text x="1100" y="${y}" class="row-muted" text-anchor="end">${escapeXml(
           converted,
@@ -83,15 +83,13 @@ export function buildReportSvg(report: ReportData): string {
     .join("");
 
   const chartEmpty = report.dayDistribution.length === 0;
-  const chartSubtitle = chartEmpty
-    ? "暂无已换算订阅"
-    : "按次扣款日汇总的月度等值支出";
+  const chartSubtitle = chartEmpty ? "暂无已换算订阅" : report.chartSubtitle;
   const topCurrency = report.byCurrency
     .filter(hasConvertedTotal)
-    .sort((a, b) => b.convertedMonthlyTotal - a.convertedMonthlyTotal)[0];
+    .sort((a, b) => b.convertedTotal - a.convertedTotal)[0];
   const largestCurrency = topCurrency
     ? `${topCurrency.currency} ${formatMoney(
-        topCurrency.convertedMonthlyTotal,
+        topCurrency.convertedTotal,
         report.baseCurrency,
       )}`
     : "无已换算币种";
@@ -119,15 +117,15 @@ export function buildReportSvg(report: ReportData): string {
     .note { font-size: 19px; font-weight: 400; fill: ${COLORS.muted}; }
   </style>
   <rect class="bg" x="0" y="0" width="${WIDTH}" height="${HEIGHT}"/>
-  <text x="80" y="86" class="title">订阅月度支出</text>
+  <text x="80" y="86" class="title">${escapeXml(report.title)}</text>
   <text x="82" y="124" class="subtitle">当前订阅 · 生成于 ${escapeXml(
     report.generatedAt.slice(0, 10),
   )} · 基准货币 ${report.baseCurrency}</text>
 
   <rect class="panel" x="72" y="154" width="680" height="178" rx="8"/>
-  <text x="98" y="203" class="label">月度支出</text>
+  <text x="98" y="203" class="label">${escapeXml(report.totalLabel)}</text>
   <text x="96" y="282" class="metric">${escapeXml(
-    formatMoney(report.monthlyTotalBase, report.baseCurrency),
+    formatMoney(report.totalBase, report.baseCurrency),
   )}</text>
   <text x="98" y="314" class="note">${report.convertedCount} 个订阅已换算为 ${
     report.baseCurrency
@@ -145,7 +143,7 @@ export function buildReportSvg(report: ReportData): string {
   <text x="800" y="294" class="row-text">${escapeXml(largestCurrency)}</text>
   <text x="800" y="320" class="label">最大支出币种</text>
 
-  <text x="80" y="374" class="section">扣款日分布</text>
+  <text x="80" y="374" class="section">${escapeXml(report.chartTitle)}</text>
   <text x="80" y="405" class="note">${escapeXml(chartSubtitle)}</text>
   <line x1="${CHART_X}" y1="${CHART_Y}" x2="${
     CHART_X + CHART_WIDTH
@@ -186,6 +184,6 @@ function escapeXml(value: string): string {
 
 function hasConvertedTotal(
   summary: ReportCurrencySummary,
-): summary is ReportCurrencySummary & { convertedMonthlyTotal: number } {
-  return summary.convertedMonthlyTotal !== undefined;
+): summary is ReportCurrencySummary & { convertedTotal: number } {
+  return summary.convertedTotal !== undefined;
 }

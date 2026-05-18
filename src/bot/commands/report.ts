@@ -39,23 +39,45 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
   const fallbackText = formatReportText(report);
 
   try {
-    const png = await renderReportPng(report);
-    await ctx.replyWithPhoto(new InputFile(png, "subscription-report.png"), {
-      caption: "订阅月度支出报告",
-    });
+    const currentMonthlyPng = await renderReportPng(report.currentMonthly);
+    const currentMonthDuePng = await renderReportPng(report.currentMonthDue);
+
+    await ctx.replyWithPhoto(
+      new InputFile(currentMonthlyPng, "current-monthly-report.png"),
+      {
+        caption: "当前月度支出",
+      },
+    );
+
+    await ctx.replyWithPhoto(
+      new InputFile(currentMonthDuePng, "current-month-due-report.png"),
+      {
+        caption: "当月支出",
+      },
+    );
     logger.info("Report generated", {
       subscriptionCount: report.subscriptionCount,
-      includedCount: report.includedCount,
-      convertedCount: report.convertedCount,
-      missingRateCount: report.missingRateCurrencies.length,
+      currentMonthlyIncludedCount: report.currentMonthly.includedCount,
+      currentMonthlyConvertedCount: report.currentMonthly.convertedCount,
+      currentMonthlyMissingRateCount:
+        report.currentMonthly.missingRateCurrencies.length,
+      currentMonthDueIncludedCount: report.currentMonthDue.includedCount,
+      currentMonthDueConvertedCount: report.currentMonthDue.convertedCount,
+      currentMonthDueMissingRateCount:
+        report.currentMonthDue.missingRateCurrencies.length,
     });
   } catch (error) {
     logger.warn("Report PNG failed; sent text fallback", {
       errorType: error instanceof Error ? error.name : typeof error,
       subscriptionCount: report.subscriptionCount,
-      includedCount: report.includedCount,
-      convertedCount: report.convertedCount,
-      missingRateCount: report.missingRateCurrencies.length,
+      currentMonthlyIncludedCount: report.currentMonthly.includedCount,
+      currentMonthlyConvertedCount: report.currentMonthly.convertedCount,
+      currentMonthlyMissingRateCount:
+        report.currentMonthly.missingRateCurrencies.length,
+      currentMonthDueIncludedCount: report.currentMonthDue.includedCount,
+      currentMonthDueConvertedCount: report.currentMonthDue.convertedCount,
+      currentMonthDueMissingRateCount:
+        report.currentMonthDue.missingRateCurrencies.length,
     });
     await ctx.reply(fallbackText);
   }
