@@ -4,6 +4,8 @@ import {
   validateAddPrice,
   validateAddCurrency,
   validateAddDate,
+  buildBillingDatePreview,
+  formatBillingDatePreview,
 } from "../src/bot/conversations/addConversation.js";
 
 describe("addConversation validators", () => {
@@ -85,6 +87,72 @@ describe("addConversation validators", () => {
       const result = validateAddDate("2026-02-31");
       expect(result.error).toBe(
         "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
+      );
+    });
+  });
+
+  describe("buildBillingDatePreview", () => {
+    it("previews five monthly dates", () => {
+      expect(buildBillingDatePreview("2026-05-18", "monthly")).toEqual([
+        "2026-05-18",
+        "2026-06-18",
+        "2026-07-18",
+        "2026-08-18",
+        "2026-09-18",
+      ]);
+    });
+
+    it("keeps the original anchor day across short months", () => {
+      expect(buildBillingDatePreview("2026-01-31", "monthly")).toEqual([
+        "2026-01-31",
+        "2026-02-28",
+        "2026-03-31",
+        "2026-04-30",
+        "2026-05-31",
+      ]);
+    });
+
+    it("returns to leap day for yearly previews when possible", () => {
+      expect(buildBillingDatePreview("2024-02-29", "yearly", 29, 6)).toEqual([
+        "2024-02-29",
+        "2025-02-28",
+        "2026-02-28",
+        "2027-02-28",
+        "2028-02-29",
+        "2029-02-28",
+      ]);
+    });
+
+    it("does not auto-advance custom cycles", () => {
+      expect(buildBillingDatePreview("2026-05-18", "custom")).toEqual([
+        "2026-05-18",
+      ]);
+    });
+  });
+
+  describe("formatBillingDatePreview", () => {
+    it("formats the preview dates", () => {
+      expect(formatBillingDatePreview("2026-05-18", "monthly")).toBe(
+        [
+          "未来扣款日期预览：",
+          "1. 2026-05-18",
+          "2. 2026-06-18",
+          "3. 2026-07-18",
+          "4. 2026-08-18",
+          "5. 2026-09-18",
+          "这个更新时间安排是否正确？",
+        ].join("\n"),
+      );
+    });
+
+    it("explains that custom cycles do not auto-advance", () => {
+      expect(formatBillingDatePreview("2026-05-18", "custom")).toBe(
+        [
+          "未来扣款日期预览：",
+          "1. 2026-05-18",
+          "自定义周期不会自动推进，请之后手动修改下次扣款日期。",
+          "这个更新时间安排是否正确？",
+        ].join("\n"),
       );
     });
   });

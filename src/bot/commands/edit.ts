@@ -5,6 +5,7 @@ import { createReminderRepository } from "../../repositories/reminderRepository.
 import { parseEditArgs } from "../../utils/editParser.js";
 import { ValidationError } from "../../utils/errors.js";
 import { createLogger } from "../../utils/logger.js";
+import { getBillingAnchorDay } from "../../utils/date.js";
 
 const FIELD_LABELS: Record<string, string> = {
   date: "下次扣款日期",
@@ -72,6 +73,7 @@ export async function editCommand(ctx: BotContext): Promise<void> {
 
   if (parsed.field === "date" && parsed.nextBillingDate) {
     updated.nextBillingDate = parsed.nextBillingDate;
+    updated.billingAnchorDay = getBillingAnchorDay(parsed.nextBillingDate);
   } else if (parsed.field === "price" && parsed.price !== undefined) {
     updated.price = parsed.price;
     updated.currency = parsed.currency;

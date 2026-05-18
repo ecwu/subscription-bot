@@ -107,6 +107,23 @@ export function parseAddConfirmCallbackData(
   return null;
 }
 
+/**
+ * Parse add billing date preview callback data.
+ *
+ * Expected formats:
+ *   addpreview:confirm
+ *   addpreview:change
+ *   addpreview:cancel
+ */
+export function parseAddPreviewCallbackData(
+  callbackData: string,
+): { action: "confirm" | "change" | "cancel" } | null {
+  if (callbackData === "addpreview:confirm") return { action: "confirm" };
+  if (callbackData === "addpreview:change") return { action: "change" };
+  if (callbackData === "addpreview:cancel") return { action: "cancel" };
+  return null;
+}
+
 export type AddCurrencyCallbackData =
   | { action: "select"; currency: string }
   | { action: "skip" }

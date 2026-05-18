@@ -7,6 +7,7 @@ import { createLogger } from "../../utils/logger.js";
 import { InlineKeyboard } from "grammy";
 import { BillingCycle } from "../../models/subscription.js";
 import { formatBillingCycle } from "../../utils/labels.js";
+import { getBillingAnchorDay } from "../../utils/date.js";
 
 // TODO: grammY conversations do not have built-in timeout handling.
 // If a user starts an edit flow and never completes it, the conversation
@@ -164,6 +165,7 @@ export async function editFieldConversation(
       return;
     }
     updated.nextBillingDate = result.date!;
+    updated.billingAnchorDay = getBillingAnchorDay(result.date!);
   }
 
   await conversation.external(async (outsideCtx) => {

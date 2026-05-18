@@ -18,6 +18,7 @@ export interface ReminderRepository {
     subscriptionId: string,
   ): Promise<void>;
   listEntries(date: string): Promise<ReminderEntry[]>;
+  listDatesThrough(maxDate: string): Promise<string[]>;
   hasSent(
     userKey: string,
     subscriptionId: string,
@@ -73,6 +74,25 @@ export function createReminderRepository(kv: KVNamespace): ReminderRepository {
       const key = reminderDate(date);
       const data = await kv.get(key);
       return data ? JSON.parse(data) : [];
+    },
+
+    async listDatesThrough(maxDate: string): Promise<string[]> {
+      const prefix = reminderDate("");
+      const dates: string[] = [];
+      let cursor: string | undefined;
+
+      do {
+        const list = await kv.list({ prefix, cursor });
+        for (const key of list.keys) {
+          const date = key.name.slice(prefix.length);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date) && date <= maxDate) {
+            dates.push(date);
+          }
+        }
+        cursor = list.list_complete ? undefined : list.cursor;
+      } while (cursor);
+
+      return Array.from(new Set(dates)).sort();
     },
 
     async hasSent(

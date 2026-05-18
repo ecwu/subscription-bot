@@ -15,6 +15,7 @@ export const subscriptionInputSchema = z.object({
   currency: z.string().min(1).max(3).optional(),
   billingCycle: billingCycleSchema,
   nextBillingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  billingAnchorDay: z.number().int().min(1).max(31).optional(),
   category: z.string().max(50).optional(),
   note: z.string().max(500).optional(),
 });

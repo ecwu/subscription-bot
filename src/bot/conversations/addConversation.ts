@@ -10,8 +10,10 @@ import { InlineKeyboard } from "grammy";
 import {
   parseAddCurrencyCallbackData,
   parseAddDateCallbackData,
+  parseAddPreviewCallbackData,
 } from "../../utils/callbackParser.js";
 import { formatBillingCycle } from "../../utils/labels.js";
+import { getBillingAnchorDay, getNextBillingDate } from "../../utils/date.js";
 
 // TODO: grammY conversations do not have built-in timeout handling.
 // If a user starts /add and never completes it, the conversation waits
@@ -205,6 +207,56 @@ function confirmKeyboard(): InlineKeyboard {
     .text("❌ 取消", "add:cancel");
 }
 
+function billingPreviewKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text("✅ 正确，继续确认", "addpreview:confirm")
+    .row()
+    .text("↩️ 返回修改周期/日期", "addpreview:change")
+    .row()
+    .text("❌ 取消", "addpreview:cancel");
+}
+
+export function buildBillingDatePreview(
+  nextBillingDate: string,
+  billingCycle: BillingCycle,
+  billingAnchorDay = getBillingAnchorDay(nextBillingDate),
+  count = 5,
+): string[] {
+  const dates = [nextBillingDate];
+  let currentDate = nextBillingDate;
+
+  while (dates.length < count) {
+    const nextDate = getNextBillingDate(
+      currentDate,
+      billingCycle,
+      billingAnchorDay,
+    );
+    if (!nextDate) break;
+    dates.push(nextDate);
+    currentDate = nextDate;
+  }
+
+  return dates;
+}
+
+export function formatBillingDatePreview(
+  nextBillingDate: string,
+  billingCycle: BillingCycle,
+): string {
+  const dates = buildBillingDatePreview(nextBillingDate, billingCycle);
+  const lines = [
+    "未来扣款日期预览：",
+    ...dates.map((date, index) => `${index + 1}. ${date}`),
+  ];
+
+  if (billingCycle === "custom") {
+    lines.push("自定义周期不会自动推进，请之后手动修改下次扣款日期。");
+  }
+
+  lines.push("这个更新时间安排是否正确？");
+  return lines.join("\n");
+}
+
 function isCancel(text: string): boolean {
   return text.trim() === "/cancel" || text.trim() === "取消";
 }
@@ -336,69 +388,103 @@ export async function addConversation(
     break;
   }
 
-  // Step 4: Billing cycle (inline keyboard)
-  await ctx.reply("请选择扣款周期：", {
-    reply_markup: cycleKeyboard(),
-  });
-  const cycleCtx = await conversation.waitForCallbackQuery(/^cycle:/);
-  const cycleCallback = cycleCtx.callbackQuery.data;
-  const cycle = cycleCallback.replace("cycle:", "") as BillingCycle;
-  if (!VALID_CYCLES.includes(cycle)) {
-    await ctx.reply("请点击按钮选择扣款周期。\n请发送 /add 重新开始。");
-    return;
-  }
-  await cycleCtx.answerCallbackQuery();
-  await safeDeleteMessage(cycleCtx);
-
-  // Step 5: Date (inline calendar)
-  await ctx.reply("请选择下次扣款日期：", {
-    reply_markup: dateKeyboard(currentMonth()),
-  });
-
+  let cycle: BillingCycle | undefined;
   let nextBillingDate: string | undefined;
-  while (!nextBillingDate) {
-    const dateCtx = await conversation.waitForCallbackQuery(/^adddate:/);
-    const parsedDate = parseAddDateCallbackData(dateCtx.callbackQuery.data);
+  let previewConfirmed = false;
 
-    if (!parsedDate) {
-      await dateCtx.answerCallbackQuery("无效的日期选择。");
-      continue;
+  while (!previewConfirmed) {
+    // Step 4: Billing cycle (inline keyboard)
+    await ctx.reply("请选择扣款周期：", {
+      reply_markup: cycleKeyboard(),
+    });
+    const cycleCtx = await conversation.waitForCallbackQuery(/^cycle:/);
+    const cycleCallback = cycleCtx.callbackQuery.data;
+    const selectedCycle = cycleCallback.replace("cycle:", "") as BillingCycle;
+    if (!VALID_CYCLES.includes(selectedCycle)) {
+      await ctx.reply("请点击按钮选择扣款周期。\n请发送 /add 重新开始。");
+      return;
     }
+    await cycleCtx.answerCallbackQuery();
+    await safeDeleteMessage(cycleCtx);
+    cycle = selectedCycle;
 
-    if (parsedDate.action === "noop") {
-      await dateCtx.answerCallbackQuery();
-      continue;
-    }
+    // Step 5: Date (inline calendar)
+    await ctx.reply("请选择下次扣款日期：", {
+      reply_markup: dateKeyboard(currentMonth()),
+    });
 
-    if (parsedDate.action === "cancel") {
+    nextBillingDate = undefined;
+    while (!nextBillingDate) {
+      const dateCtx = await conversation.waitForCallbackQuery(/^adddate:/);
+      const parsedDate = parseAddDateCallbackData(dateCtx.callbackQuery.data);
+
+      if (!parsedDate) {
+        await dateCtx.answerCallbackQuery("无效的日期选择。");
+        continue;
+      }
+
+      if (parsedDate.action === "noop") {
+        await dateCtx.answerCallbackQuery();
+        continue;
+      }
+
+      if (parsedDate.action === "cancel") {
+        await dateCtx.answerCallbackQuery();
+        await safeDeleteMessage(dateCtx);
+        await ctx.reply("已取消。");
+        return;
+      }
+
+      if (parsedDate.action === "month") {
+        await dateCtx.answerCallbackQuery();
+        try {
+          await dateCtx.editMessageReplyMarkup({
+            reply_markup: dateKeyboard(parsedDate.month),
+          });
+        } catch {
+          // If editing fails, keep the conversation alive for the next callback.
+        }
+        continue;
+      }
+
+      const dateResult = validateAddDate(parsedDate.date);
+      if (dateResult.error) {
+        await dateCtx.answerCallbackQuery("日期无效。");
+        await ctx.reply(dateResult.error + "\n请发送 /add 重新开始。");
+        return;
+      }
+
       await dateCtx.answerCallbackQuery();
       await safeDeleteMessage(dateCtx);
+      nextBillingDate = dateResult.date!;
+    }
+
+    await ctx.reply(formatBillingDatePreview(nextBillingDate, cycle), {
+      reply_markup: billingPreviewKeyboard(),
+    });
+
+    const previewCtx = await conversation.waitForCallbackQuery(/^addpreview:/);
+    const parsedPreview = parseAddPreviewCallbackData(
+      previewCtx.callbackQuery.data,
+    );
+    await previewCtx.answerCallbackQuery();
+    await safeDeleteMessage(previewCtx);
+
+    if (!parsedPreview || parsedPreview.action === "cancel") {
       await ctx.reply("已取消。");
       return;
     }
 
-    if (parsedDate.action === "month") {
-      await dateCtx.answerCallbackQuery();
-      try {
-        await dateCtx.editMessageReplyMarkup({
-          reply_markup: dateKeyboard(parsedDate.month),
-        });
-      } catch {
-        // If editing fails, keep the conversation alive for the next callback.
-      }
+    if (parsedPreview.action === "change") {
       continue;
     }
 
-    const dateResult = validateAddDate(parsedDate.date);
-    if (dateResult.error) {
-      await dateCtx.answerCallbackQuery("日期无效。");
-      await ctx.reply(dateResult.error + "\n请发送 /add 重新开始。");
-      return;
-    }
+    previewConfirmed = true;
+  }
 
-    await dateCtx.answerCallbackQuery();
-    await safeDeleteMessage(dateCtx);
-    nextBillingDate = dateResult.date!;
+  if (!cycle || !nextBillingDate) {
+    await ctx.reply("已取消。");
+    return;
   }
 
   // Review
@@ -439,6 +525,7 @@ export async function addConversation(
     currency,
     billingCycle: cycle,
     nextBillingDate,
+    billingAnchorDay: getBillingAnchorDay(nextBillingDate),
     createdAt: now,
     updatedAt: now,
   };

@@ -168,4 +168,133 @@ describe("subscriptionService", () => {
     expect(listB).toHaveLength(1);
     expect(listB[0].name).toBe("Spotify");
   });
+
+  it("stores a billing anchor day when creating a subscription", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const userKey = "user-key-123";
+    const sub = {
+      id: "sub-1",
+      name: "Netflix",
+      billingCycle: "monthly" as const,
+      nextBillingDate: "2026-01-31",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await service.create(userKey, sub, VALID_KEY);
+
+    const retrieved = await service.get(userKey, "sub-1", VALID_KEY);
+    const stored = await repo.get(userKey, "sub-1");
+    expect(retrieved?.billingAnchorDay).toBe(31);
+    expect(stored?.billingAnchorDay).toBe(31);
+  });
+
+  it("advances a past-due subscription and moves the reminder index", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const userKey = "user-key-123";
+    const sub = {
+      id: "sub-1",
+      name: "Netflix",
+      billingCycle: "monthly" as const,
+      nextBillingDate: "2026-01-31",
+      billingAnchorDay: 31,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await service.create(userKey, sub, VALID_KEY);
+    const advanced = await service.advancePastDue(
+      userKey,
+      "sub-1",
+      VALID_KEY,
+      "2026-02-28",
+    );
+
+    expect(advanced?.nextBillingDate).toBe("2026-03-31");
+    expect(await reminderRepo.listEntries("2026-01-31")).toEqual([]);
+    expect(await reminderRepo.listEntries("2026-03-31")).toEqual([
+      { userKey, subscriptionId: "sub-1" },
+    ]);
+    const stored = await repo.get(userKey, "sub-1");
+    expect(stored?.nextBillingDate).toBe("2026-03-31");
+  });
+
+  it("advances old subscriptions without a stored billing anchor day", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const userKey = "user-key-123";
+    const sub = {
+      id: "sub-1",
+      name: "Netflix",
+      billingCycle: "monthly" as const,
+      nextBillingDate: "2026-01-30",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const { encrypt, serializeEncryptedPayload } = await import(
+      "../src/crypto/encryption.js"
+    );
+    const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
+    await repo.save(userKey, {
+      id: sub.id,
+      encryptedPayload: serializeEncryptedPayload(encrypted),
+      nextBillingDate: sub.nextBillingDate,
+      billingCycle: sub.billingCycle,
+      createdAt: sub.createdAt,
+      updatedAt: sub.updatedAt,
+    });
+    await reminderRepo.addEntry(sub.nextBillingDate, userKey, sub.id);
+
+    const advanced = await service.advancePastDue(
+      userKey,
+      "sub-1",
+      VALID_KEY,
+      "2026-02-28",
+    );
+
+    expect(advanced?.billingAnchorDay).toBe(30);
+    expect(advanced?.nextBillingDate).toBe("2026-03-30");
+  });
+
+  it("does not advance custom billing cycles", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const userKey = "user-key-123";
+    await service.create(
+      userKey,
+      {
+        id: "sub-1",
+        name: "Custom",
+        billingCycle: "custom",
+        nextBillingDate: "2026-01-01",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const advanced = await service.advancePastDue(
+      userKey,
+      "sub-1",
+      VALID_KEY,
+      "2026-05-18",
+    );
+
+    expect(advanced?.nextBillingDate).toBe("2026-01-01");
+  });
 });

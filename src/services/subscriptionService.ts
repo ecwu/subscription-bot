@@ -8,6 +8,7 @@ import {
   parseEncryptedPayload,
 } from "../crypto/encryption.js";
 import { shortId } from "../utils/shortId.js";
+import { getBillingAnchorDay, getNextBillingDate } from "../utils/date.js";
 
 export type ResolveResult =
   | { kind: "found"; id: string }
@@ -31,6 +32,12 @@ export interface SubscriptionService {
     sub: Subscription,
     encryptionKey: string,
   ): Promise<void>;
+  advancePastDue(
+    userKey: string,
+    subId: string,
+    encryptionKey: string,
+    today: string,
+  ): Promise<Subscription | null>;
   remove(userKey: string, subId: string): Promise<void>;
   removeAll(userKey: string): Promise<void>;
   resolveId(
@@ -44,19 +51,40 @@ export function createSubscriptionService(
   repo: SubscriptionRepository,
   reminderRepo: ReminderRepository,
 ): SubscriptionService {
+  function withBillingAnchorDay(sub: Subscription): Subscription {
+    return {
+      ...sub,
+      billingAnchorDay:
+        sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate),
+    };
+  }
+
+  async function decryptStored(
+    stored: StoredSubscription,
+    encryptionKey: string,
+  ): Promise<Subscription> {
+    const encrypted = parseEncryptedPayload(stored.encryptedPayload);
+    const decrypted = await decrypt(encrypted, encryptionKey);
+    return withBillingAnchorDay(JSON.parse(decrypted));
+  }
+
   return {
     async create(
       userKey: string,
       sub: Subscription,
       encryptionKey: string,
     ): Promise<void> {
-      const payload = JSON.stringify(sub);
-      const encrypted = await encrypt(payload, encryptionKey);
+      const billingAnchorDay =
+        sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
+      const normalizedSub = { ...sub, billingAnchorDay };
+      const normalizedPayload = JSON.stringify(normalizedSub);
+      const encrypted = await encrypt(normalizedPayload, encryptionKey);
       const stored: StoredSubscription = {
         id: sub.id,
         encryptedPayload: serializeEncryptedPayload(encrypted),
         nextBillingDate: sub.nextBillingDate,
         billingCycle: sub.billingCycle,
+        billingAnchorDay,
         createdAt: sub.createdAt,
         updatedAt: sub.updatedAt,
       };
@@ -73,9 +101,7 @@ export function createSubscriptionService(
       for (const id of ids) {
         const stored = await repo.get(userKey, id);
         if (!stored) continue;
-        const encrypted = parseEncryptedPayload(stored.encryptedPayload);
-        const decrypted = await decrypt(encrypted, encryptionKey);
-        subs.push(JSON.parse(decrypted));
+        subs.push(await decryptStored(stored, encryptionKey));
       }
       return subs;
     },
@@ -87,9 +113,7 @@ export function createSubscriptionService(
     ): Promise<Subscription | null> {
       const stored = await repo.get(userKey, subId);
       if (!stored) return null;
-      const encrypted = parseEncryptedPayload(stored.encryptedPayload);
-      const decrypted = await decrypt(encrypted, encryptionKey);
-      return JSON.parse(decrypted);
+      return decryptStored(stored, encryptionKey);
     },
 
     async update(
@@ -100,13 +124,17 @@ export function createSubscriptionService(
       // Load the old stored version to know the previous nextBillingDate
       const oldStored = await repo.get(userKey, sub.id);
 
-      const payload = JSON.stringify(sub);
+      const billingAnchorDay =
+        sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
+      const normalizedSub = { ...sub, billingAnchorDay };
+      const payload = JSON.stringify(normalizedSub);
       const encrypted = await encrypt(payload, encryptionKey);
       const stored: StoredSubscription = {
         id: sub.id,
         encryptedPayload: serializeEncryptedPayload(encrypted),
         nextBillingDate: sub.nextBillingDate,
         billingCycle: sub.billingCycle,
+        billingAnchorDay,
         createdAt: sub.createdAt,
         updatedAt: sub.updatedAt,
       };
@@ -121,6 +149,40 @@ export function createSubscriptionService(
         );
         await reminderRepo.addEntry(sub.nextBillingDate, userKey, sub.id);
       }
+    },
+
+    async advancePastDue(
+      userKey: string,
+      subId: string,
+      encryptionKey: string,
+      today: string,
+    ): Promise<Subscription | null> {
+      const sub = await this.get(userKey, subId, encryptionKey);
+      if (!sub) return null;
+      if (sub.nextBillingDate > today) return sub;
+
+      let nextBillingDate = sub.nextBillingDate;
+      const billingAnchorDay =
+        sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
+
+      while (nextBillingDate <= today) {
+        const next = getNextBillingDate(
+          nextBillingDate,
+          sub.billingCycle,
+          billingAnchorDay,
+        );
+        if (!next) return sub;
+        nextBillingDate = next;
+      }
+
+      const updated: Subscription = {
+        ...sub,
+        nextBillingDate,
+        billingAnchorDay,
+        updatedAt: new Date().toISOString(),
+      };
+      await this.update(userKey, updated, encryptionKey);
+      return updated;
     },
 
     async remove(userKey: string, subId: string): Promise<void> {

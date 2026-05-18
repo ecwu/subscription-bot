@@ -12,6 +12,7 @@ export interface Subscription {
   currency?: string;
   billingCycle: BillingCycle;
   nextBillingDate: string; // ISO 8601 date (YYYY-MM-DD)
+  billingAnchorDay?: number; // Original billing day of month for month-like cycles
   category?: string;
   note?: string;
   createdAt: string;
@@ -23,6 +24,7 @@ export interface StoredSubscription {
   encryptedPayload: string; // base64url-encoded encrypted JSON
   nextBillingDate: string;
   billingCycle: BillingCycle;
+  billingAnchorDay?: number;
   createdAt: string;
   updatedAt: string;
 }
