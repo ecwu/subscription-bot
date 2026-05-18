@@ -61,7 +61,9 @@ export async function viewCommand(ctx: BotContext): Promise<void> {
     lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
   }
 
-  lines.push(`周期：${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`);
+  lines.push(
+    `周期：${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
+  );
   lines.push(`下次扣款：${sub.nextBillingDate}`);
 
   if (sub.category) {

@@ -44,11 +44,11 @@ describe("billing cycle parsing", () => {
   });
 
   it("formats interval labels", () => {
-    expect(formatBillingCycleValue("interval", { unit: "day", count: 30 })).toBe(
-      "每 30 天",
-    );
-    expect(formatBillingCycleValue("interval", { unit: "week", count: 4 })).toBe(
-      "每 4 周",
-    );
+    expect(
+      formatBillingCycleValue("interval", { unit: "day", count: 30 }),
+    ).toBe("每 30 天");
+    expect(
+      formatBillingCycleValue("interval", { unit: "week", count: 4 }),
+    ).toBe("每 4 周");
   });
 });

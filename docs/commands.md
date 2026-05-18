@@ -7,7 +7,8 @@
 | `/start`    | Start the bot and show welcome message           | Implemented   |
 | `/help`     | Show list of available commands                  | Implemented   |
 | `/add`      | Add a new subscription (interactive or one-line) | Implemented   |
-| `/list`     | List all your subscriptions with inline buttons  | Implemented   |
+| `/list`     | List all your subscriptions in compact text      | Implemented   |
+| `/list_full`| List subscriptions with inline action buttons    | Implemented   |
 | `/view`     | View subscription details by ID                  | Implemented   |
 | `/edit`     | Edit a subscription field (interactive or one-line) | Implemented |
 | `/delete`   | Delete a specific subscription                   | Implemented   |
@@ -58,6 +59,10 @@ Note: One-line `/add` does not support spaces in the name.
 
 ### `/list`
 
+Displays all subscriptions sorted by next billing date as compact text. Each line shows name, price, and the next billing date as a relative day count.
+
+### `/list_full`
+
 Displays all subscriptions sorted by next billing date. Each subscription is sent as a separate message with inline buttons: **[查看] [编辑] [删除]**.
 
 ### `/view <id>`
@@ -74,7 +79,7 @@ Shows full details for a subscription. `id` can be the short ID (first 8 chars) 
 Cycle edits support the same fixed cycles and interval formats as `/add`, for example `/edit a1b2c3d4 cycle 30d`.
 
 **Interactive mode**:
-Send `/edit` without full arguments, or click **编辑** from a `/list` message. The bot shows an inline keyboard with fields: Name, Price, Currency, Cycle, Next billing date, Cancel. Clicking a field starts the corresponding conversation.
+Send `/edit` without full arguments, or click **编辑** from a `/list_full` message. The bot shows an inline keyboard with fields: Name, Price, Currency, Cycle, Next billing date, Cancel. Clicking a field starts the corresponding conversation.
 
 ### `/delete <id>`
 

@@ -228,7 +228,10 @@ function buildReportView({
 }
 
 export function formatReportText(report: SplitReportData): string {
-  const lines = ["订阅支出报告", `生成日期：${report.generatedAt.slice(0, 10)}`];
+  const lines = [
+    "订阅支出报告",
+    `生成日期：${report.generatedAt.slice(0, 10)}`,
+  ];
 
   appendReportSection(lines, report.currentMonthly);
   appendReportSection(lines, report.currentMonthDue);

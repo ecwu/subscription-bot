@@ -42,9 +42,7 @@ const CHINESE_UNITS: Record<string, BillingInterval["unit"] | undefined> = {
 
 export function parseBillingCycleText(input: string): ParsedBillingCycle {
   const trimmed = input.trim();
-  if (
-    STANDARD_BILLING_CYCLES.some((cycle) => cycle === trimmed)
-  ) {
+  if (STANDARD_BILLING_CYCLES.some((cycle) => cycle === trimmed)) {
     return { billingCycle: trimmed as BillingCycle };
   }
 

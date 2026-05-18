@@ -9,7 +9,7 @@ import { rateLimiter } from "./middleware/rateLimit.js";
 import { startCommand } from "./commands/start.js";
 import { helpCommand } from "./commands/help.js";
 import { addCommand } from "./commands/add.js";
-import { listCommand } from "./commands/list.js";
+import { listCommand, listFullCommand } from "./commands/list.js";
 import { deleteCommand } from "./commands/delete.js";
 import { viewCommand } from "./commands/view.js";
 import { editCommand } from "./commands/edit.js";
@@ -91,6 +91,7 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.command("start", startCommand);
   bot.command("help", helpCommand);
   bot.command("add", addCommand);
+  bot.command("list_full", listFullCommand);
   bot.command("list", listCommand);
   bot.command("delete", deleteCommand);
   bot.command("view", viewCommand);

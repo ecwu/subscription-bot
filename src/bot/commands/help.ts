@@ -8,7 +8,8 @@ export async function helpCommand(ctx: BotContext): Promise<void> {
       "  示例：/add Netflix 12.99 CNY monthly 2026-06-01\n" +
       "  间隔：/add Gym 30 CNY 30d 2026-06-01 或 every 4 weeks\n" +
       "  说明：一行 /add 的名称暂不支持空格\n\n" +
-      "/list — 查看订阅列表，并显示操作按钮\n" +
+      "/list — 查看简洁订阅列表\n" +
+      "/list_full — 查看带操作按钮的完整订阅列表\n" +
       "/view <id> — 查看订阅详情（短 ID 或完整 ID）\n" +
       "/edit <id> date|price|cycle <值> — 修改订阅，周期支持 30d/4w\n" +
       "/delete <id> — 删除订阅（短 ID 或完整 ID）\n" +
@@ -16,7 +17,7 @@ export async function helpCommand(ctx: BotContext): Promise<void> {
       "/report — 生成月度订阅支出报告\n\n" +
       "交互方式：\n" +
       "/add — 逐步添加订阅，支持带空格的名称\n" +
-      "/list — 点击每个订阅下方的查看、编辑或删除按钮\n" +
+      "/list_full — 点击每个订阅下方的查看、编辑或删除按钮\n" +
       "/cancel — 结束当前流程\n\n" +
       "隐私与数据：\n" +
       "/export — 导出已保存的订阅 JSON\n" +
