@@ -18,6 +18,7 @@ import { viewCommand } from "./commands/view.js";
 import { editCommand } from "./commands/edit.js";
 import { exportCommand } from "./commands/export.js";
 import { reportCommand } from "./commands/report.js";
+import { reportTextCommand } from "./commands/reportText.js";
 import { deleteMeCommand } from "./commands/deleteMe.js";
 import { remindersCommand } from "./commands/reminders.js";
 import { debugMeCommand } from "./commands/debugMe.js";
@@ -138,6 +139,7 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.command("edit", editCommand);
   bot.command("export", exportCommand);
   bot.command("report", reportCommand);
+  bot.command("report_text", reportTextCommand);
   bot.command("delete_me", deleteMeCommand);
   bot.command("reminders", remindersCommand);
   bot.command("cancel", cancelCommand);

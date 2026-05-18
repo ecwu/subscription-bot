@@ -40,6 +40,30 @@ export interface ReportExcludedCounts {
   customCycle: number;
 }
 
+export interface TextReportSubscriptionItem {
+  name: string;
+  amount: number;
+  currency: string;
+  convertedAmount?: number;
+  billingDay?: number;
+}
+
+export interface TextReportMonthItems {
+  monthKey: string;
+  totalConverted: number;
+  items: TextReportSubscriptionItem[];
+}
+
+export interface TextReportData {
+  generatedAt: string;
+  baseCurrency: string;
+  currentMonthKey: string;
+  currentMonthItems: TextReportSubscriptionItem[];
+  currentMonthTotal: number;
+  yearMonthItems: TextReportMonthItems[];
+  yearTotal: number;
+}
+
 export interface ReportData {
   title: string;
   totalLabel: string;
@@ -291,19 +315,23 @@ function buildFullMonthDayDistribution(
     const rate = exchangeRates?.rates[currency];
     if (rate === undefined) continue;
 
-    const day = getBillingDay(sub.nextBillingDate);
+    const monthlyDay = getBillingDay(sub.nextBillingDate);
 
     const monthlyAmount = monthlyAmountIfCurrentlyActive(sub, today);
     if (monthlyAmount !== null) {
       monthlyByDay.set(
-        day,
-        (monthlyByDay.get(day) ?? 0) + monthlyAmount * rate,
+        monthlyDay,
+        (monthlyByDay.get(monthlyDay) ?? 0) + monthlyAmount * rate,
       );
     }
 
-    const actualAmount = actualAmountIfDueThisMonth(sub, today);
-    if (actualAmount !== null) {
-      actualByDay.set(day, (actualByDay.get(day) ?? 0) + actualAmount * rate);
+    const actualBillingDate = findActualBillingDateForCurrentMonth(sub, today);
+    if (actualBillingDate !== null) {
+      const actualDay = getBillingDay(actualBillingDate);
+      actualByDay.set(
+        actualDay,
+        (actualByDay.get(actualDay) ?? 0) + (sub.price ?? 0) * rate,
+      );
     }
   }
 
@@ -427,15 +455,74 @@ function monthlyAmountIfCurrentlyActive(
   return monthlyEquivalentForSubscription(sub);
 }
 
+function findActualBillingDateForCurrentMonth(
+  sub: Subscription,
+  today: string,
+): string | null {
+  if (sub.billingCycle === "custom") return null;
+
+  // Case 1: upcoming payment this month
+  if (isInCurrentMonth(sub.nextBillingDate, today)) {
+    return sub.nextBillingDate;
+  }
+
+  // Case 2: already paid this month, nextBillingDate was advanced past current month
+  const anchorDay =
+    sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
+  const prevDate = getPreviousBillingDate(
+    sub.nextBillingDate,
+    sub.billingCycle,
+    anchorDay,
+    sub.billingInterval,
+  );
+  if (!prevDate || !isInCurrentMonth(prevDate, today) || prevDate > today) {
+    return null;
+  }
+
+  // Verify this is a real past billing, not a phantom first billing.
+  // Require that there was at least one full cycle before prevDate.
+  const prevPrevDate = getPreviousBillingDate(
+    prevDate,
+    sub.billingCycle,
+    anchorDay,
+    sub.billingInterval,
+  );
+  if (prevPrevDate && sub.createdAt.slice(0, 10) <= prevPrevDate) {
+    return prevDate;
+  }
+
+  return null;
+}
+
 function actualAmountIfDueThisMonth(
   sub: Subscription,
   today: string,
 ): number | null {
-  return isInCurrentMonth(sub.nextBillingDate, today) ? (sub.price ?? 0) : null;
+  const billingDate = findActualBillingDateForCurrentMonth(sub, today);
+  return billingDate !== null ? (sub.price ?? 0) : null;
 }
 
 function isWithinActiveWindow(sub: Subscription, today: string): boolean {
-  if (sub.nextBillingDate < today) return false;
+  let nextDate = sub.nextBillingDate;
+
+  // Advance past-due dates to the next future date
+  if (nextDate < today) {
+    const anchorDay =
+      sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
+    let iterations = 0;
+    while (nextDate < today && iterations < 400) {
+      const next = getNextBillingDate(
+        nextDate,
+        sub.billingCycle,
+        anchorDay,
+        sub.billingInterval,
+      );
+      if (!next || next <= nextDate) break;
+      nextDate = next;
+      iterations++;
+    }
+    if (nextDate < today) return false;
+  }
 
   let windowEnd: string;
   if (sub.billingCycle === "interval") {
@@ -448,7 +535,7 @@ function isWithinActiveWindow(sub: Subscription, today: string): boolean {
   else if (sub.billingCycle === "yearly") windowEnd = addYears(today, 1);
   else return false;
 
-  return sub.nextBillingDate <= windowEnd;
+  return nextDate <= windowEnd;
 }
 
 function intervalWindowEnd(sub: Subscription, today: string): string | null {
@@ -616,4 +703,186 @@ function buildYearMonthDistribution(
   return Array.from(monthTotals.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([monthKey, actualTotal]) => ({ monthKey, actualTotal }));
+}
+
+export function buildTextReportData(
+  subscriptions: Subscription[],
+  exchangeRates: ExchangeRateConfig | null,
+  now: Date = new Date(),
+): TextReportData {
+  const today = now.toISOString().slice(0, 10);
+  const currentMonthKey = today.slice(0, 7);
+  const generatedAt = now.toISOString();
+
+  const currentMonthItems: TextReportSubscriptionItem[] = [];
+  for (const sub of subscriptions) {
+    if (sub.status === "paused") continue;
+    if (sub.price === undefined) continue;
+    if (!sub.currency) continue;
+    if (sub.billingCycle === "custom") continue;
+
+    const billingDate = findActualBillingDateForCurrentMonth(sub, today);
+    if (billingDate === null) continue;
+
+    const currency = sub.currency.toUpperCase();
+    const rate = exchangeRates?.rates[currency];
+    const convertedAmount =
+      rate !== undefined ? sub.price * rate : undefined;
+
+    currentMonthItems.push({
+      name: sub.name,
+      amount: sub.price,
+      currency,
+      convertedAmount,
+      billingDay: getBillingDay(billingDate),
+    });
+  }
+
+  currentMonthItems.sort((a, b) => {
+    if (a.billingDay !== b.billingDay) return a.billingDay! - b.billingDay!;
+    return a.name.localeCompare(b.name);
+  });
+
+  let currentMonthTotal = 0;
+  for (const item of currentMonthItems) {
+    if (item.convertedAmount !== undefined) {
+      currentMonthTotal += item.convertedAmount;
+    }
+  }
+
+  const yearMonthMap = new Map<
+    string,
+    { totalConverted: number; items: TextReportSubscriptionItem[] }
+  >();
+
+  let cursorMonth = currentMonthKey;
+  for (let i = 0; i < 12; i++) {
+    yearMonthMap.set(cursorMonth, { totalConverted: 0, items: [] });
+    cursorMonth = addMonths(cursorMonth + "-01", 1).slice(0, 7);
+  }
+
+  for (const sub of subscriptions) {
+    if (sub.status === "paused") continue;
+    if (sub.price === undefined) continue;
+    if (!sub.currency) continue;
+    if (sub.billingCycle === "custom") continue;
+
+    const currency = sub.currency.toUpperCase();
+    const rate = exchangeRates?.rates[currency];
+
+    const amounts = projectedAmountsByMonth(sub, today);
+    if (!amounts) continue;
+
+    for (const [monthKey, amount] of amounts) {
+      const entry = yearMonthMap.get(monthKey);
+      if (!entry) continue;
+
+      const convertedAmount = rate !== undefined ? amount * rate : undefined;
+      if (convertedAmount !== undefined) {
+        entry.totalConverted += convertedAmount;
+      }
+
+      entry.items.push({
+        name: sub.name,
+        amount,
+        currency,
+        convertedAmount,
+      });
+    }
+  }
+
+  const yearMonthItems: TextReportMonthItems[] = [];
+  for (const [monthKey, entry] of yearMonthMap) {
+    entry.items.sort((a, b) => {
+      const aVal = a.convertedAmount ?? 0;
+      const bVal = b.convertedAmount ?? 0;
+      if (bVal !== aVal) return bVal - aVal;
+      return a.name.localeCompare(b.name);
+    });
+    yearMonthItems.push({
+      monthKey,
+      totalConverted: entry.totalConverted,
+      items: entry.items,
+    });
+  }
+
+  let yearTotal = 0;
+  for (const month of yearMonthItems) {
+    yearTotal += month.totalConverted;
+  }
+
+  return {
+    generatedAt,
+    baseCurrency: REPORT_BASE_CURRENCY,
+    currentMonthKey,
+    currentMonthItems,
+    currentMonthTotal,
+    yearMonthItems,
+    yearTotal,
+  };
+}
+
+const TELEGRAM_MSG_LIMIT = 4096;
+
+export function formatTextReport(data: TextReportData): string[] {
+  const chunks: string[] = [];
+  let current = "";
+
+  const push = (line: string): void => {
+    const withNewline = current.length === 0 ? line : "\n" + line;
+    if (current.length + withNewline.length > TELEGRAM_MSG_LIMIT) {
+      chunks.push(current);
+      current = line;
+    } else {
+      current += withNewline;
+    }
+  };
+
+  const fmtItem = (item: TextReportSubscriptionItem): string => {
+    const money = formatMoney(item.amount, item.currency);
+    const arrow =
+      item.convertedAmount !== undefined &&
+      item.currency !== data.baseCurrency
+        ? ` → ${formatMoney(item.convertedAmount, data.baseCurrency)}`
+        : "";
+    const day = item.billingDay !== undefined ? `  ${item.billingDay}日` : "";
+    return `${item.name}  ${money}${arrow}${day}`;
+  };
+
+  push(`当月支出 · ${data.currentMonthKey}`);
+
+  if (data.currentMonthItems.length === 0) {
+    push("暂无扣款");
+  } else {
+    for (const item of data.currentMonthItems) {
+      push(fmtItem(item));
+    }
+    push(`合计 ${formatMoney(data.currentMonthTotal, data.baseCurrency)}`);
+  }
+
+  push("───");
+  push(`年度预期 · ${data.currentMonthKey}~${data.yearMonthItems.length > 0 ? data.yearMonthItems[data.yearMonthItems.length - 1].monthKey : data.currentMonthKey}`);
+
+  let yearHasItems = false;
+  for (const month of data.yearMonthItems) {
+    if (month.items.length === 0) continue;
+    yearHasItems = true;
+
+    push(`${month.monthKey} · ${formatMoney(month.totalConverted, data.baseCurrency)}`);
+    for (const item of month.items) {
+      push(`  ${fmtItem(item)}`);
+    }
+  }
+
+  if (!yearHasItems) {
+    push("暂无预期扣款");
+  } else {
+    push(`年度合计 ${formatMoney(data.yearTotal, data.baseCurrency)}`);
+  }
+
+  if (current.length > 0) {
+    chunks.push(current);
+  }
+
+  return chunks;
 }

@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   buildReportData,
+  buildTextReportData,
   formatReportText,
+  formatTextReport,
   parseExchangeRateConfig,
 } from "../src/services/reportService.js";
 import type { Subscription } from "../src/models/subscription.js";
@@ -376,6 +378,120 @@ describe("buildReportData", () => {
     ]);
   });
 
+  it("lookback includes already-paid monthly subscription in current month due", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "monthly-paid",
+          price: 10,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-06-03", // advanced from 2026-05-03
+          createdAt: "2026-04-01T00:00:00.000Z",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.currentMonthDue.includedCount).toBe(1);
+    expect(report.currentMonthDue.totalBase).toBeCloseTo(70); // 10 * 7
+
+    const day3 = report.currentMonthDue.dayDistribution.find(
+      (item) => item.day === 3,
+    )!;
+    expect(day3.actualTotal).toBeCloseTo(70);
+  });
+
+  it("lookback includes already-paid quarterly subscription in current month due", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "quarterly-paid",
+          price: 30,
+          currency: "USD",
+          billingCycle: "quarterly",
+          nextBillingDate: "2026-08-15", // advanced from 2026-05-15
+          createdAt: "2026-01-01T00:00:00.000Z",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.currentMonthDue.includedCount).toBe(1);
+    expect(report.currentMonthDue.totalBase).toBeCloseTo(210); // 30 * 7
+
+    const day15 = report.currentMonthDue.dayDistribution.find(
+      (item) => item.day === 15,
+    )!;
+    expect(day15.actualTotal).toBeCloseTo(210);
+  });
+
+  it("lookback includes already-paid yearly subscription in current month due", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "yearly-paid",
+          price: 120,
+          currency: "USD",
+          billingCycle: "yearly",
+          nextBillingDate: "2027-05-10", // advanced from 2026-05-10
+          createdAt: "2025-01-01T00:00:00.000Z",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.currentMonthDue.includedCount).toBe(1);
+    expect(report.currentMonthDue.totalBase).toBeCloseTo(840); // 120 * 7
+
+    const day10 = report.currentMonthDue.dayDistribution.find(
+      (item) => item.day === 10,
+    )!;
+    expect(day10.actualTotal).toBeCloseTo(840);
+  });
+
+  it("lookback excludes newly created subscription with phantom past date", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "new-sub",
+          price: 10,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-06-15",
+          createdAt: "2026-05-20T00:00:00.000Z", // created after would-be prevDate 2026-05-15
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.currentMonthDue.includedCount).toBe(0);
+  });
+
+  it("monthly run-rate includes past-due subscription after advancing", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "past-due-monthly",
+          price: 10,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-05-03", // past due, should be advanced
+          createdAt: "2026-01-01T00:00:00.000Z",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.currentMonthly.includedCount).toBe(1);
+    expect(report.currentMonthly.totalBase).toBeCloseTo(70); // 10 * 7
+  });
+
   it("formats a text fallback without subscription names", () => {
     const report = buildReportData(
       [
@@ -529,5 +645,307 @@ describe("buildReportData", () => {
       0,
     );
     expect(totalSum).toBeGreaterThan(0);
+  });
+});
+
+describe("buildTextReportData", () => {
+  const rates = {
+    base: "CNY" as const,
+    rates: { CNY: 1, USD: 7, EUR: 8 },
+  };
+
+  it("collects current month items with billing day", () => {
+    const data = buildTextReportData(
+      [
+        sub({
+          id: "a",
+          name: "Netflix",
+          price: 10,
+          currency: "USD",
+          nextBillingDate: "2026-05-20",
+        }),
+        sub({
+          id: "b",
+          name: "Spotify",
+          price: 15,
+          currency: "CNY",
+          nextBillingDate: "2026-05-10",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(data.currentMonthKey).toBe("2026-05");
+    expect(data.currentMonthItems).toHaveLength(2);
+    expect(data.currentMonthItems[0]).toMatchObject({
+      name: "Spotify",
+      billingDay: 10,
+    });
+    expect(data.currentMonthItems[1]).toMatchObject({
+      name: "Netflix",
+      billingDay: 20,
+    });
+    expect(data.currentMonthTotal).toBeCloseTo(15 + 10 * 7);
+  });
+
+  it("collects year month items for each subscription", () => {
+    const data = buildTextReportData(
+      [
+        sub({
+          id: "a",
+          name: "Netflix",
+          price: 10,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-05-20",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(data.yearMonthItems).toHaveLength(12);
+    const nonEmpty = data.yearMonthItems.filter((m) => m.items.length > 0);
+    expect(nonEmpty).toHaveLength(12);
+    for (const month of nonEmpty) {
+      expect(month.items).toHaveLength(1);
+      expect(month.items[0].name).toBe("Netflix");
+    }
+    expect(data.yearTotal).toBeCloseTo(12 * 10 * 7);
+  });
+
+  it("yearly subscription only appears in its billing month", () => {
+    const data = buildTextReportData(
+      [
+        sub({
+          id: "yearly",
+          name: "AWS",
+          price: 120,
+          currency: "USD",
+          billingCycle: "yearly",
+          nextBillingDate: "2027-03-15",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    const nonEmpty = data.yearMonthItems.filter((m) => m.items.length > 0);
+    expect(nonEmpty).toHaveLength(1);
+    expect(nonEmpty[0].monthKey).toBe("2027-03");
+  });
+
+  it("excludes paused and custom-cycle subscriptions", () => {
+    const data = buildTextReportData(
+      [
+        sub({ id: "paused", name: "Paused", status: "paused" }),
+        sub({ id: "custom", name: "Custom", billingCycle: "custom" }),
+        sub({
+          id: "valid",
+          name: "Valid",
+          price: 10,
+          currency: "CNY",
+          nextBillingDate: "2026-05-20",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(data.currentMonthItems).toHaveLength(1);
+    expect(data.currentMonthItems[0].name).toBe("Valid");
+  });
+
+  it("includes lookback items in current month", () => {
+    const data = buildTextReportData(
+      [
+        sub({
+          id: "monthly-paid",
+          name: "Paid",
+          price: 10,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-06-03",
+          createdAt: "2026-04-01T00:00:00.000Z",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(data.currentMonthItems).toHaveLength(1);
+    expect(data.currentMonthItems[0].billingDay).toBe(3);
+  });
+
+  it("sorts current month items by billing day", () => {
+    const data = buildTextReportData(
+      [
+        sub({
+          id: "a",
+          name: "Z-Service",
+          price: 10,
+          currency: "CNY",
+          nextBillingDate: "2026-05-25",
+        }),
+        sub({
+          id: "b",
+          name: "A-Service",
+          price: 10,
+          currency: "CNY",
+          nextBillingDate: "2026-05-05",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(data.currentMonthItems[0].billingDay).toBe(5);
+    expect(data.currentMonthItems[1].billingDay).toBe(25);
+  });
+
+  it("sorts year items by converted amount descending", () => {
+    const data = buildTextReportData(
+      [
+        sub({
+          id: "cheap",
+          name: "Cheap",
+          price: 1,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-05-20",
+        }),
+        sub({
+          id: "expensive",
+          name: "Expensive",
+          price: 100,
+          currency: "CNY",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-05-15",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    const may = data.yearMonthItems.find((m) => m.monthKey === "2026-05")!;
+    expect(may.items[0].name).toBe("Expensive");
+    expect(may.items[1].name).toBe("Cheap");
+  });
+});
+
+describe("formatTextReport", () => {
+  const rates = {
+    base: "CNY" as const,
+    rates: { CNY: 1, USD: 7 },
+  };
+
+  it("formats current month and year items as text", () => {
+    const data = buildTextReportData(
+      [
+        sub({
+          id: "a",
+          name: "Netflix",
+          price: 10,
+          currency: "USD",
+          nextBillingDate: "2026-05-20",
+        }),
+        sub({
+          id: "b",
+          name: "Spotify",
+          price: 15,
+          currency: "CNY",
+          nextBillingDate: "2026-05-10",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    const chunks = formatTextReport(data);
+    const text = chunks.join("\n");
+
+    expect(text).toContain("当月支出 · 2026-05");
+    expect(text).toContain("Spotify");
+    expect(text).toContain("Netflix");
+    expect(text).toContain("10日");
+    expect(text).toContain("20日");
+    expect(text).toContain("年度预期");
+  });
+
+  it("shows converted amount arrow only for non-base currencies", () => {
+    const data = buildTextReportData(
+      [
+        sub({
+          id: "usd",
+          name: "US Service",
+          price: 10,
+          currency: "USD",
+          nextBillingDate: "2026-05-20",
+        }),
+        sub({
+          id: "cny",
+          name: "CN Service",
+          price: 50,
+          currency: "CNY",
+          nextBillingDate: "2026-05-10",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    const chunks = formatTextReport(data);
+    const text = chunks.join("\n");
+
+    expect(text).toContain("→");
+    expect(text).toContain("→");
+
+    expect(text).toContain("US Service  $10.00 → CN¥70.00");
+
+    const cnyLine = `CN Service  CN¥50.00`;
+    expect(text).toContain(cnyLine);
+  });
+
+  it("splits into multiple chunks when exceeding 4096 chars", () => {
+    const manySubs: Subscription[] = [];
+    for (let i = 0; i < 200; i++) {
+      manySubs.push(
+        sub({
+          id: `sub-${i}`,
+          name: `Subscription ${String(i).padStart(3, "0")}`,
+          price: 10 + i,
+          currency: "USD",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-05-20",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        }),
+      );
+    }
+
+    const data = buildTextReportData(
+      manySubs,
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+    const chunks = formatTextReport(data);
+
+    expect(chunks.length).toBeGreaterThan(1);
+    for (const chunk of chunks) {
+      expect(chunk.length).toBeLessThanOrEqual(4096);
+    }
+  });
+
+  it("handles empty subscriptions gracefully", () => {
+    const data = buildTextReportData(
+      [],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+    const chunks = formatTextReport(data);
+    const text = chunks.join("\n");
+
+    expect(text).toContain("暂无扣款");
+    expect(text).toContain("暂无预期扣款");
   });
 });

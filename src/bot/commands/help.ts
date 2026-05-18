@@ -16,7 +16,8 @@ export async function helpCommand(ctx: BotContext): Promise<void> {
       "/resume <id> — 恢复订阅（可确认或修改下次扣款日期）\n" +
       "/delete <id> — 删除订阅（短 ID 或完整 ID）\n" +
       "/reminders — 查看近期即将扣款的订阅\n\n" +
-      "/report — 生成月度订阅支出报告\n\n" +
+      "/report — 生成月度订阅支出报告\n" +
+      "/report_text — 生成文本版支出明细报告\n\n" +
       "交互方式：\n" +
       "/add — 逐步添加订阅，支持带空格的名称\n" +
       "/list_full — 点击每个订阅下方的查看、编辑或删除按钮\n" +
