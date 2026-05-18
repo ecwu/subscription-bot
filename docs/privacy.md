@@ -25,7 +25,7 @@ This bot is designed with privacy as a core principle. The operator of the bot c
 ## What the Operator Can See
 
 - Encrypted ciphertext blobs (unreadable without the key)
-- Billing dates and cycles (stored alongside ciphertext for indexing and reminders)
+- Billing dates, cycles, and day/week interval values (stored alongside ciphertext for indexing, reminders, and reports)
 - Metadata: when a user created their profile, update timestamps
 - Reminder entries per date: a list of `{ userKey, subscriptionId }` pairs (no subscription content)
 - Sent markers: simple flags keyed by `userKey + subscriptionId + date` (no sensitive data)

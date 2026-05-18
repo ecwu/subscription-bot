@@ -35,6 +35,32 @@ describe("parseAddArgs", () => {
     }
   });
 
+  it("parses interval billing cycle formats", () => {
+    const verbose = parseAddArgs([
+      "/add",
+      "Test",
+      "1",
+      "EUR",
+      "every",
+      "30",
+      "days",
+      "2026-06-01",
+    ]);
+    expect(verbose.billingCycle).toBe("interval");
+    expect(verbose.billingInterval).toEqual({ unit: "day", count: 30 });
+
+    const compact = parseAddArgs([
+      "/add",
+      "Test",
+      "1",
+      "EUR",
+      "4w",
+      "2026-06-01",
+    ]);
+    expect(compact.billingCycle).toBe("interval");
+    expect(compact.billingInterval).toEqual({ unit: "week", count: 4 });
+  });
+
   it("accepts zero price", () => {
     const args = ["/add", "Freebie", "0", "EUR", "monthly", "2026-06-01"];
     const result = parseAddArgs(args);

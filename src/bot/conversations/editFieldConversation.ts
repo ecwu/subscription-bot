@@ -5,9 +5,11 @@ import { createSubscriptionRepository } from "../../repositories/subscriptionRep
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createLogger } from "../../utils/logger.js";
 import { InlineKeyboard } from "grammy";
-import { BillingCycle } from "../../models/subscription.js";
+import { BillingCycle, BillingInterval } from "../../models/subscription.js";
 import { formatBillingCycle } from "../../utils/labels.js";
 import { getBillingAnchorDay } from "../../utils/date.js";
+import { parseBillingCycleText } from "../../utils/billingCycle.js";
+import { ValidationError } from "../../utils/errors.js";
 
 // TODO: grammY conversations do not have built-in timeout handling.
 // If a user starts an edit flow and never completes it, the conversation
@@ -230,7 +232,8 @@ export async function editCycleConversation(
     .text("每季度", `editcycle:quarterly:${subId}`)
     .text("每年", `editcycle:yearly:${subId}`)
     .row()
-    .text("自定义", `editcycle:custom:${subId}`);
+    .text("自定义", `editcycle:custom:${subId}`)
+    .text("高级间隔", `editcycle:interval:${subId}`);
 
   await ctx.reply("请选择新的扣款周期：", {
     reply_markup: cycleKeyboard,
@@ -239,12 +242,47 @@ export async function editCycleConversation(
   const cycleCtx = await conversation.waitForCallbackQuery(/^editcycle:/);
   const callbackData = cycleCtx.callbackQuery.data;
   const cycle = callbackData.split(":")[1] as BillingCycle;
+  let billingInterval: BillingInterval | undefined;
 
   await cycleCtx.answerCallbackQuery();
   await cycleCtx.deleteMessage();
 
+  if (cycle === "interval") {
+    await ctx.reply(
+      "请输入间隔，例如 every 30 days、every 4 weeks、30d、4w、每30天、每4周。",
+    );
+    const intervalCtx = await conversation.waitFor("message:text");
+    const intervalText = intervalCtx.msg.text;
+    if (intervalText.trim() === "/cancel" || intervalText.trim() === "取消") {
+      await ctx.reply("已取消。");
+      return;
+    }
+    try {
+      const parsedCycle = parseBillingCycleText(intervalText);
+      if (
+        parsedCycle.billingCycle !== "interval" ||
+        !parsedCycle.billingInterval
+      ) {
+        await ctx.reply("请输入天或周的高级间隔，例如 30d 或 4w。");
+        return;
+      }
+      billingInterval = parsedCycle.billingInterval;
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        await ctx.reply(err.message + "\n请发送 /edit 重新开始。");
+        return;
+      }
+      throw err;
+    }
+  }
+
   const now = new Date().toISOString();
-  const updated = { ...sub, billingCycle: cycle, updatedAt: now };
+  const updated = {
+    ...sub,
+    billingCycle: cycle,
+    billingInterval,
+    updatedAt: now,
+  };
 
   await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
@@ -258,6 +296,9 @@ export async function editCycleConversation(
   logger.info("Subscription cycle updated via conversation", { subId, cycle });
 
   await ctx.reply(
-    `已将“${updated.name}”的周期更新为${formatBillingCycle(cycle)}。\n发送 /view 查看结果。`,
+    `已将“${updated.name}”的周期更新为${formatBillingCycle(
+      cycle,
+      billingInterval,
+    )}。\n发送 /view 查看结果。`,
   );
 }

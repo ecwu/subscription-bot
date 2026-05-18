@@ -79,6 +79,7 @@ export async function editCommand(ctx: BotContext): Promise<void> {
     updated.currency = parsed.currency;
   } else if (parsed.field === "cycle" && parsed.billingCycle) {
     updated.billingCycle = parsed.billingCycle;
+    updated.billingInterval = parsed.billingInterval;
   }
 
   await service.update(ctx.userKey, updated, ctx.env.ENCRYPTION_KEY);

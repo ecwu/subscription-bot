@@ -128,6 +128,21 @@ describe("addConversation validators", () => {
         "2026-05-18",
       ]);
     });
+
+    it("previews interval dates", () => {
+      expect(
+        buildBillingDatePreview("2026-05-18", "interval", 18, 5, {
+          unit: "day",
+          count: 30,
+        }),
+      ).toEqual([
+        "2026-05-18",
+        "2026-06-17",
+        "2026-07-17",
+        "2026-08-16",
+        "2026-09-15",
+      ]);
+    });
   });
 
   describe("formatBillingDatePreview", () => {
@@ -151,6 +166,25 @@ describe("addConversation validators", () => {
           "未来扣款日期预览：",
           "1. 2026-05-18",
           "自定义周期不会自动推进，请之后手动修改下次扣款日期。",
+          "这个更新时间安排是否正确？",
+        ].join("\n"),
+      );
+    });
+
+    it("formats interval preview dates", () => {
+      expect(
+        formatBillingDatePreview("2026-05-18", "interval", {
+          unit: "week",
+          count: 4,
+        }),
+      ).toBe(
+        [
+          "未来扣款日期预览：",
+          "1. 2026-05-18",
+          "2. 2026-06-15",
+          "3. 2026-07-13",
+          "4. 2026-08-10",
+          "5. 2026-09-07",
           "这个更新时间安排是否正确？",
         ].join("\n"),
       );

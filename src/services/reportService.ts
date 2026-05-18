@@ -278,14 +278,26 @@ function monthlyEquivalent(price: number, cycle: BillingCycle): number | null {
   return null;
 }
 
+function monthlyEquivalentForSubscription(sub: Subscription): number | null {
+  if (sub.billingCycle === "interval") {
+    if (!sub.billingInterval) return null;
+    if (sub.billingInterval.unit === "day") {
+      return ((sub.price ?? 0) * 365) / sub.billingInterval.count / 12;
+    }
+    return ((sub.price ?? 0) * 52) / sub.billingInterval.count / 12;
+  }
+
+  return monthlyEquivalent(sub.price ?? 0, sub.billingCycle);
+}
+
 function monthlyAmountIfCurrentlyActive(
   sub: Subscription,
   today: string,
 ): number | null {
-  if (!isWithinActiveWindow(sub.nextBillingDate, sub.billingCycle, today)) {
+  if (!isWithinActiveWindow(sub, today)) {
     return null;
   }
-  return monthlyEquivalent(sub.price ?? 0, sub.billingCycle);
+  return monthlyEquivalentForSubscription(sub);
 }
 
 function actualAmountIfDueThisMonth(
@@ -295,21 +307,30 @@ function actualAmountIfDueThisMonth(
   return isInCurrentMonth(sub.nextBillingDate, today) ? (sub.price ?? 0) : null;
 }
 
-function isWithinActiveWindow(
-  nextBillingDate: string,
-  cycle: BillingCycle,
-  today: string,
-): boolean {
-  if (nextBillingDate < today) return false;
+function isWithinActiveWindow(sub: Subscription, today: string): boolean {
+  if (sub.nextBillingDate < today) return false;
 
   let windowEnd: string;
-  if (cycle === "weekly") windowEnd = addDays(today, 7);
-  else if (cycle === "monthly") windowEnd = addMonths(today, 1);
-  else if (cycle === "quarterly") windowEnd = addMonths(today, 3);
-  else if (cycle === "yearly") windowEnd = addYears(today, 1);
+  if (sub.billingCycle === "interval") {
+    const intervalEnd = intervalWindowEnd(sub, today);
+    if (!intervalEnd) return false;
+    windowEnd = intervalEnd;
+  } else if (sub.billingCycle === "weekly") windowEnd = addDays(today, 7);
+  else if (sub.billingCycle === "monthly") windowEnd = addMonths(today, 1);
+  else if (sub.billingCycle === "quarterly") windowEnd = addMonths(today, 3);
+  else if (sub.billingCycle === "yearly") windowEnd = addYears(today, 1);
   else return false;
 
-  return nextBillingDate <= windowEnd;
+  return sub.nextBillingDate <= windowEnd;
+}
+
+function intervalWindowEnd(sub: Subscription, today: string): string | null {
+  if (sub.billingCycle !== "interval") return null;
+  if (!sub.billingInterval) return null;
+  if (sub.billingInterval.unit === "day") {
+    return addDays(today, sub.billingInterval.count);
+  }
+  return addDays(today, sub.billingInterval.count * 7);
 }
 
 function isInCurrentMonth(nextBillingDate: string, today: string): boolean {

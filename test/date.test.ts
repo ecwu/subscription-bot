@@ -58,4 +58,19 @@ describe("date utils", () => {
   it("does not advance custom billing cycles", () => {
     expect(getNextBillingDate("2026-05-18", "custom", 18)).toBeNull();
   });
+
+  it("advances day and week interval billing cycles", () => {
+    expect(
+      getNextBillingDate("2026-05-18", "interval", 18, {
+        unit: "day",
+        count: 30,
+      }),
+    ).toBe("2026-06-17");
+    expect(
+      getNextBillingDate("2026-05-18", "interval", 18, {
+        unit: "week",
+        count: 4,
+      }),
+    ).toBe("2026-06-15");
+  });
 });

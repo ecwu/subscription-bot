@@ -3,7 +3,13 @@ export type BillingCycle =
   | "yearly"
   | "quarterly"
   | "weekly"
-  | "custom";
+  | "custom"
+  | "interval";
+
+export interface BillingInterval {
+  unit: "day" | "week";
+  count: number;
+}
 
 export interface Subscription {
   id: string;
@@ -11,6 +17,7 @@ export interface Subscription {
   price?: number;
   currency?: string;
   billingCycle: BillingCycle;
+  billingInterval?: BillingInterval;
   nextBillingDate: string; // ISO 8601 date (YYYY-MM-DD)
   billingAnchorDay?: number; // Original billing day of month for month-like cycles
   category?: string;
@@ -24,6 +31,7 @@ export interface StoredSubscription {
   encryptedPayload: string; // base64url-encoded encrypted JSON
   nextBillingDate: string;
   billingCycle: BillingCycle;
+  billingInterval?: BillingInterval;
   billingAnchorDay?: number;
   createdAt: string;
   updatedAt: string;

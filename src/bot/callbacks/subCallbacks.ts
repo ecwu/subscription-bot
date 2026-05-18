@@ -66,7 +66,9 @@ export async function subViewCallback(ctx: BotContext): Promise<void> {
     if (sub.price !== undefined) {
       lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
     }
-    lines.push(`周期：${formatBillingCycle(sub.billingCycle)}`);
+    lines.push(
+      `周期：${formatBillingCycle(sub.billingCycle, sub.billingInterval)}`,
+    );
     lines.push(`下次扣款：${sub.nextBillingDate}`);
     if (sub.category) lines.push(`分类：${sub.category}`);
     if (sub.note) lines.push(`备注：${sub.note}`);

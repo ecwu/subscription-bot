@@ -1,5 +1,6 @@
 import { ValidationError } from "./errors.js";
-import type { BillingCycle } from "../models/subscription.js";
+import type { BillingCycle, BillingInterval } from "../models/subscription.js";
+import { parseBillingCycleText } from "./billingCycle.js";
 
 export interface ParsedEditArgs {
   subId: string;
@@ -8,15 +9,8 @@ export interface ParsedEditArgs {
   price?: number;
   currency?: string;
   billingCycle?: BillingCycle;
+  billingInterval?: BillingInterval;
 }
-
-const VALID_CYCLES: readonly BillingCycle[] = [
-  "weekly",
-  "monthly",
-  "quarterly",
-  "yearly",
-  "custom",
-];
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -26,7 +20,7 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
  * Expected formats:
  *   /edit <id> date <YYYY-MM-DD>
  *   /edit <id> price <amount> <currency>
- *   /edit <id> cycle <weekly|monthly|yearly|custom>
+ *   /edit <id> cycle <weekly|monthly|yearly|custom|30d|4w>
  *
  * Examples:
  *   /edit a1b2c3d4 date 2026-07-01
@@ -88,13 +82,13 @@ export function parseEditArgs(args: string[]): ParsedEditArgs {
   }
 
   if (field === "cycle") {
-    const cycle = args[3];
-    if (!VALID_CYCLES.includes(cycle as BillingCycle)) {
-      throw new ValidationError(
-        `周期无效：“${cycle}”。可选值：${VALID_CYCLES.join(", ")}。`,
-      );
-    }
-    return { subId, field: "cycle", billingCycle: cycle as BillingCycle };
+    const parsedCycle = parseBillingCycleText(args.slice(3).join(" "));
+    return {
+      subId,
+      field: "cycle",
+      billingCycle: parsedCycle.billingCycle,
+      billingInterval: parsedCycle.billingInterval,
+    };
   }
 
   throw new ValidationError(`未知字段：“${field}”。支持：date、price、cycle。`);

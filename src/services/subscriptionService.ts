@@ -84,6 +84,7 @@ export function createSubscriptionService(
         encryptedPayload: serializeEncryptedPayload(encrypted),
         nextBillingDate: sub.nextBillingDate,
         billingCycle: sub.billingCycle,
+        billingInterval: sub.billingInterval,
         billingAnchorDay,
         createdAt: sub.createdAt,
         updatedAt: sub.updatedAt,
@@ -134,6 +135,7 @@ export function createSubscriptionService(
         encryptedPayload: serializeEncryptedPayload(encrypted),
         nextBillingDate: sub.nextBillingDate,
         billingCycle: sub.billingCycle,
+        billingInterval: sub.billingInterval,
         billingAnchorDay,
         createdAt: sub.createdAt,
         updatedAt: sub.updatedAt,
@@ -170,6 +172,7 @@ export function createSubscriptionService(
           nextBillingDate,
           sub.billingCycle,
           billingAnchorDay,
+          sub.billingInterval,
         );
         if (!next) return sub;
         nextBillingDate = next;

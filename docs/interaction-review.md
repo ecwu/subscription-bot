@@ -9,7 +9,7 @@ The `/add` command starts a multi-step conversation when called without argument
 1. **Name** — asks for subscription name. Empty input is rejected.
 2. **Price** — asks for price. User may type `skip` to leave unset.
 3. **Currency** — inline keyboard with common currencies (CNY, USD, HKD, TWD, EUR, JPY, GBP, SGD). User can choose **其他** to type a custom 3-letter code, or **不填写** if no price was set. Required if price was set.
-4. **Billing cycle** — inline keyboard with Weekly, Monthly, Quarterly, Yearly, Custom.
+4. **Billing cycle** — inline keyboard with Weekly, Monthly, Quarterly, Yearly, Custom, and Advanced interval. Advanced interval prompts for `every 30 days`, `every 4 weeks`, `30d`, `4w`, `每30天`, or `每4周`.
 5. **Next billing date** — inline calendar keyboard. User can navigate months with ‹ ›, pick a day, or select **今天**.
 6. **Review** — shows a summary with Confirm/Cancel inline buttons.
 
@@ -19,6 +19,7 @@ If validation fails at any step, the conversation ends with an error message and
 
 ### Legacy one-line usage
 `/add Netflix 12.99 CNY monthly 2026-06-01` still works and bypasses the conversation.
+Interval cycles also work in one-line usage, for example `/add Gym 30 CNY 30d 2026-06-01`.
 
 ## /edit Conversation Behavior
 
@@ -38,11 +39,13 @@ Two interactive edit paths exist:
 
 ### editCycle conversation
 - Shows inline keyboard with cycle options.
-- Saves immediately after selection.
+- Saves immediately after selection for fixed cycles.
+- For Advanced interval, prompts for the interval text before saving.
 - `/cancel` is not available here; the user can simply ignore the message.
 
 ### Legacy one-line usage
 `/edit <id> date|price|cycle <value>` still works.
+Cycle values can be fixed cycles or interval values such as `30d` and `every 4 weeks`.
 
 ## /cancel Behavior
 
@@ -170,7 +173,7 @@ What **is** logged:
 
 6. **Rate limiting is per-isolate.** The in-memory rate limiter resets when the isolate is recycled. This is acceptable for MVP but not a hard guarantee against abuse.
 
-7. **Edit cycle conversation lacks /cancel.** Because it uses an inline keyboard rather than text input, `/cancel` is not applicable. The user can ignore the message.
+7. **Fixed-cycle edit buttons do not need /cancel.** For fixed-cycle buttons, the edit saves immediately after selection. For Advanced interval text input, `/cancel` aborts before saving.
 
 ## Validation Messages
 

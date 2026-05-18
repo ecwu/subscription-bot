@@ -1,21 +1,15 @@
 import { ValidationError } from "./errors.js";
-import type { BillingCycle } from "../models/subscription.js";
+import type { BillingCycle, BillingInterval } from "../models/subscription.js";
+import { parseBillingCycleText } from "./billingCycle.js";
 
 export interface ParsedAddArgs {
   name: string;
   price: number;
   currency: string;
   billingCycle: BillingCycle;
+  billingInterval?: BillingInterval;
   nextBillingDate: string;
 }
-
-const VALID_CYCLES: readonly BillingCycle[] = [
-  "weekly",
-  "monthly",
-  "quarterly",
-  "yearly",
-  "custom",
-];
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -42,8 +36,8 @@ export function parseAddArgs(args: string[]): ParsedAddArgs {
   const name = args[1];
   const priceStr = args[2];
   const currency = args[3].toUpperCase();
-  const cycle = args[4];
-  const nextBillingDate = args[5];
+  const nextBillingDate = args[args.length - 1];
+  const cycleText = args.slice(4, -1).join(" ");
 
   if (!name || name.trim().length === 0) {
     throw new ValidationError("订阅名称不能为空。");
@@ -54,11 +48,7 @@ export function parseAddArgs(args: string[]): ParsedAddArgs {
     throw new ValidationError(`价格无效：“${priceStr}”。价格必须是非负数字。`);
   }
 
-  if (!VALID_CYCLES.includes(cycle as BillingCycle)) {
-    throw new ValidationError(
-      `周期无效：“${cycle}”。可选值：${VALID_CYCLES.join(", ")}。`,
-    );
-  }
+  const parsedCycle = parseBillingCycleText(cycleText);
 
   if (!DATE_REGEX.test(nextBillingDate)) {
     throw new ValidationError(
@@ -81,7 +71,8 @@ export function parseAddArgs(args: string[]): ParsedAddArgs {
     name,
     price,
     currency,
-    billingCycle: cycle as BillingCycle,
+    billingCycle: parsedCycle.billingCycle,
+    billingInterval: parsedCycle.billingInterval,
     nextBillingDate,
   };
 }

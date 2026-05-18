@@ -37,7 +37,8 @@ Shows a welcome message. First-time users see a quick-start guide with `/add`, `
 1. Asks for subscription name (non-empty).
 2. Asks for price. Send `skip` to leave unset.
 3. Select currency via inline keyboard (includes common currencies + custom input).
-4. Select billing cycle via inline keyboard: Weekly, Monthly, Quarterly, Yearly, Custom.
+4. Select billing cycle via inline keyboard: Weekly, Monthly, Quarterly, Yearly, Custom, or Advanced interval.
+   Advanced interval accepts day/week intervals such as `every 30 days`, `every 4 weeks`, `30d`, `4w`, `每30天`, or `每4周`.
 5. Select next billing date via inline calendar keyboard.
 6. Review summary with Confirm/Cancel buttons.
 
@@ -48,6 +49,10 @@ If the user sends `/cancel` at any step, the conversation exits immediately and 
 /add <name> <price> <currency> <cycle> <date>
 ```
 Example: `/add Netflix 12.99 CNY monthly 2026-06-01`
+
+Interval examples:
+- `/add Gym 30 CNY 30d 2026-06-01`
+- `/add Hosting 9.99 USD every 4 weeks 2026-06-01`
 
 Note: One-line `/add` does not support spaces in the name.
 
@@ -65,6 +70,8 @@ Shows full details for a subscription. `id` can be the short ID (first 8 chars) 
 ```
 /edit <id> date|price|cycle <value>
 ```
+
+Cycle edits support the same fixed cycles and interval formats as `/add`, for example `/edit a1b2c3d4 cycle 30d`.
 
 **Interactive mode**:
 Send `/edit` without full arguments, or click **编辑** from a `/list` message. The bot shows an inline keyboard with fields: Name, Price, Currency, Cycle, Next billing date, Cancel. Clicking a field starts the corresponding conversation.

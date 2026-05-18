@@ -18,7 +18,7 @@ export function formatSubscriptionLine(
   const parts = [
     sub.name,
     priceStr,
-    formatBillingCycle(sub.billingCycle),
+    formatBillingCycle(sub.billingCycle, sub.billingInterval),
     `下次扣款：${sub.nextBillingDate}`,
     `ID：${shortId(sub.id)}`,
   ].filter(Boolean);

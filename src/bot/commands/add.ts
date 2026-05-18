@@ -49,6 +49,7 @@ export async function addCommand(ctx: BotContext): Promise<void> {
     price: parsed.price,
     currency: parsed.currency,
     billingCycle: parsed.billingCycle,
+    billingInterval: parsed.billingInterval,
     nextBillingDate: parsed.nextBillingDate,
     createdAt: now,
     updatedAt: now,
@@ -63,7 +64,7 @@ export async function addCommand(ctx: BotContext): Promise<void> {
 
   await ctx.reply(
     `订阅已添加。\n` +
-      `${sub.name} — ${sub.price} ${sub.currency} — ${formatBillingCycle(sub.billingCycle)} — 下次扣款：${sub.nextBillingDate}\n` +
+      `${sub.name} — ${sub.price} ${sub.currency} — ${formatBillingCycle(sub.billingCycle, sub.billingInterval)} — 下次扣款：${sub.nextBillingDate}\n` +
       `短 ID：${shortId(sub.id)}`,
   );
 }

@@ -1,13 +1,9 @@
-import type { BillingCycle } from "../models/subscription.js";
+import type { BillingCycle, BillingInterval } from "../models/subscription.js";
+import { formatBillingCycleValue } from "./billingCycle.js";
 
-const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {
-  weekly: "每周",
-  monthly: "每月",
-  quarterly: "每季度",
-  yearly: "每年",
-  custom: "自定义",
-};
-
-export function formatBillingCycle(cycle: BillingCycle): string {
-  return BILLING_CYCLE_LABELS[cycle] ?? cycle;
+export function formatBillingCycle(
+  cycle: BillingCycle,
+  interval?: BillingInterval,
+): string {
+  return formatBillingCycleValue(cycle, interval);
 }

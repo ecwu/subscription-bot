@@ -3,7 +3,11 @@ import { BotContext, BaseBotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
-import { Subscription, BillingCycle } from "../../models/subscription.js";
+import {
+  Subscription,
+  BillingCycle,
+  BillingInterval,
+} from "../../models/subscription.js";
 import { shortId } from "../../utils/shortId.js";
 import { createLogger } from "../../utils/logger.js";
 import { InlineKeyboard } from "grammy";
@@ -14,6 +18,8 @@ import {
 } from "../../utils/callbackParser.js";
 import { formatBillingCycle } from "../../utils/labels.js";
 import { getBillingAnchorDay, getNextBillingDate } from "../../utils/date.js";
+import { parseBillingCycleText } from "../../utils/billingCycle.js";
+import { ValidationError } from "../../utils/errors.js";
 
 // TODO: grammY conversations do not have built-in timeout handling.
 // If a user starts /add and never completes it, the conversation waits
@@ -31,6 +37,7 @@ const VALID_CYCLES: readonly BillingCycle[] = [
   "quarterly",
   "yearly",
   "custom",
+  "interval",
 ];
 const COMMON_CURRENCIES = [
   "CNY",
@@ -112,7 +119,8 @@ function cycleKeyboard(): InlineKeyboard {
     .text("每季度", "cycle:quarterly")
     .text("每年", "cycle:yearly")
     .row()
-    .text("自定义", "cycle:custom");
+    .text("自定义", "cycle:custom")
+    .text("高级间隔", "cycle:interval");
 }
 
 function currencyKeyboard(hasPrice: boolean): InlineKeyboard {
@@ -221,6 +229,7 @@ export function buildBillingDatePreview(
   billingCycle: BillingCycle,
   billingAnchorDay = getBillingAnchorDay(nextBillingDate),
   count = 5,
+  billingInterval?: BillingInterval,
 ): string[] {
   const dates = [nextBillingDate];
   let currentDate = nextBillingDate;
@@ -230,6 +239,7 @@ export function buildBillingDatePreview(
       currentDate,
       billingCycle,
       billingAnchorDay,
+      billingInterval,
     );
     if (!nextDate) break;
     dates.push(nextDate);
@@ -242,8 +252,15 @@ export function buildBillingDatePreview(
 export function formatBillingDatePreview(
   nextBillingDate: string,
   billingCycle: BillingCycle,
+  billingInterval?: BillingInterval,
 ): string {
-  const dates = buildBillingDatePreview(nextBillingDate, billingCycle);
+  const dates = buildBillingDatePreview(
+    nextBillingDate,
+    billingCycle,
+    getBillingAnchorDay(nextBillingDate),
+    5,
+    billingInterval,
+  );
   const lines = [
     "未来扣款日期预览：",
     ...dates.map((date, index) => `${index + 1}. ${date}`),
@@ -389,6 +406,7 @@ export async function addConversation(
   }
 
   let cycle: BillingCycle | undefined;
+  let billingInterval: BillingInterval | undefined;
   let nextBillingDate: string | undefined;
   let previewConfirmed = false;
 
@@ -407,6 +425,36 @@ export async function addConversation(
     await cycleCtx.answerCallbackQuery();
     await safeDeleteMessage(cycleCtx);
     cycle = selectedCycle;
+    billingInterval = undefined;
+
+    if (selectedCycle === "interval") {
+      await ctx.reply(
+        "请输入间隔，例如 every 30 days、every 4 weeks、30d、4w、每30天、每4周。",
+      );
+      const intervalCtx = await conversation.waitFor("message:text");
+      const intervalText = intervalCtx.msg.text;
+      if (isCancel(intervalText)) {
+        await ctx.reply("已取消。");
+        return;
+      }
+      try {
+        const parsedCycle = parseBillingCycleText(intervalText);
+        if (
+          parsedCycle.billingCycle !== "interval" ||
+          !parsedCycle.billingInterval
+        ) {
+          await ctx.reply("请输入天或周的高级间隔，例如 30d 或 4w。");
+          return;
+        }
+        billingInterval = parsedCycle.billingInterval;
+      } catch (err) {
+        if (err instanceof ValidationError) {
+          await ctx.reply(err.message + "\n请发送 /add 重新开始。");
+          return;
+        }
+        throw err;
+      }
+    }
 
     // Step 5: Date (inline calendar)
     await ctx.reply("请选择下次扣款日期：", {
@@ -459,9 +507,12 @@ export async function addConversation(
       nextBillingDate = dateResult.date!;
     }
 
-    await ctx.reply(formatBillingDatePreview(nextBillingDate, cycle), {
-      reply_markup: billingPreviewKeyboard(),
-    });
+    await ctx.reply(
+      formatBillingDatePreview(nextBillingDate, cycle, billingInterval),
+      {
+        reply_markup: billingPreviewKeyboard(),
+      },
+    );
 
     const previewCtx = await conversation.waitForCallbackQuery(/^addpreview:/);
     const parsedPreview = parseAddPreviewCallbackData(
@@ -492,7 +543,7 @@ export async function addConversation(
     "请确认订阅信息：",
     `名称：${name}`,
     price !== undefined ? `价格：${price} ${currency ?? ""}`.trim() : null,
-    `周期：${formatBillingCycle(cycle)}`,
+    `周期：${formatBillingCycle(cycle, billingInterval)}`,
     `下次扣款：${nextBillingDate}`,
   ].filter((l): l is string => l !== null);
 
@@ -524,6 +575,7 @@ export async function addConversation(
     price,
     currency,
     billingCycle: cycle,
+    billingInterval,
     nextBillingDate,
     billingAnchorDay: getBillingAnchorDay(nextBillingDate),
     createdAt: now,

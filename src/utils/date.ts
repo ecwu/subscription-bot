@@ -1,4 +1,4 @@
-import type { BillingCycle } from "../models/subscription.js";
+import type { BillingCycle, BillingInterval } from "../models/subscription.js";
 
 export function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
@@ -53,7 +53,15 @@ export function getNextBillingDate(
   currentDate: string,
   billingCycle: BillingCycle,
   billingAnchorDay: number,
+  billingInterval?: BillingInterval,
 ): string | null {
+  if (billingCycle === "interval") {
+    if (!billingInterval) return null;
+    if (billingInterval.unit === "day") {
+      return addDays(currentDate, billingInterval.count);
+    }
+    return addWeeks(currentDate, billingInterval.count);
+  }
   if (billingCycle === "weekly") return addWeeks(currentDate, 1);
   if (billingCycle === "monthly") {
     return addMonthsAnchored(currentDate, 1, billingAnchorDay);

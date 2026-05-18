@@ -118,6 +118,41 @@ describe("buildReportData", () => {
     expect(report.currentMonthly.byCurrency[0].total).toBeCloseTo(82);
   });
 
+  it("normalizes interval cycles and uses their interval as active window", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "every-30-days",
+          price: 12,
+          billingCycle: "interval",
+          billingInterval: { unit: "day", count: 30 },
+          nextBillingDate: "2026-06-16",
+        }),
+        sub({
+          id: "every-4-weeks",
+          price: 12,
+          billingCycle: "interval",
+          billingInterval: { unit: "week", count: 4 },
+          nextBillingDate: "2026-06-14",
+        }),
+        sub({
+          id: "outside-window",
+          price: 12,
+          billingCycle: "interval",
+          billingInterval: { unit: "week", count: 4 },
+          nextBillingDate: "2026-06-15",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.currentMonthly.includedCount).toBe(2);
+    expect(report.currentMonthly.byCurrency[0].total).toBeCloseTo(
+      (12 * 365) / 30 / 12 + (12 * 52) / 4 / 12,
+    );
+  });
+
   it("excludes far-future prepaid subscriptions from current monthly run-rate", () => {
     const report = buildReportData(
       [

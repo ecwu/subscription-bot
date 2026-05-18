@@ -268,6 +268,44 @@ describe("subscriptionService", () => {
     expect(advanced?.nextBillingDate).toBe("2026-03-30");
   });
 
+  it("advances interval subscriptions and moves the reminder index", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const userKey = "user-key-123";
+    await service.create(
+      userKey,
+      {
+        id: "sub-1",
+        name: "Every 30 days",
+        billingCycle: "interval",
+        billingInterval: { unit: "day", count: 30 },
+        nextBillingDate: "2026-01-01",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const advanced = await service.advancePastDue(
+      userKey,
+      "sub-1",
+      VALID_KEY,
+      "2026-02-15",
+    );
+
+    expect(advanced?.nextBillingDate).toBe("2026-03-02");
+    expect(advanced?.billingInterval).toEqual({ unit: "day", count: 30 });
+    expect(await reminderRepo.listEntries("2026-01-01")).toEqual([]);
+    expect(await reminderRepo.listEntries("2026-03-02")).toEqual([
+      { userKey, subscriptionId: "sub-1" },
+    ]);
+    const stored = await repo.get(userKey, "sub-1");
+    expect(stored?.billingInterval).toEqual({ unit: "day", count: 30 });
+  });
+
   it("does not advance custom billing cycles", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);

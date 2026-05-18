@@ -75,6 +75,13 @@ JSON like:
 Missing currencies are shown in the report but are not included in the CNY
 converted total.
 
+## Billing Cycles
+
+Subscriptions support fixed cycles (`weekly`, `monthly`, `quarterly`, `yearly`),
+`custom` cycles that do not auto-advance, and interval cycles in days or weeks.
+One-line commands accept examples such as `30d`, `4w`, `every 30 days`,
+`every 4 weeks`, `每30天`, and `每4周`.
+
 ### Generating ENCRYPTION_KEY
 
 The master encryption key must be exactly 32 bytes (256 bits), base64url-encoded:

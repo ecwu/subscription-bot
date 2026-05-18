@@ -49,6 +49,23 @@ describe("parseEditArgs", () => {
     }
   });
 
+  it("parses interval cycle edits", () => {
+    const verbose = parseEditArgs([
+      "/edit",
+      "id",
+      "cycle",
+      "every",
+      "30",
+      "days",
+    ]);
+    expect(verbose.billingCycle).toBe("interval");
+    expect(verbose.billingInterval).toEqual({ unit: "day", count: 30 });
+
+    const compact = parseEditArgs(["/edit", "id", "cycle", "4w"]);
+    expect(compact.billingCycle).toBe("interval");
+    expect(compact.billingInterval).toEqual({ unit: "week", count: 4 });
+  });
+
   it("throws for too few arguments", () => {
     const args = ["/edit", "a1b2c3d4"];
     expect(() => parseEditArgs(args)).toThrow(ValidationError);
