@@ -64,6 +64,14 @@ describe("parseEditArgs", () => {
     const compact = parseEditArgs(["/edit", "id", "cycle", "4w"]);
     expect(compact.billingCycle).toBe("interval");
     expect(compact.billingInterval).toEqual({ unit: "week", count: 4 });
+
+    const month = parseEditArgs(["/edit", "id", "cycle", "6m"]);
+    expect(month.billingCycle).toBe("interval");
+    expect(month.billingInterval).toEqual({ unit: "month", count: 6 });
+
+    const year = parseEditArgs(["/edit", "id", "cycle", "2y"]);
+    expect(year.billingCycle).toBe("interval");
+    expect(year.billingInterval).toEqual({ unit: "year", count: 2 });
   });
 
   it("throws for too few arguments", () => {

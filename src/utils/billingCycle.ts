@@ -21,6 +21,15 @@ export interface ParsedBillingCycle {
 const INTERVAL_LIMITS: Record<BillingInterval["unit"], number> = {
   day: 366,
   week: 52,
+  month: 120,
+  year: 30,
+};
+
+const UNIT_LABELS: Record<BillingInterval["unit"], string> = {
+  day: "天",
+  week: "周",
+  month: "个月",
+  year: "年",
 };
 
 const ENGLISH_UNITS: Record<string, BillingInterval["unit"] | undefined> = {
@@ -30,6 +39,12 @@ const ENGLISH_UNITS: Record<string, BillingInterval["unit"] | undefined> = {
   w: "week",
   week: "week",
   weeks: "week",
+  m: "month",
+  month: "month",
+  months: "month",
+  y: "year",
+  year: "year",
+  years: "year",
 };
 
 const CHINESE_UNITS: Record<string, BillingInterval["unit"] | undefined> = {
@@ -38,6 +53,8 @@ const CHINESE_UNITS: Record<string, BillingInterval["unit"] | undefined> = {
   周: "week",
   週: "week",
   星期: "week",
+  月: "month",
+  年: "year",
 };
 
 export function parseBillingCycleText(input: string): ParsedBillingCycle {
@@ -54,14 +71,14 @@ export function parseBillingCycleText(input: string): ParsedBillingCycle {
   throw new ValidationError(
     `周期无效：“${input}”。可选值：${STANDARD_BILLING_CYCLES.join(
       ", ",
-    )}，或 every 30 days、30d、4w、每30天、每4周。`,
+    )}，或 every 30 days、30d、4w、6m、2y、每30天、每4周、每6个月、每2年。`,
   );
 }
 
 export function parseBillingInterval(input: string): BillingInterval | null {
   const normalized = input.trim().toLowerCase().replace(/\s+/g, " ");
 
-  const compactEnglish = normalized.match(/^(\d+)(d|w)$/);
+  const compactEnglish = normalized.match(/^(\d+)(d|w|m|y)$/);
   if (compactEnglish) {
     return validateBillingInterval(
       Number(compactEnglish[1]),
@@ -70,7 +87,9 @@ export function parseBillingInterval(input: string): BillingInterval | null {
     );
   }
 
-  const english = normalized.match(/^(?:every\s+)?(\d+)\s+(days?|weeks?)$/);
+  const english = normalized.match(
+    /^(?:every\s+)?(\d+)\s+(days?|weeks?|months?|years?)$/,
+  );
   if (english) {
     return validateBillingInterval(
       Number(english[1]),
@@ -79,7 +98,9 @@ export function parseBillingInterval(input: string): BillingInterval | null {
     );
   }
 
-  const chinese = input.trim().match(/^每\s*(\d+)\s*(天|日|周|週|星期)$/);
+  const chinese = input
+    .trim()
+    .match(/^每\s*(\d+)\s*(?:个\s*)?(天|日|周|週|星期|月|年)$/);
   if (chinese) {
     return validateBillingInterval(
       Number(chinese[1]),
@@ -98,16 +119,14 @@ export function validateBillingInterval(
 ): BillingInterval {
   if (!unit) {
     throw new ValidationError(
-      `周期无效：“${input}”。仅支持天或周，例如 30d、4w。`,
+      `周期无效：“${input}”。仅支持天、周、月或年，例如 30d、4w、6m、2y。`,
     );
   }
 
   const max = INTERVAL_LIMITS[unit];
   if (!Number.isInteger(count) || count < 1 || count > max) {
     throw new ValidationError(
-      unit === "day"
-        ? `天数间隔无效：“${input}”。请输入 1 到 366 天。`
-        : `周数间隔无效：“${input}”。请输入 1 到 52 周。`,
+      `${UNIT_LABELS[unit]}间隔无效：“${input}”。请输入 1 到 ${max} ${UNIT_LABELS[unit]}。`,
     );
   }
 
@@ -119,9 +138,7 @@ export function formatBillingCycleValue(
   billingInterval?: BillingInterval,
 ): string {
   if (billingCycle === "interval" && billingInterval) {
-    return billingInterval.unit === "day"
-      ? `每 ${billingInterval.count} 天`
-      : `每 ${billingInterval.count} 周`;
+    return `每 ${billingInterval.count} ${UNIT_LABELS[billingInterval.unit]}`;
   }
 
   const labels: Record<Exclude<BillingCycle, "interval">, string> = {

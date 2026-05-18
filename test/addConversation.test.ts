@@ -189,5 +189,41 @@ describe("addConversation validators", () => {
         ].join("\n"),
       );
     });
+
+    it("formats month and year interval preview dates", () => {
+      expect(
+        formatBillingDatePreview("2026-05-18", "interval", {
+          unit: "month",
+          count: 6,
+        }),
+      ).toBe(
+        [
+          "未来扣款日期预览：",
+          "1. 2026-05-18",
+          "2. 2026-11-18",
+          "3. 2027-05-18",
+          "4. 2027-11-18",
+          "5. 2028-05-18",
+          "这个更新时间安排是否正确？",
+        ].join("\n"),
+      );
+
+      expect(
+        formatBillingDatePreview("2026-05-18", "interval", {
+          unit: "year",
+          count: 2,
+        }),
+      ).toBe(
+        [
+          "未来扣款日期预览：",
+          "1. 2026-05-18",
+          "2. 2028-05-18",
+          "3. 2030-05-18",
+          "4. 2032-05-18",
+          "5. 2034-05-18",
+          "这个更新时间安排是否正确？",
+        ].join("\n"),
+      );
+    });
   });
 });

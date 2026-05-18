@@ -117,4 +117,58 @@ describe("date utils", () => {
       }),
     ).toBe("2026-05-18");
   });
+
+  it("advances month and year interval billing cycles with anchor", () => {
+    expect(
+      getNextBillingDate("2026-05-18", "interval", 18, {
+        unit: "month",
+        count: 6,
+      }),
+    ).toBe("2026-11-18");
+    expect(
+      getNextBillingDate("2026-01-31", "interval", 31, {
+        unit: "month",
+        count: 1,
+      }),
+    ).toBe("2026-02-28");
+    expect(
+      getNextBillingDate("2026-05-18", "interval", 18, {
+        unit: "year",
+        count: 2,
+      }),
+    ).toBe("2028-05-18");
+    expect(
+      getNextBillingDate("2024-02-29", "interval", 29, {
+        unit: "year",
+        count: 1,
+      }),
+    ).toBe("2025-02-28");
+  });
+
+  it("looks back month and year interval billing cycles with anchor", () => {
+    expect(
+      getPreviousBillingDate("2026-11-18", "interval", 18, {
+        unit: "month",
+        count: 6,
+      }),
+    ).toBe("2026-05-18");
+    expect(
+      getPreviousBillingDate("2026-02-28", "interval", 31, {
+        unit: "month",
+        count: 1,
+      }),
+    ).toBe("2026-01-31");
+    expect(
+      getPreviousBillingDate("2028-05-18", "interval", 18, {
+        unit: "year",
+        count: 2,
+      }),
+    ).toBe("2026-05-18");
+    expect(
+      getPreviousBillingDate("2025-02-28", "interval", 29, {
+        unit: "year",
+        count: 1,
+      }),
+    ).toBe("2024-02-29");
+  });
 });

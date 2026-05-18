@@ -402,7 +402,16 @@ function monthlyEquivalentForSubscription(sub: Subscription): number | null {
     if (sub.billingInterval.unit === "day") {
       return ((sub.price ?? 0) * 365) / sub.billingInterval.count / 12;
     }
-    return ((sub.price ?? 0) * 52) / sub.billingInterval.count / 12;
+    if (sub.billingInterval.unit === "week") {
+      return ((sub.price ?? 0) * 52) / sub.billingInterval.count / 12;
+    }
+    if (sub.billingInterval.unit === "month") {
+      return (sub.price ?? 0) / sub.billingInterval.count;
+    }
+    if (sub.billingInterval.unit === "year") {
+      return (sub.price ?? 0) / (sub.billingInterval.count * 12);
+    }
+    return null;
   }
 
   return monthlyEquivalent(sub.price ?? 0, sub.billingCycle);
@@ -448,7 +457,16 @@ function intervalWindowEnd(sub: Subscription, today: string): string | null {
   if (sub.billingInterval.unit === "day") {
     return addDays(today, sub.billingInterval.count);
   }
-  return addDays(today, sub.billingInterval.count * 7);
+  if (sub.billingInterval.unit === "week") {
+    return addDays(today, sub.billingInterval.count * 7);
+  }
+  if (sub.billingInterval.unit === "month") {
+    return addMonths(today, sub.billingInterval.count);
+  }
+  if (sub.billingInterval.unit === "year") {
+    return addYears(today, sub.billingInterval.count);
+  }
+  return null;
 }
 
 function isInCurrentMonth(nextBillingDate: string, today: string): boolean {

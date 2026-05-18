@@ -9,7 +9,7 @@ export type BillingCycle =
 export type SubscriptionStatus = "active" | "paused";
 
 export interface BillingInterval {
-  unit: "day" | "week";
+  unit: "day" | "week" | "month" | "year";
   count: number;
 }
 

@@ -59,6 +59,28 @@ describe("parseAddArgs", () => {
     ]);
     expect(compact.billingCycle).toBe("interval");
     expect(compact.billingInterval).toEqual({ unit: "week", count: 4 });
+
+    const month = parseAddArgs([
+      "/add",
+      "Test",
+      "1",
+      "EUR",
+      "6m",
+      "2026-06-01",
+    ]);
+    expect(month.billingCycle).toBe("interval");
+    expect(month.billingInterval).toEqual({ unit: "month", count: 6 });
+
+    const year = parseAddArgs([
+      "/add",
+      "Test",
+      "1",
+      "EUR",
+      "2y",
+      "2026-06-01",
+    ]);
+    expect(year.billingCycle).toBe("interval");
+    expect(year.billingInterval).toEqual({ unit: "year", count: 2 });
   });
 
   it("accepts zero price", () => {

@@ -290,7 +290,7 @@ export async function editCycleConversation(
 
   if (cycle === "interval") {
     await ctx.reply(
-      "请输入间隔，例如 every 30 days、every 4 weeks、30d、4w、每30天、每4周。",
+      "请输入间隔，例如 every 30 days、every 4 weeks、6m、2y、30d、4w、每30天、每4周、每6个月、每2年。",
     );
     const intervalCtx = await conversation.waitFor("message:text");
     const intervalText = intervalCtx.msg.text;
@@ -304,7 +304,7 @@ export async function editCycleConversation(
         parsedCycle.billingCycle !== "interval" ||
         !parsedCycle.billingInterval
       ) {
-        await ctx.reply("请输入天或周的高级间隔，例如 30d 或 4w。");
+        await ctx.reply("请输入高级间隔，例如 30d、4w、6m 或 2y。");
         return;
       }
       billingInterval = parsedCycle.billingInterval;

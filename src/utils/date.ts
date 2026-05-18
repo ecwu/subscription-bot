@@ -60,7 +60,20 @@ export function getNextBillingDate(
     if (billingInterval.unit === "day") {
       return addDays(currentDate, billingInterval.count);
     }
-    return addWeeks(currentDate, billingInterval.count);
+    if (billingInterval.unit === "week") {
+      return addWeeks(currentDate, billingInterval.count);
+    }
+    if (billingInterval.unit === "month") {
+      return addMonthsAnchored(currentDate, billingInterval.count, billingAnchorDay);
+    }
+    if (billingInterval.unit === "year") {
+      return addMonthsAnchored(
+        currentDate,
+        billingInterval.count * 12,
+        billingAnchorDay,
+      );
+    }
+    return null;
   }
   if (billingCycle === "weekly") return addWeeks(currentDate, 1);
   if (billingCycle === "monthly") {
@@ -86,7 +99,24 @@ export function getPreviousBillingDate(
     if (billingInterval.unit === "day") {
       return addDays(currentDate, -billingInterval.count);
     }
-    return addDays(currentDate, -(billingInterval.count * 7));
+    if (billingInterval.unit === "week") {
+      return addDays(currentDate, -(billingInterval.count * 7));
+    }
+    if (billingInterval.unit === "month") {
+      return addMonthsAnchored(
+        currentDate,
+        -billingInterval.count,
+        billingAnchorDay,
+      );
+    }
+    if (billingInterval.unit === "year") {
+      return addMonthsAnchored(
+        currentDate,
+        -(billingInterval.count * 12),
+        billingAnchorDay,
+      );
+    }
+    return null;
   }
   if (billingCycle === "weekly") return addDays(currentDate, -7);
   if (billingCycle === "monthly") {
