@@ -5,6 +5,7 @@ import {
   validateAddCurrency,
   validateAddDate,
   buildBillingDatePreview,
+  dateKeyboard,
   formatBillingDatePreview,
 } from "../src/bot/conversations/addConversation.js";
 
@@ -88,6 +89,19 @@ describe("addConversation validators", () => {
       expect(result.error).toBe(
         "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
       );
+    });
+  });
+
+  describe("dateKeyboard", () => {
+    it("supports year and month navigation", () => {
+      const keyboard = dateKeyboard("2026-05");
+      expect(keyboard.inline_keyboard[0]).toEqual([
+        { text: "« 上一年", callback_data: "adddate:month:2025-05" },
+        { text: "‹ 上月", callback_data: "adddate:month:2026-04" },
+        { text: "2026年5月", callback_data: "adddate:noop" },
+        { text: "下月 ›", callback_data: "adddate:month:2026-06" },
+        { text: "下一年 »", callback_data: "adddate:month:2027-05" },
+      ]);
     });
   });
 

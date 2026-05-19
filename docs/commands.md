@@ -43,7 +43,7 @@ Shows a welcome message. First-time users see a quick-start guide with `/add`, `
 3. Select currency via inline keyboard (includes common currencies + custom input).
 4. Select billing cycle via inline keyboard: Weekly, Monthly, Quarterly, Yearly, Custom, or Advanced interval.
    Advanced interval accepts day/week/month/year intervals such as `every 30 days`, `every 4 weeks`, `every 6 months`, `30d`, `4w`, `6m`, `2y`, `每30天`, `每4周`, `每6个月`, or `每2年`.
-5. Select next billing date via inline calendar keyboard.
+5. Select next billing date via inline calendar keyboard with month and year navigation.
 6. Confirm the generated future billing-date preview, or go back to change the cycle/date.
 7. Mark whether the subscription is a trial.
 8. Mark whether it auto-renews.
@@ -74,9 +74,11 @@ Displays a paginated inline list manager. Each page shows up to 8 subscriptions 
 - Edit
 - Delete
 - Pause or Resume
+- Mark or unmark trial
+- Enable or disable auto-renewal
 - Back to list
 
-The edit menu supports name, price, currency, cycle, next billing date, trial flag, and auto-renewal flag.
+The edit menu supports name, price, currency, cycle, and next billing date.
 
 ### `/view <id>`
 
@@ -94,7 +96,7 @@ Shows full details for a subscription. `id` can be the short ID (first 8 chars),
 Cycle edits support the same fixed cycles and interval formats as `/add`, for example `/edit a1b2c3d4 cycle 30d`.
 
 **Interactive mode**:
-Click **编辑** from a `/list_full` detail view. The bot shows an inline keyboard with fields: Name, Price, Currency, Cycle, Next billing date, Trial flag, Auto-renewal flag, and Back. Text/date/cycle edits start conversations; trial and auto-renewal are toggled immediately.
+Click **编辑** from a `/list_full` detail view. The bot shows an inline keyboard with fields: Name, Price, Currency, Cycle, Next billing date, and Back. Text/date/cycle edits start conversations. Trial and auto-renewal are direct actions on the detail view.
 
 ### `/delete <id>`
 

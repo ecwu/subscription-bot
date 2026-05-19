@@ -170,9 +170,11 @@ function formatDateValue(year: number, month: number, day: number): string {
 export function dateKeyboard(month: string): InlineKeyboard {
   const [year, monthNumber] = month.split("-").map(Number);
   const keyboard = new InlineKeyboard()
-    .text("‹", `adddate:month:${addMonthsToMonth(month, -1)}`)
+    .text("« 上一年", `adddate:month:${addMonthsToMonth(month, -12)}`)
+    .text("‹ 上月", `adddate:month:${addMonthsToMonth(month, -1)}`)
     .text(`${year}年${monthNumber}月`, "adddate:noop")
-    .text("›", `adddate:month:${addMonthsToMonth(month, 1)}`)
+    .text("下月 ›", `adddate:month:${addMonthsToMonth(month, 1)}`)
+    .text("下一年 »", `adddate:month:${addMonthsToMonth(month, 12)}`)
     .row();
 
   for (const label of WEEKDAY_LABELS) {

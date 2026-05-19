@@ -10,7 +10,7 @@ The `/add` command starts a multi-step conversation when called without argument
 2. **Price** — asks for price. User may type `skip` to leave unset.
 3. **Currency** — inline keyboard with common currencies (CNY, USD, HKD, TWD, EUR, JPY, GBP, SGD). User can choose **其他** to type a custom 3-letter code, or **不填写** if no price was set. Required if price was set.
 4. **Billing cycle** — inline keyboard with Weekly, Monthly, Quarterly, Yearly, Custom, and Advanced interval. Advanced interval prompts for `every 30 days`, `every 4 weeks`, `every 6 months`, `30d`, `4w`, `6m`, `2y`, `每30天`, `每4周`, `每6个月`, or `每2年`.
-5. **Next billing date** — inline calendar keyboard. User can navigate months with ‹ ›, pick a day, or select **今天**.
+5. **Next billing date** — inline calendar keyboard. User can navigate by month or year, pick a day, or select **今天**.
 6. **Billing date preview** — shows the next five expected billing dates. User can confirm, go back to change cycle/date, or cancel.
 7. **Trial flag** — asks whether this is a trial subscription.
 8. **Auto-renewal flag** — asks whether this subscription auto-renews.
@@ -31,10 +31,11 @@ One interactive edit path exists, and one-line edit remains available for common
 
 ### Inline edit menu (callback-based)
 1. User clicks a subscription from `/list_full`, then clicks **编辑**.
-2. Bot shows an inline keyboard: Name, Price, Currency, Cycle, Next billing date, Trial flag, Auto-renewal flag, Back.
+2. Bot shows an inline keyboard: Name, Price, Currency, Cycle, Next billing date, Back.
 3. Clicking a text field starts `editField` conversation.
 4. Clicking **Cycle** starts `editCycle` conversation with an inline keyboard.
-5. Trial and auto-renewal buttons toggle immediately and return to the detail view.
+
+Trial and auto-renewal are direct actions on the `/list_full` detail view instead of edit-menu fields.
 
 ### editField conversation
 - Prompts for the new value.
@@ -59,7 +60,7 @@ Cycle values can be fixed cycles or interval values such as `30d` and `every 4 w
 - Each page shows up to 8 subscriptions.
 - Active subscriptions sort before paused subscriptions.
 - Selecting a subscription opens a detail view.
-- Detail actions support edit, delete, pause/resume, and back navigation.
+- Detail actions support edit, delete, pause/resume, trial marking, auto-renewal changes, and back navigation.
 - Delete still requires confirmation.
 - Pause happens immediately.
 - Resume starts a short confirmation/date conversation.

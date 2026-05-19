@@ -1,8 +1,5 @@
 import { InlineKeyboard } from "grammy";
-import type {
-  Subscription,
-  SubscriptionStatus,
-} from "../../models/subscription.js";
+import type { Subscription } from "../../models/subscription.js";
 import { formatBillingCycle, formatStatus } from "../../utils/labels.js";
 import {
   formatAutoRenew,
@@ -57,10 +54,10 @@ export function buildListPageKeyboard(
   const tp = getTotalPages(subs);
   if (tp > 1) {
     if (page > 0) {
-      kb.text("← 上一页", `list:page:${page - 1}`);
+      kb.text("⬅️ 上一页", `list:page:${page - 1}`);
     }
     if (page < tp - 1) {
-      kb.text("下一页 →", `list:page:${page + 1}`);
+      kb.text("➡️ 下一页", `list:page:${page + 1}`);
     }
   }
 
@@ -85,20 +82,24 @@ export function formatDetailText(sub: Subscription): string {
 }
 
 export function buildDetailKeyboard(
-  subId: string,
+  sub: Subscription,
   page: number,
-  status: SubscriptionStatus,
 ): InlineKeyboard {
   const statusButton =
-    status === "paused"
-      ? InlineKeyboard.text("▶️ 恢复", `list:resume:${subId}:${page}`)
-      : InlineKeyboard.text("⏸ 暂停", `list:pause:${subId}:${page}`);
+    sub.status === "paused"
+      ? InlineKeyboard.text("▶️ 恢复", `list:resume:${sub.id}:${page}`)
+      : InlineKeyboard.text("⏸ 暂停", `list:pause:${sub.id}:${page}`);
+  const trialLabel = isTrialSubscription(sub) ? "取消体验" : "标记体验";
+  const autoRenewLabel = isAutoRenewing(sub) ? "关闭自动续费" : "开启自动续费";
 
   return new InlineKeyboard()
-    .text("✏️ 编辑", `list:edit:${subId}:${page}`)
-    .text("🗑 删除", `list:del:${subId}:${page}`)
+    .text("✏️ 编辑", `list:edit:${sub.id}:${page}`)
+    .text("🗑 删除", `list:del:${sub.id}:${page}`)
     .row()
     .add(statusButton)
+    .text(trialLabel, `list:ef:trial:${sub.id}:${page}`)
+    .row()
+    .text(autoRenewLabel, `list:ef:autorenew:${sub.id}:${page}`)
     .row()
     .text("← 返回列表", `list:back:${page}`);
 }
@@ -115,9 +116,6 @@ export function buildEditFieldKeyboard(
     .text("周期", `list:ef:cycle:${subId}:${page}`)
     .row()
     .text("下次扣款日期", `list:ef:date:${subId}:${page}`)
-    .row()
-    .text("切换体验", `list:ef:trial:${subId}:${page}`)
-    .text("切换自动续费", `list:ef:autorenew:${subId}:${page}`)
     .row()
     .text("← 返回详情", `list:detail:${subId}:${page}`);
 }

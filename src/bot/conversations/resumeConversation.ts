@@ -25,7 +25,7 @@ async function replyWithListManagerDetail(
   page: number,
 ): Promise<void> {
   await ctx.reply(formatDetailText(sub), {
-    reply_markup: buildDetailKeyboard(sub.id, page, sub.status),
+    reply_markup: buildDetailKeyboard(sub, page),
   });
 }
 

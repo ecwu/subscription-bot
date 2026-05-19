@@ -5,9 +5,15 @@ import {
   listResumeCallback,
   listPageCallback,
 } from "../src/bot/callbacks/listCallbacks.js";
+import {
+  buildDetailKeyboard,
+  buildEditFieldKeyboard,
+  buildListPageKeyboard,
+} from "../src/bot/keyboards/listManagerKeyboard.js";
 import { createSubscriptionService } from "../src/services/subscriptionService.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
+import type { Subscription } from "../src/models/subscription.js";
 
 const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
   "base64url",
@@ -61,6 +67,28 @@ function createListCallbackContext(
       enter: vi.fn().mockResolvedValue(undefined),
     },
   };
+}
+
+function createSubscription(
+  overrides: Partial<Subscription> = {},
+): Subscription {
+  return {
+    id: "sub-1",
+    name: "Netflix",
+    price: 12.99,
+    currency: "USD",
+    billingCycle: "monthly",
+    nextBillingDate: "2026-06-01",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function keyboardButtons(
+  keyboard: ReturnType<typeof buildDetailKeyboard>,
+): Array<{ text: string; callback_data?: string }> {
+  return keyboard.inline_keyboard.flat();
 }
 
 describe("list manager callbacks", () => {
@@ -193,6 +221,87 @@ describe("list manager callbacks", () => {
     expect(updated!.autoRenew).toBe(false);
     expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已关闭自动续费。");
     expect(ctx.editMessageText).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("list manager keyboards", () => {
+  it("labels pagination buttons with distinct emoji", () => {
+    const subs = Array.from({ length: 17 }, (_, index) =>
+      createSubscription({ id: `sub-${index}`, name: `Sub ${index}` }),
+    );
+
+    const firstPage = buildListPageKeyboard(subs, 0);
+    expect(keyboardButtons(firstPage)).toContainEqual({
+      text: "➡️ 下一页",
+      callback_data: "list:page:1",
+    });
+
+    const middlePage = buildListPageKeyboard(subs, 1);
+    expect(keyboardButtons(middlePage)).toContainEqual({
+      text: "⬅️ 上一页",
+      callback_data: "list:page:0",
+    });
+    expect(keyboardButtons(middlePage)).toContainEqual({
+      text: "➡️ 下一页",
+      callback_data: "list:page:2",
+    });
+  });
+
+  it("shows direct status actions on active subscription details", () => {
+    const keyboard = buildDetailKeyboard(createSubscription(), 0);
+
+    expect(keyboardButtons(keyboard)).toEqual(
+      expect.arrayContaining([
+        { text: "✏️ 编辑", callback_data: "list:edit:sub-1:0" },
+        { text: "🗑 删除", callback_data: "list:del:sub-1:0" },
+        { text: "⏸ 暂停", callback_data: "list:pause:sub-1:0" },
+        { text: "标记体验", callback_data: "list:ef:trial:sub-1:0" },
+        {
+          text: "关闭自动续费",
+          callback_data: "list:ef:autorenew:sub-1:0",
+        },
+      ]),
+    );
+  });
+
+  it("shows reverse direct actions for trial, non-renewing, and paused details", () => {
+    const keyboard = buildDetailKeyboard(
+      createSubscription({
+        status: "paused",
+        isTrial: true,
+        autoRenew: false,
+      }),
+      2,
+    );
+
+    expect(keyboardButtons(keyboard)).toEqual(
+      expect.arrayContaining([
+        { text: "▶️ 恢复", callback_data: "list:resume:sub-1:2" },
+        { text: "取消体验", callback_data: "list:ef:trial:sub-1:2" },
+        {
+          text: "开启自动续费",
+          callback_data: "list:ef:autorenew:sub-1:2",
+        },
+      ]),
+    );
+  });
+
+  it("keeps trial and auto-renew actions out of the edit field menu", () => {
+    const keyboard = buildEditFieldKeyboard("sub-1", 0);
+    const labels = keyboardButtons(keyboard).map((button) => button.text);
+
+    expect(labels).toContain("名称");
+    expect(labels).toContain("下次扣款日期");
+    expect(labels).not.toContain("切换体验");
+    expect(labels).not.toContain("切换自动续费");
+    expect(keyboardButtons(keyboard)).not.toContainEqual({
+      text: "标记体验",
+      callback_data: "list:ef:trial:sub-1:0",
+    });
+    expect(keyboardButtons(keyboard)).not.toContainEqual({
+      text: "关闭自动续费",
+      callback_data: "list:ef:autorenew:sub-1:0",
+    });
   });
 });
 

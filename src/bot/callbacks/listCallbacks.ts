@@ -120,7 +120,7 @@ async function showDetail(
   page: number,
 ): Promise<void> {
   const text = formatDetailText(sub);
-  const keyboard = buildDetailKeyboard(sub.id, page, sub.status);
+  const keyboard = buildDetailKeyboard(sub, page);
   await safeEditMessageText(ctx, text, { reply_markup: keyboard });
 }
 
