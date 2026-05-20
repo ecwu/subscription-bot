@@ -41,11 +41,17 @@ export function formatSubscriptionLine(
   const parts = [
     `${formatStatusPrefix(sub)}${sub.name}`,
     formatPrice(sub),
-    `${formatBillingDateLabel(sub)}：${formatRelativeBillingDate(
-      sub.nextBillingDate,
-      today,
-    )}`,
   ].filter(Boolean);
+
+  if (sub.status !== "paused") {
+    parts.push(
+      `${formatBillingDateLabel(sub)}：${formatRelativeBillingDate(
+        sub.nextBillingDate,
+        today,
+      )}`,
+    );
+  }
+
   return `${index + 1}. ${parts.join(" — ")}`;
 }
 

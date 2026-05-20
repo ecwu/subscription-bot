@@ -58,14 +58,14 @@ describe("formatSubscription", () => {
     );
   });
 
-  it("shows paused label in compact list line", () => {
+  it("shows paused label in compact list line without billing date", () => {
     const line = formatSubscriptionLine(
       createSubscription({ status: "paused" }),
       0,
       "2026-05-18",
     );
 
-    expect(line).toBe("1. [已暂停] Netflix — 12.99 USD — 下次扣款：14 天后");
+    expect(line).toBe("1. [已暂停] Netflix — 12.99 USD");
   });
 
   it("shows paused label in full list line", () => {

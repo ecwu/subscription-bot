@@ -73,9 +73,26 @@ export async function listCommand(ctx: BotContext): Promise<void> {
   }
 
   const today = formatDate(new Date());
-  const lines = subs.map((sub, index) =>
-    formatSubscriptionLine(sub, index, today),
-  );
+  const activeSubs = subs.filter((s) => s.status !== "paused");
+  const pausedSubs = subs.filter((s) => s.status === "paused");
+
+  const lines: string[] = [];
+  if (activeSubs.length > 0) {
+    lines.push(
+      ...activeSubs.map((sub, index) =>
+        formatSubscriptionLine(sub, index, today),
+      ),
+    );
+  }
+  if (pausedSubs.length > 0) {
+    if (lines.length > 0) lines.push("");
+    lines.push("已暂停的服务：");
+    lines.push(
+      ...pausedSubs.map((sub, index) =>
+        formatSubscriptionLine(sub, index, today),
+      ),
+    );
+  }
 
   for (const message of buildListMessages("你的订阅：", lines)) {
     await ctx.reply(message);
