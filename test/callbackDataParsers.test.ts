@@ -170,6 +170,10 @@ describe("parseAddDateCallbackData", () => {
     const result = parseAddDateCallbackData("adddate:cancel");
     expect(result).toEqual({ action: "cancel" });
   });
+  it("parses show", () => {
+    const result = parseAddDateCallbackData("adddate:show");
+    expect(result).toEqual({ action: "show" });
+  });
   it("returns null for malformed date", () => {
     expect(parseAddDateCallbackData("adddate:pick:2026-6-1")).toBeNull();
   });

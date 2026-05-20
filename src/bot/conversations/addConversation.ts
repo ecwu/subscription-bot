@@ -19,6 +19,7 @@ import {
 import { formatBillingCycle } from "../../utils/labels.js";
 import { getBillingAnchorDay, getNextBillingDate } from "../../utils/date.js";
 import { parseBillingCycleText } from "../../utils/billingCycle.js";
+import { parseFlexibleDate } from "../../utils/parseDate.js";
 import { ValidationError } from "../../utils/errors.js";
 
 // TODO: grammY conversations do not have built-in timeout handling.
@@ -30,7 +31,6 @@ import { ValidationError } from "../../utils/errors.js";
 // timestamps and auto-exit stale ones.
 
 // Validation helpers
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const VALID_CYCLES: readonly BillingCycle[] = [
   "weekly",
   "monthly",
@@ -95,20 +95,7 @@ export function validateAddDate(dateStr: string): {
   date?: string;
   error?: string;
 } {
-  const trimmed = dateStr.trim();
-  if (!DATE_REGEX.test(trimmed)) {
-    return { error: "请使用 YYYY-MM-DD 格式，例如 2026-06-01。" };
-  }
-  const parsed = new Date(trimmed + "T00:00:00Z");
-  if (
-    isNaN(parsed.getTime()) ||
-    parsed.toISOString().slice(0, 10) !== trimmed
-  ) {
-    return {
-      error: "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
-    };
-  }
-  return { date: trimmed };
+  return parseFlexibleDate(dateStr);
 }
 
 function cycleKeyboard(): InlineKeyboard {
@@ -211,6 +198,12 @@ export function dateKeyboard(month: string): InlineKeyboard {
   return keyboard;
 }
 
+function collapsedDateKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text("选择日期", "adddate:show")
+    .text("取消", "adddate:cancel");
+}
+
 function confirmKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
     .text("✅ 确认", "add:confirm")
@@ -284,7 +277,9 @@ export function formatBillingDatePreview(
     5,
     billingInterval,
   );
+  const cycleLabel = formatBillingCycle(billingCycle, billingInterval);
   const lines = [
+    `周期：${cycleLabel}`,
     "未来扣款日期预览：",
     ...dates.map((date, index) => `${index + 1}. ${date}`),
   ];
@@ -479,55 +474,108 @@ export async function addConversation(
       }
     }
 
-    // Step 5: Date (inline calendar)
-    await ctx.reply("请选择下次扣款日期：", {
-      reply_markup: dateKeyboard(currentMonth()),
+    // Step 5: Date (collapsible calendar, supports text input)
+    const promptMsg = await ctx.reply("请选择或输入下次扣款日期：", {
+      reply_markup: collapsedDateKeyboard(),
     });
 
+    let calendarMonth = currentMonth();
     nextBillingDate = undefined;
     while (!nextBillingDate) {
-      const dateCtx = await conversation.waitForCallbackQuery(/^adddate:/);
-      const parsedDate = parseAddDateCallbackData(dateCtx.callbackQuery.data);
+      const updateCtx = await conversation.wait();
 
-      if (!parsedDate) {
-        await dateCtx.answerCallbackQuery("无效的日期选择。");
-        continue;
-      }
-
-      if (parsedDate.action === "noop") {
-        await dateCtx.answerCallbackQuery();
-        continue;
-      }
-
-      if (parsedDate.action === "cancel") {
-        await dateCtx.answerCallbackQuery();
-        await safeDeleteMessage(dateCtx);
-        await ctx.reply("已取消。");
-        return;
-      }
-
-      if (parsedDate.action === "month") {
-        await dateCtx.answerCallbackQuery();
-        try {
-          await dateCtx.editMessageReplyMarkup({
-            reply_markup: dateKeyboard(parsedDate.month),
-          });
-        } catch {
-          // If editing fails, keep the conversation alive for the next callback.
+      if (updateCtx.message?.text) {
+        const text = updateCtx.message.text;
+        if (isCancel(text)) {
+          try {
+            await ctx.api.deleteMessage(
+              promptMsg.chat.id,
+              promptMsg.message_id,
+            );
+          } catch {
+            // The message may already be gone.
+          }
+          await ctx.reply("已取消。");
+          return;
         }
-        continue;
+        const result = validateAddDate(text);
+        if (result.error) {
+          await ctx.reply(
+            result.error +
+              "\n请重新输入日期，或点击「选择日期」使用日历选择：",
+          );
+          continue;
+        }
+        try {
+          await ctx.api.deleteMessage(
+            promptMsg.chat.id,
+            promptMsg.message_id,
+          );
+        } catch {
+          // The message may already be gone.
+        }
+        nextBillingDate = result.date!;
+        break;
       }
 
-      const dateResult = validateAddDate(parsedDate.date);
-      if (dateResult.error) {
-        await dateCtx.answerCallbackQuery("日期无效。");
-        await ctx.reply(dateResult.error + "\n请发送 /add 重新开始。");
-        return;
-      }
+      if (updateCtx.callbackQuery?.data) {
+        const parsedDate = parseAddDateCallbackData(
+          updateCtx.callbackQuery.data,
+        );
 
-      await dateCtx.answerCallbackQuery();
-      await safeDeleteMessage(dateCtx);
-      nextBillingDate = dateResult.date!;
+        if (!parsedDate) {
+          await updateCtx.answerCallbackQuery("无效的日期选择。");
+          continue;
+        }
+
+        if (parsedDate.action === "show") {
+          await updateCtx.answerCallbackQuery();
+          try {
+            await updateCtx.editMessageReplyMarkup({
+              reply_markup: dateKeyboard(calendarMonth),
+            });
+          } catch {
+            // If editing fails, keep the conversation alive.
+          }
+          continue;
+        }
+
+        if (parsedDate.action === "noop") {
+          await updateCtx.answerCallbackQuery();
+          continue;
+        }
+
+        if (parsedDate.action === "cancel") {
+          await updateCtx.answerCallbackQuery();
+          await safeDeleteMessage(updateCtx);
+          await ctx.reply("已取消。");
+          return;
+        }
+
+        if (parsedDate.action === "month") {
+          await updateCtx.answerCallbackQuery();
+          calendarMonth = parsedDate.month;
+          try {
+            await updateCtx.editMessageReplyMarkup({
+              reply_markup: dateKeyboard(parsedDate.month),
+            });
+          } catch {
+            // If editing fails, keep the conversation alive for the next callback.
+          }
+          continue;
+        }
+
+        const dateResult = validateAddDate(parsedDate.date);
+        if (dateResult.error) {
+          await updateCtx.answerCallbackQuery("日期无效。");
+          await ctx.reply(dateResult.error + "\n请发送 /add 重新开始。");
+          return;
+        }
+
+        await updateCtx.answerCallbackQuery();
+        await safeDeleteMessage(updateCtx);
+        nextBillingDate = dateResult.date!;
+      }
     }
 
     await ctx.reply(

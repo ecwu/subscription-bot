@@ -13,18 +13,12 @@ import { startCommand } from "./commands/start.js";
 import { helpCommand } from "./commands/help.js";
 import { addCommand } from "./commands/add.js";
 import { listCommand, listFullCommand } from "./commands/list.js";
-import { deleteCommand } from "./commands/delete.js";
-import { viewCommand } from "./commands/view.js";
-import { editCommand } from "./commands/edit.js";
 import { exportCommand } from "./commands/export.js";
 import { reportCommand } from "./commands/report.js";
 import { reportTextCommand } from "./commands/reportText.js";
 import { deleteMeCommand } from "./commands/deleteMe.js";
 import { remindersCommand } from "./commands/reminders.js";
 import { debugMeCommand } from "./commands/debugMe.js";
-import { cancelCommand } from "./commands/cancel.js";
-import { pauseCommand } from "./commands/pause.js";
-import { resumeCommand } from "./commands/resume.js";
 import { addConversation } from "./conversations/addConversation.js";
 import {
   editFieldConversation,
@@ -134,17 +128,11 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.command("add", addCommand);
   bot.command("list_full", listFullCommand);
   bot.command("list", listCommand);
-  bot.command("delete", deleteCommand);
-  bot.command("view", viewCommand);
-  bot.command("edit", editCommand);
   bot.command("export", exportCommand);
   bot.command("report", reportCommand);
   bot.command("report_text", reportTextCommand);
   bot.command("delete_me", deleteMeCommand);
   bot.command("reminders", remindersCommand);
-  bot.command("cancel", cancelCommand);
-  bot.command("pause", pauseCommand);
-  bot.command("resume", resumeCommand);
 
   // Dev-only commands
   if (env.APP_ENV !== "production") {
@@ -196,7 +184,7 @@ export function createBot(env: Env): Bot<BotContext> {
     await ctx.answerCallbackQuery("这次选择已过期，请发送 /add 重新开始。");
   });
   bot.callbackQuery(/^editcycle:/, async (ctx) => {
-    await ctx.answerCallbackQuery("这次选择已过期，请发送 /edit 重新开始。");
+    await ctx.answerCallbackQuery("这次选择已过期，请通过订阅列表重新编辑。");
   });
   bot.callbackQuery(/^addcurrency:/, async (ctx) => {
     await ctx.answerCallbackQuery("这次选择已过期，请发送 /add 重新开始。");

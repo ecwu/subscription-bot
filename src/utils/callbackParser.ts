@@ -160,7 +160,8 @@ export type AddDateCallbackData =
   | { action: "pick"; date: string }
   | { action: "month"; month: string }
   | { action: "noop" }
-  | { action: "cancel" };
+  | { action: "cancel" }
+  | { action: "show" };
 
 /**
  * Parse add date callback data.
@@ -176,6 +177,7 @@ export function parseAddDateCallbackData(
 ): AddDateCallbackData | null {
   if (callbackData === "adddate:noop") return { action: "noop" };
   if (callbackData === "adddate:cancel") return { action: "cancel" };
+  if (callbackData === "adddate:show") return { action: "show" };
 
   const pickPrefix = "adddate:pick:";
   if (callbackData.startsWith(pickPrefix)) {

@@ -61,20 +61,26 @@ describe("editFieldConversation validators", () => {
       expect(result.error).toBeUndefined();
     });
     it("rejects invalid format", () => {
-      const result = validateEditDate("01-06-2026");
-      expect(result.error).toBe("请使用 YYYY-MM-DD 格式，例如 2026-06-01。");
+      const result = validateEditDate("not a date");
+      expect(result.error).toBeDefined();
     });
     it("rejects invalid date", () => {
       const result = validateEditDate("2026-13-01");
-      expect(result.error).toBe(
-        "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
-      );
+      expect(result.error).toBeDefined();
     });
     it("rejects impossible calendar dates", () => {
       const result = validateEditDate("2026-02-31");
-      expect(result.error).toBe(
-        "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
-      );
+      expect(result.error).toBeDefined();
+    });
+    it("accepts Chinese date format", () => {
+      const result = validateEditDate("2026年6月1日");
+      expect(result.date).toBe("2026-06-01");
+      expect(result.error).toBeUndefined();
+    });
+    it("accepts slash format", () => {
+      const result = validateEditDate("2026/06/01");
+      expect(result.date).toBe("2026-06-01");
+      expect(result.error).toBeUndefined();
     });
   });
 });

@@ -75,20 +75,26 @@ describe("addConversation validators", () => {
       expect(result.error).toBeUndefined();
     });
     it("rejects invalid format", () => {
-      const result = validateAddDate("01-06-2026");
-      expect(result.error).toBe("请使用 YYYY-MM-DD 格式，例如 2026-06-01。");
+      const result = validateAddDate("not a date");
+      expect(result.error).toBeDefined();
     });
     it("rejects invalid date", () => {
       const result = validateAddDate("2026-13-01");
-      expect(result.error).toBe(
-        "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
-      );
+      expect(result.error).toBeDefined();
     });
     it("rejects impossible calendar dates", () => {
       const result = validateAddDate("2026-02-31");
-      expect(result.error).toBe(
-        "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
-      );
+      expect(result.error).toBeDefined();
+    });
+    it("accepts Chinese date format", () => {
+      const result = validateAddDate("2026年6月1日");
+      expect(result.date).toBe("2026-06-01");
+      expect(result.error).toBeUndefined();
+    });
+    it("accepts slash format", () => {
+      const result = validateAddDate("2026/06/01");
+      expect(result.date).toBe("2026-06-01");
+      expect(result.error).toBeUndefined();
     });
   });
 
@@ -163,6 +169,7 @@ describe("addConversation validators", () => {
     it("formats the preview dates", () => {
       expect(formatBillingDatePreview("2026-05-18", "monthly")).toBe(
         [
+          "周期：每月",
           "未来扣款日期预览：",
           "1. 2026-05-18",
           "2. 2026-06-18",
@@ -177,6 +184,7 @@ describe("addConversation validators", () => {
     it("explains that custom cycles do not auto-advance", () => {
       expect(formatBillingDatePreview("2026-05-18", "custom")).toBe(
         [
+          "周期：自定义",
           "未来扣款日期预览：",
           "1. 2026-05-18",
           "自定义周期不会自动推进，请之后手动修改下次扣款日期。",
@@ -193,6 +201,7 @@ describe("addConversation validators", () => {
         }),
       ).toBe(
         [
+          "周期：每 4 周",
           "未来扣款日期预览：",
           "1. 2026-05-18",
           "2. 2026-06-15",
@@ -212,6 +221,7 @@ describe("addConversation validators", () => {
         }),
       ).toBe(
         [
+          "周期：每 6 个月",
           "未来扣款日期预览：",
           "1. 2026-05-18",
           "2. 2026-11-18",
@@ -229,6 +239,7 @@ describe("addConversation validators", () => {
         }),
       ).toBe(
         [
+          "周期：每 2 年",
           "未来扣款日期预览：",
           "1. 2026-05-18",
           "2. 2028-05-18",

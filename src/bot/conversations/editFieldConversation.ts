@@ -13,6 +13,7 @@ import {
 import { formatBillingCycle } from "../../utils/labels.js";
 import { getBillingAnchorDay } from "../../utils/date.js";
 import { parseBillingCycleText } from "../../utils/billingCycle.js";
+import { parseFlexibleDate } from "../../utils/parseDate.js";
 import { ValidationError } from "../../utils/errors.js";
 import {
   buildDetailKeyboard,
@@ -86,20 +87,7 @@ export function validateEditDate(dateStr: string): {
   date?: string;
   error?: string;
 } {
-  const trimmed = dateStr.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return { error: "请使用 YYYY-MM-DD 格式，例如 2026-06-01。" };
-  }
-  const parsed = new Date(trimmed + "T00:00:00Z");
-  if (
-    isNaN(parsed.getTime()) ||
-    parsed.toISOString().slice(0, 10) !== trimmed
-  ) {
-    return {
-      error: "日期无效。请使用 YYYY-MM-DD 格式，例如 2026-06-01。",
-    };
-  }
-  return { date: trimmed };
+  return parseFlexibleDate(dateStr);
 }
 
 export async function editFieldConversation(

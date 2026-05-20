@@ -7,16 +7,10 @@ const commands = [
   { command: "add", description: "添加订阅" },
   { command: "list", description: "查看订阅列表" },
   { command: "list_full", description: "查看完整订阅列表" },
-  { command: "view", description: "查看订阅详情" },
-  { command: "edit", description: "编辑订阅" },
-  { command: "delete", description: "删除订阅" },
   { command: "export", description: "导出数据" },
   { command: "report", description: "查看支出报告" },
   { command: "reminders", description: "查看提醒" },
-  { command: "pause", description: "暂停订阅" },
-  { command: "resume", description: "恢复订阅" },
   { command: "delete_me", description: "删除我的数据" },
-  { command: "cancel", description: "取消当前操作" },
 ];
 
 function parseDotEnv(content) {
