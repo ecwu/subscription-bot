@@ -75,9 +75,7 @@ describe("createBot session configuration", () => {
     expect(hasSessionKey).toBe(true);
 
     // Should NOT contain raw user ID in any key
-    const rawIdInKey = accessedKeys.some((k) =>
-      k.includes(String(userId)),
-    );
+    const rawIdInKey = accessedKeys.some((k) => k.includes(String(userId)));
     expect(rawIdInKey).toBe(false);
   });
 
@@ -92,7 +90,11 @@ describe("createBot session configuration", () => {
       accessedKeys.push(key);
       return originalGet(key);
     };
-    env.SUBSCRIPTION_KV.put = async (key: string, value: string, options?: unknown) => {
+    env.SUBSCRIPTION_KV.put = async (
+      key: string,
+      value: string,
+      options?: unknown,
+    ) => {
       accessedKeys.push(key);
       return originalPut(key, value, options);
     };
@@ -132,7 +134,9 @@ describe("createBot session configuration", () => {
     });
 
     // Both updates should access the same session key
-    const sessionKeyAccesses = accessedKeys.filter((k) => k === expectedSessionKey);
+    const sessionKeyAccesses = accessedKeys.filter(
+      (k) => k === expectedSessionKey,
+    );
     expect(sessionKeyAccesses.length).toBeGreaterThanOrEqual(2);
 
     // No key should contain the raw Telegram ID
@@ -152,7 +156,11 @@ describe("createBot session configuration", () => {
       accessedKeys.push(key);
       return originalGet(key);
     };
-    env.SUBSCRIPTION_KV.put = async (key: string, value: string, options?: unknown) => {
+    env.SUBSCRIPTION_KV.put = async (
+      key: string,
+      value: string,
+      options?: unknown,
+    ) => {
       writtenKeys.push(key);
       return originalPut(key, value, options);
     };

@@ -64,7 +64,11 @@ export function getNextBillingDate(
       return addWeeks(currentDate, billingInterval.count);
     }
     if (billingInterval.unit === "month") {
-      return addMonthsAnchored(currentDate, billingInterval.count, billingAnchorDay);
+      return addMonthsAnchored(
+        currentDate,
+        billingInterval.count,
+        billingAnchorDay,
+      );
     }
     if (billingInterval.unit === "year") {
       return addMonthsAnchored(

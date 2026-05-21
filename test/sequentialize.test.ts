@@ -142,12 +142,6 @@ describe("sequentialize", () => {
       order.push("3-end");
     });
 
-    expect(order).toEqual([
-      "1-start",
-      "2-start",
-      "2-end",
-      "3-start",
-      "3-end",
-    ]);
+    expect(order).toEqual(["1-start", "2-start", "2-end", "3-start", "3-end"]);
   });
 });

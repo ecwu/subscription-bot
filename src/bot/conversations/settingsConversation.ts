@@ -7,9 +7,7 @@ import {
   SUPPORTED_TIMEZONES,
 } from "../../models/userSettings.js";
 import { createUserRepository } from "../../repositories/userRepository.js";
-import {
-  parseSettingsCallbackData,
-} from "../../utils/callbackParser.js";
+import { parseSettingsCallbackData } from "../../utils/callbackParser.js";
 import {
   COMMON_CURRENCIES,
   validateCurrencyInput,
@@ -21,15 +19,9 @@ export function settingsKeyboard(settings: UserSettings): InlineKeyboard {
   const hourLabel = String(settings.reminderHour).padStart(2, "0") + ":00";
 
   return new InlineKeyboard()
-    .text(
-      `Currency: ${settings.defaultCurrency}`,
-      "settings:currency",
-    )
+    .text(`Currency: ${settings.defaultCurrency}`, "settings:currency")
     .row()
-    .text(
-      `Reminders: ${reminderLabel}`,
-      "settings:toggle_reminder",
-    )
+    .text(`Reminders: ${reminderLabel}`, "settings:toggle_reminder")
     .row()
     .text(`Time: ${hourLabel}`, "settings:hour")
     .row()
@@ -317,7 +309,9 @@ export async function settingsConversation(
           return;
         }
         if (!result.currency) {
-          await ctx.reply("请输入有效的币种代码。\n请发送 /settings 重新开始。");
+          await ctx.reply(
+            "请输入有效的币种代码。\n请发送 /settings 重新开始。",
+          );
           return;
         }
 

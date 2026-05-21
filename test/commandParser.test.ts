@@ -71,14 +71,7 @@ describe("parseAddArgs", () => {
     expect(month.billingCycle).toBe("interval");
     expect(month.billingInterval).toEqual({ unit: "month", count: 6 });
 
-    const year = parseAddArgs([
-      "/add",
-      "Test",
-      "1",
-      "EUR",
-      "2y",
-      "2026-06-01",
-    ]);
+    const year = parseAddArgs(["/add", "Test", "1", "EUR", "2y", "2026-06-01"]);
     expect(year.billingCycle).toBe("interval");
     expect(year.billingInterval).toEqual({ unit: "year", count: 2 });
   });

@@ -146,7 +146,7 @@ export function buildReportData(
 
   const today =
     timezone && typeof timezone === "string"
-      ? getLocalTimeInfo(timezone)?.date ?? formatDate(referenceDate)
+      ? (getLocalTimeInfo(timezone)?.date ?? formatDate(referenceDate))
       : formatDate(referenceDate);
   const generatedAt = new Date().toISOString();
   const dayDistribution = buildFullMonthDayDistribution(
@@ -759,7 +759,7 @@ export function buildTextReportData(
 
   const today =
     timezone && typeof timezone === "string"
-      ? getLocalTimeInfo(timezone)?.date ?? formatDate(referenceDate)
+      ? (getLocalTimeInfo(timezone)?.date ?? formatDate(referenceDate))
       : formatDate(referenceDate);
   const currentMonthKey = today.slice(0, 7);
   const generatedAt = new Date().toISOString();

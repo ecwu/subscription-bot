@@ -92,17 +92,32 @@ describe("adminRemindersCommand", () => {
 
     await repo.updateUserSettings(
       "user-a",
-      { defaultCurrency: "USD", reminderEnabled: true, reminderHour: 9, timezone: "Asia/Shanghai" },
+      {
+        defaultCurrency: "USD",
+        reminderEnabled: true,
+        reminderHour: 9,
+        timezone: "Asia/Shanghai",
+      },
       VALID_KEY,
     );
     await repo.updateUserSettings(
       "user-b",
-      { defaultCurrency: "USD", reminderEnabled: true, reminderHour: 10, timezone: "UTC+08:00" },
+      {
+        defaultCurrency: "USD",
+        reminderEnabled: true,
+        reminderHour: 10,
+        timezone: "UTC+08:00",
+      },
       VALID_KEY,
     );
     await repo.updateUserSettings(
       "user-c",
-      { defaultCurrency: "USD", reminderEnabled: false, reminderHour: 9, timezone: "America/New_York" },
+      {
+        defaultCurrency: "USD",
+        reminderEnabled: false,
+        reminderHour: 9,
+        timezone: "America/New_York",
+      },
       VALID_KEY,
     );
 

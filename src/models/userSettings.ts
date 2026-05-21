@@ -27,8 +27,7 @@ export function isValidTimezone(tz: string): boolean {
   return SUPPORTED_TIMEZONES.some((t) => t.iana === tz) || isValidUtcOffset(tz);
 }
 
-const UTC_OFFSET_RE =
-  /^UTC([+-])(\d{1,2}):(\d{2})$/;
+const UTC_OFFSET_RE = /^UTC([+-])(\d{1,2}):(\d{2})$/;
 
 export function isValidUtcOffset(tz: string): boolean {
   const match = tz.match(UTC_OFFSET_RE);
@@ -53,8 +52,7 @@ export function isValidUtcOffset(tz: string): boolean {
 export function normalizeUtcOffset(input: string): string | null {
   const trimmed = input.trim();
 
-  const withPrefix =
-    /^UTC\s*([+-])\s*(\d{1,2})(?::(\d{2}))?$/i;
+  const withPrefix = /^UTC\s*([+-])\s*(\d{1,2})(?::(\d{2}))?$/i;
   const bare = /^([+-])\s*(\d{1,2})(?::(\d{2}))?$/;
   const decimal = /^([+-])\s*(\d{1,2})\.(\d{1,2})$/;
 

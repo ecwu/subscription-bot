@@ -147,12 +147,7 @@ export function createUserRepository(kv: KVNamespace): UserRepository {
         settings,
         lastSeenAt: new Date().toISOString(),
       };
-      await writeProfile(
-        userKey,
-        updated,
-        encryptionKey,
-        existing.firstSeenAt,
-      );
+      await writeProfile(userKey, updated, encryptionKey, existing.firstSeenAt);
     },
 
     async deleteUserProfile(userKey: string): Promise<void> {

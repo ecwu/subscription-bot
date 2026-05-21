@@ -80,8 +80,8 @@ describe("settingsConversation", () => {
     it("renders all 24 hours", () => {
       const kb = hourPickerKeyboard();
       const buttons = kb.inline_keyboard.flat();
-      const hourButtons = buttons.filter((b) =>
-        /^\d{2}$/.test(b.text) || /^\* \d{2}$/.test(b.text),
+      const hourButtons = buttons.filter(
+        (b) => /^\d{2}$/.test(b.text) || /^\* \d{2}$/.test(b.text),
       );
       expect(hourButtons.length).toBe(24);
     });

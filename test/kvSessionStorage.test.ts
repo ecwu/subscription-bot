@@ -10,7 +10,11 @@ function createMockKV(): KVNamespace {
 
   return {
     get: async (key: string) => store.get(key)?.value ?? null,
-    put: async (key: string, value: string, options?: { expirationTtl?: number }) => {
+    put: async (
+      key: string,
+      value: string,
+      options?: { expirationTtl?: number },
+    ) => {
       store.set(key, { value, ttl: options?.expirationTtl });
     },
     delete: async (key: string) => {
@@ -44,7 +48,10 @@ describe("KvSessionStorage", () => {
     expect(() => JSON.parse(raw!)).toThrow();
 
     // Verify TTL is exactly 3600 seconds
-    const store = (kv as any)._store as Map<string, { value: string; ttl?: number }>;
+    const store = (kv as any)._store as Map<
+      string,
+      { value: string; ttl?: number }
+    >;
     const entry = store.get("session:user-key");
     expect(entry).toBeDefined();
     expect(entry!.ttl).toBe(3600);

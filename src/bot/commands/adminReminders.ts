@@ -37,7 +37,11 @@ export async function adminRemindersCommand(ctx: BotContext): Promise<void> {
   let dateKeysScanned = 0;
 
   do {
-    const list = await kv.list({ prefix: "reminders:date:", cursor, limit: 1000 });
+    const list = await kv.list({
+      prefix: "reminders:date:",
+      cursor,
+      limit: 1000,
+    });
     cursor = list.list_complete ? undefined : list.cursor;
 
     for (const key of list.keys) {
@@ -74,7 +78,10 @@ export async function adminRemindersCommand(ctx: BotContext): Promise<void> {
 
   for (const userKey of seenUserKeys) {
     try {
-      const profile = await repo.getUserProfile(userKey, ctx.env.ENCRYPTION_KEY);
+      const profile = await repo.getUserProfile(
+        userKey,
+        ctx.env.ENCRYPTION_KEY,
+      );
       if (!profile) continue;
 
       const settings = profile.settings;
@@ -93,9 +100,7 @@ export async function adminRemindersCommand(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const sorted = Array.from(distribution.entries()).sort(
-    (a, b) => b[1] - a[1],
-  );
+  const sorted = Array.from(distribution.entries()).sort((a, b) => b[1] - a[1]);
 
   const lines = [
     "🕐 User Reminder Timezone Distribution",

@@ -118,7 +118,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -182,7 +185,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -246,7 +252,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -296,7 +305,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -361,7 +373,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -428,7 +443,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -495,7 +513,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -534,7 +555,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -600,7 +624,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -665,7 +692,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -733,7 +763,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -796,7 +829,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -860,7 +896,10 @@ describe("processReminderEntry", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
-    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -917,11 +956,7 @@ describe("processReminderEntry", () => {
     expect(result.sent).toBe(true);
     expect(result.advanced).toBe(true);
 
-    const updatedSub = await subscriptionService.get(
-      userKey,
-      subId,
-      VALID_KEY,
-    );
+    const updatedSub = await subscriptionService.get(userKey, subId, VALID_KEY);
     expect(updatedSub?.nextBillingDate).toBe("2026-07-01");
   });
 });
