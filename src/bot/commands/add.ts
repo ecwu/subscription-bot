@@ -4,10 +4,15 @@ import { ValidationError } from "../../utils/errors.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
+import { createUserRepository } from "../../repositories/userRepository.js";
 import type { Subscription } from "../../models/subscription.js";
 import { shortId } from "../../utils/shortId.js";
 import { createLogger } from "../../utils/logger.js";
 import { formatBillingCycle } from "../../utils/labels.js";
+import {
+  SETTINGS_ONBOARDING_MESSAGE,
+  shouldShowSettingsOnboarding,
+} from "../onboarding/settingsOnboarding.js";
 
 export async function addCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
@@ -58,6 +63,13 @@ export async function addCommand(ctx: BotContext): Promise<void> {
 
   await service.create(ctx.userKey, sub, ctx.env.ENCRYPTION_KEY);
 
+  const userRepo = createUserRepository(ctx.env.SUBSCRIPTION_KV);
+  const showSettingsOnboarding = await shouldShowSettingsOnboarding(
+    userRepo,
+    ctx.userKey,
+    ctx.env.ENCRYPTION_KEY,
+  );
+
   logger.info("Subscription created", {
     subId: sub.id,
     shortId: shortId(sub.id),
@@ -68,4 +80,8 @@ export async function addCommand(ctx: BotContext): Promise<void> {
       `${sub.name} — ${sub.price} ${sub.currency} — ${formatBillingCycle(sub.billingCycle, sub.billingInterval)} — 下次扣款：${sub.nextBillingDate}\n` +
       `短 ID：${shortId(sub.id)}`,
   );
+
+  if (showSettingsOnboarding) {
+    await ctx.reply(SETTINGS_ONBOARDING_MESSAGE);
+  }
 }

@@ -25,6 +25,10 @@ import {
 import { collectCurrencyInput } from "./currencyInput.js";
 import { collectCycleInput, CycleSelection } from "./cycleInput.js";
 import { binaryActionKeyboard } from "../keyboards/confirmationKeyboard.js";
+import {
+  SETTINGS_ONBOARDING_MESSAGE,
+  shouldShowSettingsOnboarding,
+} from "../onboarding/settingsOnboarding.js";
 
 // TODO: grammY conversations do not have built-in timeout handling.
 // If a user starts /add and never completes it, the conversation waits
@@ -300,13 +304,23 @@ export async function addConversation(
   const encryptionKey = ctxData.encryptionKey;
   const logger = createLogger(ctxData.requestId);
 
-  const explicitDefaultCurrency = await conversation.external(
-    async (outsideCtx) => {
+  const settingsOnboarding = await conversation.external(async (outsideCtx) => {
+    const repo = createUserRepository(outsideCtx.env.SUBSCRIPTION_KV);
+    const profile = await repo.getUserProfile(userKey, encryptionKey);
+
+    return {
+      explicitDefaultCurrency: profile?.settings?.defaultCurrency,
+      shouldShow: !profile?.settings,
+    };
+  });
+  const explicitDefaultCurrency = settingsOnboarding.explicitDefaultCurrency;
+
+  async function getLatestSettingsOnboarding(): Promise<boolean> {
+    return conversation.external(async (outsideCtx) => {
       const repo = createUserRepository(outsideCtx.env.SUBSCRIPTION_KV);
-      const profile = await repo.getUserProfile(userKey, encryptionKey);
-      return profile?.settings?.defaultCurrency;
-    },
-  );
+      return shouldShowSettingsOnboarding(repo, userKey, encryptionKey);
+    });
+  }
 
   const name = await collectName(conversation, ctx, "订阅名称是什么？");
   if (!name) {
@@ -479,4 +493,8 @@ export async function addConversation(
   await ctx.reply(
     `✅ 已添加“${draft.name}”。\n短 ID：${shortId(sub.id)}\n发送 /list 查看全部订阅。`,
   );
+
+  if (settingsOnboarding.shouldShow && (await getLatestSettingsOnboarding())) {
+    await ctx.reply(SETTINGS_ONBOARDING_MESSAGE);
+  }
 }

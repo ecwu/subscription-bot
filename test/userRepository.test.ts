@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createUserRepository } from "../src/repositories/userRepository.js";
+import { shouldShowSettingsOnboarding } from "../src/bot/onboarding/settingsOnboarding.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
 const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
@@ -89,5 +90,30 @@ describe("userRepository", () => {
 
     const profile = await repo.getUserProfile("user-1", VALID_KEY);
     expect(profile?.chatId).toBe("-1001234567890");
+  });
+
+  it("shows settings onboarding until settings are saved", async () => {
+    const kv = createMockKV();
+    const repo = createUserRepository(kv);
+
+    await repo.upsertUserProfile("user-1", 123456, VALID_KEY);
+    await expect(
+      shouldShowSettingsOnboarding(repo, "user-1", VALID_KEY),
+    ).resolves.toBe(true);
+
+    await repo.updateUserSettings(
+      "user-1",
+      {
+        defaultCurrency: "CNY",
+        reminderEnabled: true,
+        reminderHour: 8,
+        timezone: "Asia/Shanghai",
+      },
+      VALID_KEY,
+    );
+
+    await expect(
+      shouldShowSettingsOnboarding(repo, "user-1", VALID_KEY),
+    ).resolves.toBe(false);
   });
 });
