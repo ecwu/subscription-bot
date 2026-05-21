@@ -3,7 +3,7 @@ import { BotContext, BaseBotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
-import { validateEditDate } from "./editFieldConversation.js";
+import { collectDateInput } from "./dateInput.js";
 import { formatStatus } from "../../utils/labels.js";
 import {
   buildDetailKeyboard,
@@ -70,64 +70,41 @@ export async function resumeConversation(
     return;
   }
 
-  await ctx.reply(
-    `恢复"${sub.name}"？\n当前下次扣款日期：${sub.nextBillingDate}\n\n请确认下次扣款日期是否正确，或输入新日期：`,
+  const selectedDate = await collectDateInput(
+    conversation,
+    ctx,
+    `恢复"${sub.name}"？\n当前下次扣款日期：${sub.nextBillingDate}\n\n如果日期正确，请发送“确认”；也可以输入新日期或点选日期：`,
+    {
+      confirmTexts: ["正确", "确认", "yes", "y"],
+      confirmValue: sub.nextBillingDate,
+      cancelMessage: "已取消恢复操作。",
+    },
   );
 
-  const inputCtx = await conversation.waitFor("message:text");
-  const input = inputCtx.msg.text.trim();
-
-  if (input === "/cancel" || input === "取消") {
-    await ctx.reply("已取消恢复操作。");
+  if (!selectedDate) {
     return;
   }
 
-  if (
-    input === "正确" ||
-    input === "确认" ||
-    input === "yes" ||
-    input === "y"
-  ) {
-    const resumed = await conversation.external(async (outsideCtx) => {
-      const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
-      const reminderRepo = createReminderRepository(
-        outsideCtx.env.SUBSCRIPTION_KV,
-      );
-      const service = createSubscriptionService(repo, reminderRepo);
-      return service.resume(userKey, subId, encryptionKey);
-    });
+  await resumeWithDate(conversation, ctx, userKey, encryptionKey, subId, {
+    newDate: selectedDate,
+    options,
+  });
+}
 
-    if (!resumed) {
-      await ctx.reply("恢复失败，请稍后再试。");
-      return;
-    }
-
-    if (isFromListManager(options)) {
-      await ctx.reply(
-        `已恢复"${resumed.name}"。\n下次扣款日期：${resumed.nextBillingDate}`,
-      );
-      await replyWithListManagerDetail(ctx, resumed, options?.page ?? 0);
-      return;
-    }
-
-    await ctx.reply(
-      `已恢复"${resumed.name}"。\n下次扣款日期：${resumed.nextBillingDate}`,
-    );
-    return;
-  }
-
-  const dateResult = validateEditDate(input);
-  if (dateResult.error) {
-    await ctx.reply(
-      dateResult.error +
-        (isFromListManager(options)
-          ? "\n请重新从详情中选择恢复。"
-          : "\n请发送 /resume 重新开始。"),
-    );
-    return;
-  }
-
-  const newDate = dateResult.date!;
+async function resumeWithDate(
+  conversation: Conversation<BotContext, BaseBotContext>,
+  ctx: BaseBotContext,
+  userKey: string,
+  encryptionKey: string,
+  subId: string,
+  {
+    newDate,
+    options,
+  }: {
+    newDate: string;
+    options?: ResumeConversationOptions;
+  },
+): Promise<void> {
   const resumed = await conversation.external(async (outsideCtx) => {
     const repo = createSubscriptionRepository(outsideCtx.env.SUBSCRIPTION_KV);
     const reminderRepo = createReminderRepository(

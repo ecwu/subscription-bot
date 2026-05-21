@@ -1,7 +1,10 @@
 import { InlineKeyboard } from "grammy";
+import { binaryActionKeyboard } from "./confirmationKeyboard.js";
 
 export function privacyDeleteKeyboard(): InlineKeyboard {
-  return new InlineKeyboard()
-    .text("🗑 删除全部数据", "privacy:delete_confirm")
-    .text("❌ 取消", "privacy:delete_cancel");
+  return binaryActionKeyboard({
+    confirmLabel: "🗑 删除全部数据",
+    confirmData: "privacy:delete_confirm",
+    cancelData: "privacy:delete_cancel",
+  });
 }

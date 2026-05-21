@@ -8,26 +8,24 @@ import {
 } from "../../models/userSettings.js";
 import { createUserRepository } from "../../repositories/userRepository.js";
 import { parseSettingsCallbackData } from "../../utils/callbackParser.js";
-import {
-  COMMON_CURRENCIES,
-  validateCurrencyInput,
-} from "../../utils/currency.js";
+import { isCancelInput } from "../../utils/conversationInput.js";
 import { normalizeUtcOffset } from "../../models/userSettings.js";
+import { collectCurrencyInput } from "./currencyInput.js";
 
 export function settingsKeyboard(settings: UserSettings): InlineKeyboard {
   const reminderLabel = settings.reminderEnabled ? "ON" : "OFF";
   const hourLabel = String(settings.reminderHour).padStart(2, "0") + ":00";
 
   return new InlineKeyboard()
-    .text(`Currency: ${settings.defaultCurrency}`, "settings:currency")
+    .text(`默认币种：${settings.defaultCurrency}`, "settings:currency")
     .row()
-    .text(`Reminders: ${reminderLabel}`, "settings:toggle_reminder")
+    .text(`提醒：${reminderLabel}`, "settings:toggle_reminder")
     .row()
-    .text(`Time: ${hourLabel}`, "settings:hour")
+    .text(`时间：${hourLabel}`, "settings:hour")
     .row()
-    .text(`Timezone: ${settings.timezone}`, "settings:timezone")
+    .text(`时区：${settings.timezone}`, "settings:timezone")
     .row()
-    .text("Done", "settings:done");
+    .text("完成", "settings:done");
 }
 
 export function hourPickerKeyboard(currentHour?: number): InlineKeyboard {
@@ -55,26 +53,9 @@ export function timezoneKeyboard(currentTimezone?: string): InlineKeyboard {
     if (index % 2 === 1) keyboard.row();
   });
 
-  keyboard.text("Custom offset", "settings:tz:custom");
+  keyboard.text("自定义时区偏移", "settings:tz:custom");
   keyboard.row().text("返回", "settings:back");
   return keyboard;
-}
-
-function currencySelectionKeyboard(): InlineKeyboard {
-  const keyboard = new InlineKeyboard();
-
-  COMMON_CURRENCIES.forEach((currency, index) => {
-    keyboard.text(currency, `settings:currency:${currency}`);
-    if (index % 4 === 3) keyboard.row();
-  });
-
-  keyboard.text("其他", "settings:currency:other");
-  keyboard.row().text("返回", "settings:back");
-  return keyboard;
-}
-
-function isCancel(text: string): boolean {
-  return text.trim() === "/cancel" || text.trim() === "取消";
 }
 
 export async function settingsConversation(
@@ -103,7 +84,7 @@ export async function settingsConversation(
 
   logger.info("Settings conversation started");
 
-  let menuMessage = await ctx.reply("⚙️ Settings", {
+  let menuMessage = await ctx.reply("⚙️ 设置", {
     reply_markup: settingsKeyboard(settings),
   });
 
@@ -113,7 +94,7 @@ export async function settingsConversation(
 
     if (updateCtx.message?.text) {
       const text = updateCtx.message.text;
-      if (isCancel(text)) {
+      if (isCancelInput(text)) {
         await ctx.reply("已取消。");
         return;
       }
@@ -133,10 +114,10 @@ export async function settingsConversation(
           await ctx.api.editMessageText(
             menuMessage.chat.id,
             menuMessage.message_id,
-            "⚙️ Settings\n\nSettings updated.",
+            "⚙️ 设置\n\n设置已更新。",
           );
         } catch {
-          await ctx.reply("Settings updated.");
+          await ctx.reply("设置已更新。");
         }
         logger.info("Settings conversation completed");
         return;
@@ -154,7 +135,7 @@ export async function settingsConversation(
             reply_markup: settingsKeyboard(settings),
           });
         } catch {
-          await ctx.reply("⚙️ Settings", {
+          await ctx.reply("⚙️ 设置", {
             reply_markup: settingsKeyboard(settings),
           });
         }
@@ -180,7 +161,7 @@ export async function settingsConversation(
             reply_markup: settingsKeyboard(settings),
           });
         } catch {
-          await ctx.reply("⚙️ Settings", {
+          await ctx.reply("⚙️ 设置", {
             reply_markup: settingsKeyboard(settings),
           });
         }
@@ -206,7 +187,7 @@ export async function settingsConversation(
             reply_markup: settingsKeyboard(settings),
           });
         } catch {
-          await ctx.reply("⚙️ Settings", {
+          await ctx.reply("⚙️ 设置", {
             reply_markup: settingsKeyboard(settings),
           });
         }
@@ -222,15 +203,15 @@ export async function settingsConversation(
 
       try {
         await updateCtx.editMessageText(
-          "Please enter your UTC offset, e.g. +8, -5, +5:30.",
+          "请输入 UTC 偏移，例如 +8、-5、+5:30。",
         );
       } catch {
-        await ctx.reply("Please enter your UTC offset, e.g. +8, -5, +5:30.");
+        await ctx.reply("请输入 UTC 偏移，例如 +8、-5、+5:30。");
       }
 
       const customTzCtx = await conversation.waitFor("message:text");
       const customTzText = customTzCtx.msg.text;
-      if (isCancel(customTzText)) {
+      if (isCancelInput(customTzText)) {
         await ctx.reply("已取消。");
         return;
       }
@@ -238,7 +219,7 @@ export async function settingsConversation(
       const normalized = normalizeUtcOffset(customTzText);
       if (!normalized) {
         await ctx.reply(
-          "Invalid offset. Use format like +8, -5, +5:30.\nPlease send /settings to try again.",
+          "无效的偏移。请使用 +8、-5、+5:30 这样的格式。\n请发送 /settings 重新开始。",
         );
         return;
       }
@@ -249,7 +230,7 @@ export async function settingsConversation(
       };
       await saveSettings(conversation, userKey, settings, encryptionKey);
 
-      menuMessage = await ctx.reply("⚙️ Settings", {
+      menuMessage = await ctx.reply("⚙️ 设置", {
         reply_markup: settingsKeyboard(settings),
       });
       continue;
@@ -258,96 +239,24 @@ export async function settingsConversation(
     // Handle "currency" action: show currency picker
     if (callbackData === "settings:currency") {
       await updateCtx.answerCallbackQuery();
-      try {
-        await updateCtx.editMessageReplyMarkup({
-          reply_markup: currencySelectionKeyboard(),
-        });
-      } catch {
-        await ctx.reply("⚙️ Settings", {
-          reply_markup: currencySelectionKeyboard(),
-        });
-      }
-      continue;
-    }
-
-    // Handle settings-specific currency callback
-    if (callbackData.startsWith("settings:currency:")) {
-      await updateCtx.answerCallbackQuery();
-
-      if (callbackData === "settings:currency:back") {
-        try {
-          await updateCtx.editMessageReplyMarkup({
-            reply_markup: settingsKeyboard(settings),
-          });
-        } catch {
-          await ctx.reply("⚙️ Settings", {
-            reply_markup: settingsKeyboard(settings),
-          });
-        }
-        continue;
+      const selectedCurrency = await collectCurrencyInput(conversation, ctx, {
+        prompt: "请选择默认币种：",
+        hasPrice: true,
+        restartHint: "\n请发送 /settings 重新开始。",
+      });
+      if (selectedCurrency.cancelled || !selectedCurrency.currency) {
+        return;
       }
 
-      if (callbackData === "settings:currency:other") {
-        try {
-          await updateCtx.editMessageText(
-            "请输入 3 位币种代码，例如 CNY 或 USD：",
-          );
-        } catch {
-          await ctx.reply("请输入 3 位币种代码，例如 CNY 或 USD：");
-        }
+      settings = {
+        ...settings,
+        defaultCurrency: selectedCurrency.currency,
+      };
+      await saveSettings(conversation, userKey, settings, encryptionKey);
 
-        const customCurrencyCtx = await conversation.waitFor("message:text");
-        const customCurrencyText = customCurrencyCtx.msg.text;
-        if (isCancel(customCurrencyText)) {
-          await ctx.reply("已取消。");
-          return;
-        }
-
-        const result = validateCurrencyInput(customCurrencyText, true);
-        if (result.error) {
-          await ctx.reply(result.error + "\n请发送 /settings 重新开始。");
-          return;
-        }
-        if (!result.currency) {
-          await ctx.reply(
-            "请输入有效的币种代码。\n请发送 /settings 重新开始。",
-          );
-          return;
-        }
-
-        settings = {
-          ...settings,
-          defaultCurrency: result.currency,
-        };
-        await saveSettings(conversation, userKey, settings, encryptionKey);
-
-        menuMessage = await ctx.reply("⚙️ Settings", {
-          reply_markup: settingsKeyboard(settings),
-        });
-        continue;
-      }
-
-      // Parse custom settings currency selection
-      const currencyValue = callbackData.slice("settings:currency:".length);
-      if (/^[A-Z]{3}$/.test(currencyValue)) {
-        settings = {
-          ...settings,
-          defaultCurrency: currencyValue,
-        };
-        await saveSettings(conversation, userKey, settings, encryptionKey);
-
-        try {
-          await updateCtx.editMessageReplyMarkup({
-            reply_markup: settingsKeyboard(settings),
-          });
-        } catch {
-          await ctx.reply("⚙️ Settings", {
-            reply_markup: settingsKeyboard(settings),
-          });
-        }
-        continue;
-      }
-
+      menuMessage = await ctx.reply("⚙️ 设置", {
+        reply_markup: settingsKeyboard(settings),
+      });
       continue;
     }
 
@@ -360,7 +269,7 @@ export async function settingsConversation(
           reply_markup: settingsKeyboard(settings),
         });
       } catch {
-        await ctx.reply("⚙️ Settings", {
+        await ctx.reply("⚙️ 设置", {
           reply_markup: settingsKeyboard(settings),
         });
       }

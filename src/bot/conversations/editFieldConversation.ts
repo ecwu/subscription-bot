@@ -4,7 +4,6 @@ import { createSubscriptionService } from "../../services/subscriptionService.js
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createLogger } from "../../utils/logger.js";
-import { InlineKeyboard } from "grammy";
 import {
   BillingCycle,
   BillingInterval,
@@ -12,14 +11,15 @@ import {
 } from "../../models/subscription.js";
 import { formatBillingCycle } from "../../utils/labels.js";
 import { getBillingAnchorDay } from "../../utils/date.js";
-import { parseBillingCycleText } from "../../utils/billingCycle.js";
-import { parseFlexibleDate } from "../../utils/parseDate.js";
-import { ValidationError } from "../../utils/errors.js";
+import { isCancelInput } from "../../utils/conversationInput.js";
 import {
   buildDetailKeyboard,
   formatDetailText,
 } from "../keyboards/listManagerKeyboard.js";
 import { validateCurrencyCode } from "../../utils/currency.js";
+import { collectDateInput, validateDateInput } from "./dateInput.js";
+import { collectCurrencyInput } from "./currencyInput.js";
+import { collectCycleInput } from "./cycleInput.js";
 
 interface ListManagerConversationOptions {
   source?: "listManager";
@@ -76,7 +76,7 @@ export function validateEditDate(dateStr: string): {
   date?: string;
   error?: string;
 } {
-  return parseFlexibleDate(dateStr);
+  return validateDateInput(dateStr);
 }
 
 export async function editFieldConversation(
@@ -124,7 +124,7 @@ export async function editFieldConversation(
     date: "下次扣款日期",
   };
 
-  const promptMap: Record<string, string> = {
+  const promptMap: Record<"name" | "price" | "currency" | "date", string> = {
     name: `当前名称：${sub.name}\n请发送新名称。`,
     price:
       sub.price !== undefined
@@ -134,23 +134,20 @@ export async function editFieldConversation(
       sub.currency !== undefined
         ? `当前币种：${sub.currency}\n请发送新币种（3 位代码）。`
         : "当前未填写币种。\n请发送币种（3 位代码）。",
-    date: `当前下次扣款日期：${sub.nextBillingDate}\n请发送新日期（YYYY-MM-DD）。`,
+    date: `当前下次扣款日期：${sub.nextBillingDate}\n请选择或输入新日期：`,
   };
-
-  await ctx.reply(promptMap[field]);
-
-  const inputCtx = await conversation.waitFor("message:text");
-  const input = inputCtx.msg.text;
-
-  if (input.trim() === "/cancel" || input.trim() === "取消") {
-    await ctx.reply("已取消。");
-    return;
-  }
 
   const now = new Date().toISOString();
   const updated = { ...sub, updatedAt: now };
 
   if (field === "name") {
+    await ctx.reply(promptMap[field]);
+    const inputCtx = await conversation.waitFor("message:text");
+    const input = inputCtx.msg.text;
+    if (isCancelInput(input)) {
+      await ctx.reply("已取消。");
+      return;
+    }
     const error = validateEditName(input);
     if (error) {
       await ctx.reply(error + restartHint(options));
@@ -158,6 +155,13 @@ export async function editFieldConversation(
     }
     updated.name = input.trim();
   } else if (field === "price") {
+    await ctx.reply(promptMap[field]);
+    const inputCtx = await conversation.waitFor("message:text");
+    const input = inputCtx.msg.text;
+    if (isCancelInput(input)) {
+      await ctx.reply("已取消。");
+      return;
+    }
     const result = validateEditPrice(input);
     if (result.error) {
       await ctx.reply(result.error + restartHint(options));
@@ -165,20 +169,26 @@ export async function editFieldConversation(
     }
     updated.price = result.price;
   } else if (field === "currency") {
-    const result = validateEditCurrency(input);
-    if (result.error) {
-      await ctx.reply(result.error + restartHint(options));
+    const selectedCurrency = await collectCurrencyInput(conversation, ctx, {
+      prompt: promptMap[field],
+      hasPrice: true,
+      restartHint: restartHint(options),
+    });
+    if (selectedCurrency.cancelled || !selectedCurrency.currency) {
       return;
     }
-    updated.currency = result.currency;
+    updated.currency = selectedCurrency.currency;
   } else if (field === "date") {
-    const result = validateEditDate(input);
-    if (result.error) {
-      await ctx.reply(result.error + restartHint(options));
+    const selectedDate = await collectDateInput(
+      conversation,
+      ctx,
+      promptMap[field],
+    );
+    if (!selectedDate) {
       return;
     }
-    updated.nextBillingDate = result.date!;
-    updated.billingAnchorDay = getBillingAnchorDay(result.date!);
+    updated.nextBillingDate = selectedDate;
+    updated.billingAnchorDay = getBillingAnchorDay(selectedDate);
   }
 
   await conversation.external(async (outsideCtx) => {
@@ -243,56 +253,19 @@ export async function editCycleConversation(
     return;
   }
 
-  const cycleKeyboard = new InlineKeyboard()
-    .text("每周", `editcycle:weekly:${subId}`)
-    .text("每月", `editcycle:monthly:${subId}`)
-    .row()
-    .text("每季度", `editcycle:quarterly:${subId}`)
-    .text("每年", `editcycle:yearly:${subId}`)
-    .row()
-    .text("自定义", `editcycle:custom:${subId}`)
-    .text("高级间隔", `editcycle:interval:${subId}`);
-
-  await ctx.reply("请选择新的扣款周期：", {
-    reply_markup: cycleKeyboard,
+  const cycleSelection = await collectCycleInput(conversation, ctx, {
+    prompt: "请选择新的扣款周期：",
+    callbackPattern: /^editcycle:/,
+    callbackData: (cycle) => `editcycle:${cycle}:${subId}`,
+    parseCycle: (callbackData) => callbackData.split(":")[1] ?? null,
+    invalidSelectionMessage: "请点击按钮选择扣款周期。" + restartHint(options),
+    restartHint: restartHint(options),
   });
+  if (!cycleSelection) return;
 
-  const cycleCtx = await conversation.waitForCallbackQuery(/^editcycle:/);
-  const callbackData = cycleCtx.callbackQuery.data;
-  const cycle = callbackData.split(":")[1] as BillingCycle;
-  let billingInterval: BillingInterval | undefined;
-
-  await cycleCtx.answerCallbackQuery();
-  await cycleCtx.deleteMessage();
-
-  if (cycle === "interval") {
-    await ctx.reply(
-      "请输入间隔，例如 every 30 days、every 4 weeks、6m、2y、30d、4w、每30天、每4周、每6个月、每2年。",
-    );
-    const intervalCtx = await conversation.waitFor("message:text");
-    const intervalText = intervalCtx.msg.text;
-    if (intervalText.trim() === "/cancel" || intervalText.trim() === "取消") {
-      await ctx.reply("已取消。");
-      return;
-    }
-    try {
-      const parsedCycle = parseBillingCycleText(intervalText);
-      if (
-        parsedCycle.billingCycle !== "interval" ||
-        !parsedCycle.billingInterval
-      ) {
-        await ctx.reply("请输入高级间隔，例如 30d、4w、6m 或 2y。");
-        return;
-      }
-      billingInterval = parsedCycle.billingInterval;
-    } catch (err) {
-      if (err instanceof ValidationError) {
-        await ctx.reply(err.message + restartHint(options));
-        return;
-      }
-      throw err;
-    }
-  }
+  const cycle = cycleSelection.cycle as BillingCycle;
+  const billingInterval: BillingInterval | undefined =
+    cycleSelection.billingInterval;
 
   const now = new Date().toISOString();
   const updated = {

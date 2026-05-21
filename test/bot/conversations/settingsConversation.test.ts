@@ -21,11 +21,11 @@ describe("settingsConversation", () => {
       const buttons = kb.inline_keyboard.flat();
       const texts = buttons.map((b) => b.text);
 
-      expect(texts.some((t) => t.includes("Currency"))).toBe(true);
-      expect(texts.some((t) => t.includes("Reminders"))).toBe(true);
-      expect(texts.some((t) => t.includes("Time"))).toBe(true);
-      expect(texts.some((t) => t.includes("Timezone"))).toBe(true);
-      expect(texts).toContain("Done");
+      expect(texts.some((t) => t.includes("默认币种"))).toBe(true);
+      expect(texts.some((t) => t.includes("提醒"))).toBe(true);
+      expect(texts.some((t) => t.includes("时间"))).toBe(true);
+      expect(texts.some((t) => t.includes("时区"))).toBe(true);
+      expect(texts).toContain("完成");
     });
 
     it("shows ON when reminders are enabled", () => {
@@ -35,7 +35,7 @@ describe("settingsConversation", () => {
       };
       const kb = settingsKeyboard(settings);
       const buttons = kb.inline_keyboard.flat();
-      const reminderBtn = buttons.find((b) => b.text.includes("Reminders"));
+      const reminderBtn = buttons.find((b) => b.text.includes("提醒"));
       expect(reminderBtn?.text).toContain("ON");
     });
 
@@ -46,7 +46,7 @@ describe("settingsConversation", () => {
       };
       const kb = settingsKeyboard(settings);
       const buttons = kb.inline_keyboard.flat();
-      const reminderBtn = buttons.find((b) => b.text.includes("Reminders"));
+      const reminderBtn = buttons.find((b) => b.text.includes("提醒"));
       expect(reminderBtn?.text).toContain("OFF");
     });
 
@@ -57,7 +57,7 @@ describe("settingsConversation", () => {
       };
       const kb = settingsKeyboard(settings);
       const buttons = kb.inline_keyboard.flat();
-      const timeBtn = buttons.find((b) => b.text.includes("Time"));
+      const timeBtn = buttons.find((b) => b.text.includes("时间"));
       expect(timeBtn?.text).toContain("09:00");
     });
 
@@ -130,7 +130,7 @@ describe("settingsConversation", () => {
     it("has a custom offset button", () => {
       const kb = timezoneKeyboard();
       const buttons = kb.inline_keyboard.flat();
-      const customBtn = buttons.find((b) => b.text === "Custom offset");
+      const customBtn = buttons.find((b) => b.text === "自定义时区偏移");
       expect(customBtn).toBeDefined();
     });
   });

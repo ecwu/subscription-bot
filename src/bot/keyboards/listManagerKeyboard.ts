@@ -9,6 +9,8 @@ import {
   isAutoRenewing,
   isTrialSubscription,
 } from "../../utils/subscriptionFlags.js";
+import { binaryActionKeyboard } from "./confirmationKeyboard.js";
+import { editableFieldsKeyboard } from "./editFields.js";
 
 export const LIST_PAGE_SIZE = 8;
 
@@ -108,23 +110,22 @@ export function buildEditFieldKeyboard(
   subId: string,
   page: number,
 ): InlineKeyboard {
-  return new InlineKeyboard()
-    .text("名称", `list:ef:name:${subId}:${page}`)
-    .text("价格", `list:ef:price:${subId}:${page}`)
-    .row()
-    .text("币种", `list:ef:currency:${subId}:${page}`)
-    .text("周期", `list:ef:cycle:${subId}:${page}`)
-    .row()
-    .text("下次扣款日期", `list:ef:date:${subId}:${page}`)
-    .row()
-    .text("← 返回详情", `list:detail:${subId}:${page}`);
+  return editableFieldsKeyboard({
+    callbackData: (field) => `list:ef:${field}:${subId}:${page}`,
+    backButton: {
+      label: "← 返回详情",
+      callbackData: `list:detail:${subId}:${page}`,
+    },
+  });
 }
 
 export function buildDeleteConfirmKeyboard(
   subId: string,
   page: number,
 ): InlineKeyboard {
-  return new InlineKeyboard()
-    .text("✅ 确认删除", `list:delok:${subId}:${page}`)
-    .text("❌ 取消", `list:delno:${subId}:${page}`);
+  return binaryActionKeyboard({
+    confirmLabel: "✅ 确认删除",
+    confirmData: `list:delok:${subId}:${page}`,
+    cancelData: `list:delno:${subId}:${page}`,
+  });
 }

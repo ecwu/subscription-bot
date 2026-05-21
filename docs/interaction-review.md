@@ -136,6 +136,10 @@ Buttons specific to active conversations (`cycle:`, `editcycle:`, `addcurrency:`
 - Answer the callback query with "This selection has expired..."
 - Prevent the Telegram loading spinner from spinning indefinitely.
 
+`adddate:` is the shared date picker callback namespace. It is used by `/add`, edit-date, and resume-date flows so users can either type a date or expand the inline calendar.
+
+`addcurrency:` is the shared currency picker callback namespace. It is used by `/add`, edit-currency, and default-currency settings flows so all currency selections use the same inline button layout.
+
 ### Uncaught errors
 All callback handlers are wrapped in `try/catch`. If an unexpected error occurs:
 - The callback query is answered with "Something went wrong."

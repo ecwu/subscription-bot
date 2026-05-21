@@ -165,6 +165,38 @@ async function myConversation(conversation: Conversation, ctx: BaseBotContext) {
 
 Repository and service objects **must** be created inside the `external()` callback using `outsideCtx.env.SUBSCRIPTION_KV`. Closure-captured `repo`/`service` created from the conversation `ctx` will fail because `ctx.env` is undefined.
 
+## Reusable Interaction Controls
+
+When adding or changing interactive flows, **prefer existing selectors, buttons, menus, and helpers before creating new inline keyboards or callback namespaces**. New one-off keyboards should be rare; add them only when the existing control cannot represent the workflow cleanly.
+
+Reusable controls:
+
+- `src/bot/conversations/dateInput.ts`
+  - `collectDateInput()` for flows where users can type a date or expand a calendar.
+  - `dateKeyboard()` for the shared calendar layout.
+  - Uses shared `adddate:*` callbacks.
+- `src/bot/conversations/currencyInput.ts`
+  - `collectCurrencyInput()` for selecting a currency from common buttons or entering a custom 3-letter code.
+  - Uses `currencyKeyboard()` and shared `addcurrency:*` callbacks.
+- `src/bot/conversations/cycleInput.ts`
+  - `collectCycleInput()` and `cycleKeyboard()` for weekly/monthly/quarterly/yearly/custom/advanced interval selection.
+  - Reuse it for both add and edit flows even if callback payloads differ.
+- `src/bot/keyboards/editFields.ts`
+  - `EDITABLE_FIELDS` is the source of truth for editable subscription fields.
+  - `editableFieldsKeyboard()` builds edit menus for normal detail views and list manager views.
+- `src/bot/keyboards/confirmationKeyboard.ts`
+  - `confirmationKeyboard()` for standard `<prefix>:confirm:<data>` / `<prefix>:cancel:<data>` callbacks.
+  - `binaryActionKeyboard()` for two-button confirm/cancel style actions with custom callback data.
+- `src/utils/conversationInput.ts`
+  - `isCancelInput()` for recognizing `/cancel` and `取消`.
+
+Before adding a new selector:
+
+1. Check whether date, currency, cycle, edit-field, confirm/cancel, or cancel-text behavior already exists above.
+2. If a new option is needed, extend the shared control and its tests instead of duplicating a local keyboard.
+3. If callback formats change, update `src/utils/callbackParser.ts`, `src/bot/createBot.ts` stale fallback handlers, tests, and `docs/interaction-review.md`.
+4. Keep button text and layout consistent across `/add`, `/edit`, list manager, and `/settings`.
+
 ## Middleware Order (in createBot)
 
 ```typescript
@@ -197,7 +229,7 @@ bot.use(conversations());         // Enables conversation plugin
 
 ## BillingCycle
 
-Valid values: `"weekly"`, `"monthly"`, `"quarterly"`, `"yearly"`, `"custom"`.
+Valid values: `"weekly"`, `"monthly"`, `"quarterly"`, `"yearly"`, `"custom"`, `"interval"`.
 
 ## Callback Data Formats
 
@@ -215,6 +247,8 @@ All callbacks use typed `parse*CallbackData` helpers from `src/utils/callbackPar
 | `privacy:delete_confirm` | `privacy:delete_confirm` | `privacyDeleteConfirmCallback` |
 | `privacy:delete_cancel` | `privacy:delete_cancel` | `privacyDeleteCancelCallback` |
 | `cycle:<cycle>` | `cycle:monthly` | `addConversation` |
+| `addcurrency:<currency>` | `addcurrency:CNY` | Shared currency picker |
+| `adddate:pick:<date>` | `adddate:pick:2026-06-01` | Shared date picker |
 | `add:confirm` | `add:confirm` | `addConversation` |
 | `add:cancel` | `add:cancel` | `addConversation` |
 
@@ -279,3 +313,4 @@ All subscription-related callbacks verify the subscription still exists before a
 4. If you add new env vars, add them to `Env` interface, `envSchema`, `.env.example`, and `README.md`.
 5. If you modify privacy-related code, verify no raw IDs or secrets leak into logs or error messages.
 6. If you work with conversations, always test the `conversation.external()` pattern.
+7. If you add interactive buttons, reuse the shared controls in **Reusable Interaction Controls** first.
