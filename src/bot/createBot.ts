@@ -218,8 +218,13 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.callbackQuery(/^add:cancel$/, async (ctx) => {
     await ctx.answerCallbackQuery("这次确认已过期。");
   });
+  bot.callbackQuery(/^add:/, async (ctx) => {
+    await ctx.answerCallbackQuery("这次确认已过期，请发送 /add 重新开始。");
+  });
   bot.callbackQuery(/^settings:/, async (ctx) => {
-    await ctx.answerCallbackQuery("这次选择已过期，请发送 /settings 重新开始。");
+    await ctx.answerCallbackQuery(
+      "这次选择已过期，请发送 /settings 重新开始。",
+    );
   });
 
   return bot;

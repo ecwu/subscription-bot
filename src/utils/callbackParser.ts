@@ -95,18 +95,52 @@ export function parseCycleCallbackData(
   return { cycle };
 }
 
+export type AddReviewAction =
+  | "confirm"
+  | "cancel"
+  | "toggle_trial"
+  | "toggle_autorenew"
+  | "edit_name"
+  | "edit_price"
+  | "edit_currency"
+  | "edit_cycle"
+  | "edit_date";
+
 /**
- * Parse add confirmation callback data.
+ * Parse add review callback data.
  *
  * Expected formats:
  *   add:confirm
  *   add:cancel
+ *   add:toggle_trial
+ *   add:toggle_autorenew
+ *   add:edit_name
+ *   add:edit_price
+ *   add:edit_currency
+ *   add:edit_cycle
+ *   add:edit_date
  */
 export function parseAddConfirmCallbackData(
   callbackData: string,
-): { action: "confirm" | "cancel" } | null {
-  if (callbackData === "add:confirm") return { action: "confirm" };
-  if (callbackData === "add:cancel") return { action: "cancel" };
+): { action: AddReviewAction } | null {
+  const prefix = "add:";
+  if (!callbackData.startsWith(prefix)) return null;
+
+  const action = callbackData.slice(prefix.length);
+  if (
+    action === "confirm" ||
+    action === "cancel" ||
+    action === "toggle_trial" ||
+    action === "toggle_autorenew" ||
+    action === "edit_name" ||
+    action === "edit_price" ||
+    action === "edit_currency" ||
+    action === "edit_cycle" ||
+    action === "edit_date"
+  ) {
+    return { action };
+  }
+
   return null;
 }
 

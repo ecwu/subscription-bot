@@ -7,6 +7,7 @@ import {
   buildBillingDatePreview,
   dateKeyboard,
   formatBillingDatePreview,
+  resolveAddCurrencyForPrice,
 } from "../src/bot/conversations/addConversation.js";
 
 describe("addConversation validators", () => {
@@ -65,6 +66,36 @@ describe("addConversation validators", () => {
     it("rejects invalid codes", () => {
       const result = validateAddCurrency("EURO", true);
       expect(result.error).toBe("请输入 3 位币种代码，例如 CNY 或 USD。");
+    });
+  });
+
+  describe("resolveAddCurrencyForPrice", () => {
+    it("skips currency when price is skipped", () => {
+      expect(resolveAddCurrencyForPrice(undefined, "CNY")).toEqual({
+        currency: undefined,
+        shouldAskCurrency: false,
+      });
+    });
+
+    it("uses explicit default currency when price exists", () => {
+      expect(resolveAddCurrencyForPrice(12.99, "CNY")).toEqual({
+        currency: "CNY",
+        shouldAskCurrency: false,
+      });
+    });
+
+    it("asks for currency when price exists without explicit default", () => {
+      expect(resolveAddCurrencyForPrice(12.99)).toEqual({
+        currency: undefined,
+        shouldAskCurrency: true,
+      });
+    });
+
+    it("does not treat fallback USD as explicit unless passed in", () => {
+      expect(resolveAddCurrencyForPrice(12.99, undefined)).toEqual({
+        currency: undefined,
+        shouldAskCurrency: true,
+      });
     });
   });
 
@@ -176,7 +207,6 @@ describe("addConversation validators", () => {
           "3. 2026-07-18",
           "4. 2026-08-18",
           "5. 2026-09-18",
-          "这个更新时间安排是否正确？",
         ].join("\n"),
       );
     });
@@ -188,7 +218,6 @@ describe("addConversation validators", () => {
           "未来扣款日期预览：",
           "1. 2026-05-18",
           "自定义周期不会自动推进，请之后手动修改下次扣款日期。",
-          "这个更新时间安排是否正确？",
         ].join("\n"),
       );
     });
@@ -208,7 +237,6 @@ describe("addConversation validators", () => {
           "3. 2026-07-13",
           "4. 2026-08-10",
           "5. 2026-09-07",
-          "这个更新时间安排是否正确？",
         ].join("\n"),
       );
     });
@@ -228,7 +256,6 @@ describe("addConversation validators", () => {
           "3. 2027-05-18",
           "4. 2027-11-18",
           "5. 2028-05-18",
-          "这个更新时间安排是否正确？",
         ].join("\n"),
       );
 
@@ -246,7 +273,6 @@ describe("addConversation validators", () => {
           "3. 2030-05-18",
           "4. 2032-05-18",
           "5. 2034-05-18",
-          "这个更新时间安排是否正确？",
         ].join("\n"),
       );
     });

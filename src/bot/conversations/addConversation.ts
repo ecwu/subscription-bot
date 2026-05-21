@@ -3,6 +3,7 @@ import { BotContext, BaseBotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
+import { createUserRepository } from "../../repositories/userRepository.js";
 import {
   Subscription,
   BillingCycle,
@@ -14,7 +15,7 @@ import { InlineKeyboard } from "grammy";
 import {
   parseAddCurrencyCallbackData,
   parseAddDateCallbackData,
-  parseAddPreviewCallbackData,
+  parseAddConfirmCallbackData,
 } from "../../utils/callbackParser.js";
 import { formatBillingCycle } from "../../utils/labels.js";
 import { getBillingAnchorDay, getNextBillingDate } from "../../utils/date.js";
@@ -171,34 +172,78 @@ function confirmKeyboard(): InlineKeyboard {
     .text("❌ 取消", "add:cancel");
 }
 
-function billingPreviewKeyboard(): InlineKeyboard {
-  return new InlineKeyboard()
-    .text("✅ 正确，继续确认", "addpreview:confirm")
+function reviewKeyboard(price?: number): InlineKeyboard {
+  const keyboard = confirmKeyboard()
     .row()
-    .text("↩️ 返回修改周期/日期", "addpreview:change")
+    .text("自动续费", "add:toggle_autorenew")
+    .text("体验", "add:toggle_trial")
     .row()
-    .text("❌ 取消", "addpreview:cancel");
+    .text("名称", "add:edit_name")
+    .text("价格", "add:edit_price")
+    .row();
+
+  if (price !== undefined) {
+    keyboard.text("币种", "add:edit_currency");
+  }
+
+  return keyboard
+    .text("周期", "add:edit_cycle")
+    .row()
+    .text("日期", "add:edit_date");
 }
 
-function yesNoKeyboard(
-  prefix: string,
-  yesLabel = "是",
-  noLabel = "否",
-): InlineKeyboard {
-  return new InlineKeyboard()
-    .text(yesLabel, `${prefix}:yes`)
-    .text(noLabel, `${prefix}:no`)
-    .row()
-    .text("取消", `${prefix}:cancel`);
+export function resolveAddCurrencyForPrice(
+  price: number | undefined,
+  explicitDefaultCurrency?: string,
+): { currency?: string; shouldAskCurrency: boolean } {
+  if (price === undefined) {
+    return { currency: undefined, shouldAskCurrency: false };
+  }
+  if (explicitDefaultCurrency) {
+    return {
+      currency: explicitDefaultCurrency,
+      shouldAskCurrency: false,
+    };
+  }
+  return { currency: undefined, shouldAskCurrency: true };
 }
 
-function parseYesNoCallbackData(
-  callbackData: string,
-  prefix: string,
-): boolean | null {
-  if (callbackData === `${prefix}:yes`) return true;
-  if (callbackData === `${prefix}:no`) return false;
-  return null;
+function buildReviewMessage(draft: AddDraft): string {
+  const lines = [
+    "请确认订阅信息：",
+    `名称：${draft.name}`,
+    draft.price !== undefined
+      ? `价格：${draft.price} ${draft.currency ?? ""}`.trim()
+      : "价格：未填写",
+    `周期：${formatBillingCycle(draft.cycle, draft.billingInterval)}`,
+    `类型：${draft.isTrial ? "体验" : "付费"}`,
+    `自动续费：${draft.autoRenew ? "是" : "否"}`,
+    `${draft.isTrial ? "体验到期/首次扣款" : draft.autoRenew ? "下次扣款" : "服务到期"}：${draft.nextBillingDate}`,
+    "",
+    formatBillingDatePreview(
+      draft.nextBillingDate,
+      draft.cycle,
+      draft.billingInterval,
+    ),
+  ];
+
+  return lines.join("\n");
+}
+
+interface AddDraft {
+  name: string;
+  price?: number;
+  currency?: string;
+  cycle: BillingCycle;
+  billingInterval?: BillingInterval;
+  nextBillingDate: string;
+  isTrial: boolean;
+  autoRenew: boolean;
+}
+
+interface CycleSelection {
+  cycle: BillingCycle;
+  billingInterval?: BillingInterval;
 }
 
 export function buildBillingDatePreview(
@@ -249,7 +294,6 @@ export function formatBillingDatePreview(
     lines.push("自定义周期不会自动推进，请之后手动修改下次扣款日期。");
   }
 
-  lines.push("这个更新时间安排是否正确？");
   return lines.join("\n");
 }
 
@@ -262,6 +306,270 @@ async function safeDeleteMessage(ctx: BaseBotContext): Promise<void> {
     await ctx.deleteMessage();
   } catch {
     // The callback message may already be gone.
+  }
+}
+
+async function promptForCurrency(
+  conversation: Conversation<BotContext, BaseBotContext>,
+  ctx: BaseBotContext,
+): Promise<string | null> {
+  await ctx.reply("请选择币种：", {
+    reply_markup: currencyKeyboard(true),
+  });
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const currencyCtx =
+      await conversation.waitForCallbackQuery(/^addcurrency:/);
+    const parsedCurrency = parseAddCurrencyCallbackData(
+      currencyCtx.callbackQuery.data,
+    );
+
+    if (!parsedCurrency) {
+      await currencyCtx.answerCallbackQuery("无效的币种选择。");
+      continue;
+    }
+
+    await currencyCtx.answerCallbackQuery();
+
+    if (parsedCurrency.action === "cancel") {
+      await safeDeleteMessage(currencyCtx);
+      await ctx.reply("已取消。");
+      return null;
+    }
+
+    if (parsedCurrency.action === "skip") {
+      await ctx.reply("已填写价格时必须选择币种。");
+      continue;
+    }
+
+    if (parsedCurrency.action === "other") {
+      await safeDeleteMessage(currencyCtx);
+      await ctx.reply("请输入 3 位币种代码，例如 CNY 或 USD。");
+      const customCurrencyCtx = await conversation.waitFor("message:text");
+      const customCurrencyText = customCurrencyCtx.msg.text;
+      if (isCancel(customCurrencyText)) {
+        await ctx.reply("已取消。");
+        return null;
+      }
+      const result = validateAddCurrency(customCurrencyText, true);
+      if (result.error || !result.currency) {
+        await ctx.reply(
+          (result.error ?? "请输入有效的币种代码。") +
+            "\n请发送 /add 重新开始。",
+        );
+        return null;
+      }
+      return result.currency;
+    }
+
+    await safeDeleteMessage(currencyCtx);
+    return parsedCurrency.currency;
+  }
+}
+
+async function collectCurrencyForPrice(
+  conversation: Conversation<BotContext, BaseBotContext>,
+  ctx: BaseBotContext,
+  price: number | undefined,
+  explicitDefaultCurrency?: string,
+): Promise<{ currency?: string; cancelled: boolean }> {
+  const resolved = resolveAddCurrencyForPrice(price, explicitDefaultCurrency);
+  if (!resolved.shouldAskCurrency) {
+    return { currency: resolved.currency, cancelled: false };
+  }
+
+  const currency = await promptForCurrency(conversation, ctx);
+  if (!currency) return { cancelled: true };
+  return { currency, cancelled: false };
+}
+
+async function collectName(
+  conversation: Conversation<BotContext, BaseBotContext>,
+  ctx: BaseBotContext,
+  prompt: string,
+): Promise<string | null> {
+  await ctx.reply(prompt);
+  const nameCtx = await conversation.waitFor("message:text");
+  const nameText = nameCtx.msg.text;
+  if (isCancel(nameText)) {
+    await ctx.reply("已取消。");
+    return null;
+  }
+  const nameError = validateAddName(nameText);
+  if (nameError) {
+    await ctx.reply(nameError + "\n请发送 /add 重新开始。");
+    return null;
+  }
+  return nameText.trim();
+}
+
+async function collectPrice(
+  conversation: Conversation<BotContext, BaseBotContext>,
+  ctx: BaseBotContext,
+): Promise<{ price?: number; cancelled: boolean }> {
+  await ctx.reply("价格是多少？请输入数字；如果不想填写价格，可以发送 skip。");
+  const priceCtx = await conversation.waitFor("message:text");
+  const priceText = priceCtx.msg.text;
+  if (isCancel(priceText)) {
+    await ctx.reply("已取消。");
+    return { cancelled: true };
+  }
+  const priceResult = validateAddPrice(priceText);
+  if (priceResult.error) {
+    await ctx.reply(priceResult.error + "\n请发送 /add 重新开始。");
+    return { cancelled: true };
+  }
+  return { price: priceResult.price, cancelled: false };
+}
+
+async function collectCycle(
+  conversation: Conversation<BotContext, BaseBotContext>,
+  ctx: BaseBotContext,
+): Promise<CycleSelection | null> {
+  await ctx.reply("请选择扣款周期：", {
+    reply_markup: cycleKeyboard(),
+  });
+  const cycleCtx = await conversation.waitForCallbackQuery(/^cycle:/);
+  const cycleCallback = cycleCtx.callbackQuery.data;
+  const selectedCycle = cycleCallback.replace("cycle:", "") as BillingCycle;
+  if (!VALID_CYCLES.includes(selectedCycle)) {
+    await ctx.reply("请点击按钮选择扣款周期。\n请发送 /add 重新开始。");
+    return null;
+  }
+  await cycleCtx.answerCallbackQuery();
+  await safeDeleteMessage(cycleCtx);
+
+  if (selectedCycle !== "interval") {
+    return { cycle: selectedCycle };
+  }
+
+  await ctx.reply(
+    "请输入间隔，例如 every 30 days、every 4 weeks、6m、2y、30d、4w、每30天、每4周、每6个月、每2年。",
+  );
+  const intervalCtx = await conversation.waitFor("message:text");
+  const intervalText = intervalCtx.msg.text;
+  if (isCancel(intervalText)) {
+    await ctx.reply("已取消。");
+    return null;
+  }
+  try {
+    const parsedCycle = parseBillingCycleText(intervalText);
+    if (
+      parsedCycle.billingCycle !== "interval" ||
+      !parsedCycle.billingInterval
+    ) {
+      await ctx.reply("请输入高级间隔，例如 30d、4w、6m 或 2y。");
+      return null;
+    }
+    return {
+      cycle: parsedCycle.billingCycle,
+      billingInterval: parsedCycle.billingInterval,
+    };
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      await ctx.reply(err.message + "\n请发送 /add 重新开始。");
+      return null;
+    }
+    throw err;
+  }
+}
+
+async function collectDate(
+  conversation: Conversation<BotContext, BaseBotContext>,
+  ctx: BaseBotContext,
+): Promise<string | null> {
+  const promptMsg = await ctx.reply("请选择或输入下次扣款日期：", {
+    reply_markup: collapsedDateKeyboard(),
+  });
+
+  let calendarMonth = currentMonth();
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const updateCtx = await conversation.wait();
+
+    if (updateCtx.message?.text) {
+      const text = updateCtx.message.text;
+      if (isCancel(text)) {
+        try {
+          await ctx.api.deleteMessage(promptMsg.chat.id, promptMsg.message_id);
+        } catch {
+          // The message may already be gone.
+        }
+        await ctx.reply("已取消。");
+        return null;
+      }
+      const result = validateAddDate(text);
+      if (result.error) {
+        await ctx.reply(
+          result.error + "\n请重新输入日期，或点击「选择日期」使用日历选择：",
+        );
+        continue;
+      }
+      try {
+        await ctx.api.deleteMessage(promptMsg.chat.id, promptMsg.message_id);
+      } catch {
+        // The message may already be gone.
+      }
+      return result.date!;
+    }
+
+    if (!updateCtx.callbackQuery?.data) continue;
+
+    const parsedDate = parseAddDateCallbackData(updateCtx.callbackQuery.data);
+
+    if (!parsedDate) {
+      await updateCtx.answerCallbackQuery("无效的日期选择。");
+      continue;
+    }
+
+    if (parsedDate.action === "show") {
+      await updateCtx.answerCallbackQuery();
+      try {
+        await updateCtx.editMessageReplyMarkup({
+          reply_markup: dateKeyboard(calendarMonth),
+        });
+      } catch {
+        // If editing fails, keep the conversation alive.
+      }
+      continue;
+    }
+
+    if (parsedDate.action === "noop") {
+      await updateCtx.answerCallbackQuery();
+      continue;
+    }
+
+    if (parsedDate.action === "cancel") {
+      await updateCtx.answerCallbackQuery();
+      await safeDeleteMessage(updateCtx);
+      await ctx.reply("已取消。");
+      return null;
+    }
+
+    if (parsedDate.action === "month") {
+      await updateCtx.answerCallbackQuery();
+      calendarMonth = parsedDate.month;
+      try {
+        await updateCtx.editMessageReplyMarkup({
+          reply_markup: dateKeyboard(parsedDate.month),
+        });
+      } catch {
+        // If editing fails, keep the conversation alive for the next callback.
+      }
+      continue;
+    }
+
+    const dateResult = validateAddDate(parsedDate.date);
+    if (dateResult.error) {
+      await updateCtx.answerCallbackQuery("日期无效。");
+      await ctx.reply(dateResult.error + "\n请发送 /add 重新开始。");
+      return null;
+    }
+
+    await updateCtx.answerCallbackQuery();
+    await safeDeleteMessage(updateCtx);
+    return dateResult.date!;
   }
 }
 
@@ -288,367 +596,161 @@ export async function addConversation(
   const encryptionKey = ctxData.encryptionKey;
   const logger = createLogger(ctxData.requestId);
 
-  // Step 1: Name
-  await ctx.reply("订阅名称是什么？");
-  const nameCtx = await conversation.waitFor("message:text");
-  const nameText = nameCtx.msg.text;
-  if (isCancel(nameText)) {
-    await ctx.reply("已取消。");
-    return;
-  }
-  const nameError = validateAddName(nameText);
-  if (nameError) {
-    await ctx.reply(nameError + "\n请发送 /add 重新开始。");
-    return;
-  }
-  const name = nameText.trim();
+  const explicitDefaultCurrency = await conversation.external(
+    async (outsideCtx) => {
+      const repo = createUserRepository(outsideCtx.env.SUBSCRIPTION_KV);
+      const profile = await repo.getUserProfile(userKey, encryptionKey);
+      return profile?.settings?.defaultCurrency;
+    },
+  );
 
-  // Step 2: Price
-  await ctx.reply("价格是多少？请输入数字；如果不想填写价格，可以发送 skip。");
-  const priceCtx = await conversation.waitFor("message:text");
-  const priceText = priceCtx.msg.text;
-  if (isCancel(priceText)) {
-    await ctx.reply("已取消。");
+  const name = await collectName(conversation, ctx, "订阅名称是什么？");
+  if (!name) {
     return;
   }
-  const priceResult = validateAddPrice(priceText);
-  if (priceResult.error) {
-    await ctx.reply(priceResult.error + "\n请发送 /add 重新开始。");
+
+  const priceSelection = await collectPrice(conversation, ctx);
+  if (priceSelection.cancelled) {
     return;
   }
-  const price = priceResult.price;
 
-  // Step 3: Currency (inline keyboard)
-  await ctx.reply("请选择币种：", {
-    reply_markup: currencyKeyboard(price !== undefined),
-  });
+  const currencySelection = await collectCurrencyForPrice(
+    conversation,
+    ctx,
+    priceSelection.price,
+    explicitDefaultCurrency,
+  );
+  if (currencySelection.cancelled) {
+    return;
+  }
 
-  let currency: string | undefined;
-  let currencySelected = false;
-  while (!currencySelected) {
-    const currencyCtx =
-      await conversation.waitForCallbackQuery(/^addcurrency:/);
-    const parsedCurrency = parseAddCurrencyCallbackData(
-      currencyCtx.callbackQuery.data,
+  const cycleSelection = await collectCycle(conversation, ctx);
+  if (!cycleSelection) {
+    return;
+  }
+
+  const dateSelection = await collectDate(conversation, ctx);
+  if (!dateSelection) {
+    return;
+  }
+
+  const draft: AddDraft = {
+    name,
+    price: priceSelection.price,
+    currency: currencySelection.currency,
+    cycle: cycleSelection.cycle,
+    billingInterval: cycleSelection.billingInterval,
+    nextBillingDate: dateSelection,
+    isTrial: false,
+    autoRenew: true,
+  };
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    await ctx.reply(buildReviewMessage(draft), {
+      reply_markup: reviewKeyboard(draft.price),
+    });
+
+    const reviewCtx = await conversation.waitForCallbackQuery(/^add:/);
+    const parsedReview = parseAddConfirmCallbackData(
+      reviewCtx.callbackQuery.data,
     );
+    await reviewCtx.answerCallbackQuery();
+    await safeDeleteMessage(reviewCtx);
 
-    if (!parsedCurrency) {
-      await currencyCtx.answerCallbackQuery("无效的币种选择。");
+    if (!parsedReview) {
+      await ctx.reply("无效的选择，请重新确认。");
       continue;
     }
 
-    await currencyCtx.answerCallbackQuery();
-
-    if (parsedCurrency.action === "cancel") {
-      await safeDeleteMessage(currencyCtx);
+    if (parsedReview.action === "cancel") {
       await ctx.reply("已取消。");
+      logger.info("Add conversation cancelled at review");
       return;
     }
 
-    if (parsedCurrency.action === "skip") {
-      if (price !== undefined) {
-        await ctx.reply("已填写价格时必须选择币种。");
+    if (parsedReview.action === "confirm") {
+      break;
+    }
+
+    if (parsedReview.action === "toggle_trial") {
+      draft.isTrial = !draft.isTrial;
+      continue;
+    }
+
+    if (parsedReview.action === "toggle_autorenew") {
+      draft.autoRenew = !draft.autoRenew;
+      continue;
+    }
+
+    if (parsedReview.action === "edit_name") {
+      const updatedName = await collectName(
+        conversation,
+        ctx,
+        "请发送新的订阅名称：",
+      );
+      if (!updatedName) return;
+      draft.name = updatedName;
+      continue;
+    }
+
+    if (parsedReview.action === "edit_price") {
+      const updatedPrice = await collectPrice(conversation, ctx);
+      if (updatedPrice.cancelled) return;
+      draft.price = updatedPrice.price;
+      const updatedCurrency = await collectCurrencyForPrice(
+        conversation,
+        ctx,
+        draft.price,
+        explicitDefaultCurrency,
+      );
+      if (updatedCurrency.cancelled) return;
+      draft.currency = updatedCurrency.currency;
+      continue;
+    }
+
+    if (parsedReview.action === "edit_currency") {
+      if (draft.price === undefined) {
+        await ctx.reply("未填写价格时不需要币种。");
+        draft.currency = undefined;
         continue;
       }
-      await safeDeleteMessage(currencyCtx);
-      currency = undefined;
-      currencySelected = true;
-      break;
-    }
-
-    if (parsedCurrency.action === "other") {
-      await safeDeleteMessage(currencyCtx);
-      await ctx.reply("请输入 3 位币种代码，例如 CNY 或 USD。");
-      const customCurrencyCtx = await conversation.waitFor("message:text");
-      const customCurrencyText = customCurrencyCtx.msg.text;
-      if (isCancel(customCurrencyText)) {
-        await ctx.reply("已取消。");
-        return;
-      }
-      const result = validateAddCurrency(
-        customCurrencyText,
-        price !== undefined,
-      );
-      if (result.error) {
-        await ctx.reply(result.error + "\n请发送 /add 重新开始。");
-        return;
-      }
-      currency = result.currency;
-      currencySelected = true;
-      break;
-    }
-
-    await safeDeleteMessage(currencyCtx);
-    currency = parsedCurrency.currency;
-    currencySelected = true;
-    break;
-  }
-
-  let cycle: BillingCycle | undefined;
-  let billingInterval: BillingInterval | undefined;
-  let nextBillingDate: string | undefined;
-  let previewConfirmed = false;
-
-  while (!previewConfirmed) {
-    // Step 4: Billing cycle (inline keyboard)
-    await ctx.reply("请选择扣款周期：", {
-      reply_markup: cycleKeyboard(),
-    });
-    const cycleCtx = await conversation.waitForCallbackQuery(/^cycle:/);
-    const cycleCallback = cycleCtx.callbackQuery.data;
-    const selectedCycle = cycleCallback.replace("cycle:", "") as BillingCycle;
-    if (!VALID_CYCLES.includes(selectedCycle)) {
-      await ctx.reply("请点击按钮选择扣款周期。\n请发送 /add 重新开始。");
-      return;
-    }
-    await cycleCtx.answerCallbackQuery();
-    await safeDeleteMessage(cycleCtx);
-    cycle = selectedCycle;
-    billingInterval = undefined;
-
-    if (selectedCycle === "interval") {
-      await ctx.reply(
-        "请输入间隔，例如 every 30 days、every 4 weeks、6m、2y、30d、4w、每30天、每4周、每6个月、每2年。",
-      );
-      const intervalCtx = await conversation.waitFor("message:text");
-      const intervalText = intervalCtx.msg.text;
-      if (isCancel(intervalText)) {
-        await ctx.reply("已取消。");
-        return;
-      }
-      try {
-        const parsedCycle = parseBillingCycleText(intervalText);
-        if (
-          parsedCycle.billingCycle !== "interval" ||
-          !parsedCycle.billingInterval
-        ) {
-          await ctx.reply("请输入高级间隔，例如 30d、4w、6m 或 2y。");
-          return;
-        }
-        billingInterval = parsedCycle.billingInterval;
-      } catch (err) {
-        if (err instanceof ValidationError) {
-          await ctx.reply(err.message + "\n请发送 /add 重新开始。");
-          return;
-        }
-        throw err;
-      }
-    }
-
-    // Step 5: Date (collapsible calendar, supports text input)
-    const promptMsg = await ctx.reply("请选择或输入下次扣款日期：", {
-      reply_markup: collapsedDateKeyboard(),
-    });
-
-    let calendarMonth = currentMonth();
-    nextBillingDate = undefined;
-    while (!nextBillingDate) {
-      const updateCtx = await conversation.wait();
-
-      if (updateCtx.message?.text) {
-        const text = updateCtx.message.text;
-        if (isCancel(text)) {
-          try {
-            await ctx.api.deleteMessage(
-              promptMsg.chat.id,
-              promptMsg.message_id,
-            );
-          } catch {
-            // The message may already be gone.
-          }
-          await ctx.reply("已取消。");
-          return;
-        }
-        const result = validateAddDate(text);
-        if (result.error) {
-          await ctx.reply(
-            result.error +
-              "\n请重新输入日期，或点击「选择日期」使用日历选择：",
-          );
-          continue;
-        }
-        try {
-          await ctx.api.deleteMessage(
-            promptMsg.chat.id,
-            promptMsg.message_id,
-          );
-        } catch {
-          // The message may already be gone.
-        }
-        nextBillingDate = result.date!;
-        break;
-      }
-
-      if (updateCtx.callbackQuery?.data) {
-        const parsedDate = parseAddDateCallbackData(
-          updateCtx.callbackQuery.data,
-        );
-
-        if (!parsedDate) {
-          await updateCtx.answerCallbackQuery("无效的日期选择。");
-          continue;
-        }
-
-        if (parsedDate.action === "show") {
-          await updateCtx.answerCallbackQuery();
-          try {
-            await updateCtx.editMessageReplyMarkup({
-              reply_markup: dateKeyboard(calendarMonth),
-            });
-          } catch {
-            // If editing fails, keep the conversation alive.
-          }
-          continue;
-        }
-
-        if (parsedDate.action === "noop") {
-          await updateCtx.answerCallbackQuery();
-          continue;
-        }
-
-        if (parsedDate.action === "cancel") {
-          await updateCtx.answerCallbackQuery();
-          await safeDeleteMessage(updateCtx);
-          await ctx.reply("已取消。");
-          return;
-        }
-
-        if (parsedDate.action === "month") {
-          await updateCtx.answerCallbackQuery();
-          calendarMonth = parsedDate.month;
-          try {
-            await updateCtx.editMessageReplyMarkup({
-              reply_markup: dateKeyboard(parsedDate.month),
-            });
-          } catch {
-            // If editing fails, keep the conversation alive for the next callback.
-          }
-          continue;
-        }
-
-        const dateResult = validateAddDate(parsedDate.date);
-        if (dateResult.error) {
-          await updateCtx.answerCallbackQuery("日期无效。");
-          await ctx.reply(dateResult.error + "\n请发送 /add 重新开始。");
-          return;
-        }
-
-        await updateCtx.answerCallbackQuery();
-        await safeDeleteMessage(updateCtx);
-        nextBillingDate = dateResult.date!;
-      }
-    }
-
-    await ctx.reply(
-      formatBillingDatePreview(nextBillingDate, cycle, billingInterval),
-      {
-        reply_markup: billingPreviewKeyboard(),
-      },
-    );
-
-    const previewCtx = await conversation.waitForCallbackQuery(/^addpreview:/);
-    const parsedPreview = parseAddPreviewCallbackData(
-      previewCtx.callbackQuery.data,
-    );
-    await previewCtx.answerCallbackQuery();
-    await safeDeleteMessage(previewCtx);
-
-    if (!parsedPreview || parsedPreview.action === "cancel") {
-      await ctx.reply("已取消。");
-      return;
-    }
-
-    if (parsedPreview.action === "change") {
+      const updatedCurrency = await promptForCurrency(conversation, ctx);
+      if (!updatedCurrency) return;
+      draft.currency = updatedCurrency;
       continue;
     }
 
-    previewConfirmed = true;
-  }
+    if (parsedReview.action === "edit_cycle") {
+      const updatedCycle = await collectCycle(conversation, ctx);
+      if (!updatedCycle) return;
+      draft.cycle = updatedCycle.cycle;
+      draft.billingInterval = updatedCycle.billingInterval;
+      continue;
+    }
 
-  if (!cycle || !nextBillingDate) {
-    await ctx.reply("已取消。");
-    return;
-  }
-
-  await ctx.reply("这是体验订阅吗？", {
-    reply_markup: yesNoKeyboard("addtrial"),
-  });
-  const trialCtx = await conversation.waitForCallbackQuery(/^addtrial:/);
-  const trialData = trialCtx.callbackQuery.data;
-  await trialCtx.answerCallbackQuery();
-  await safeDeleteMessage(trialCtx);
-  if (trialData === "addtrial:cancel") {
-    await ctx.reply("已取消。");
-    return;
-  }
-  const isTrial = parseYesNoCallbackData(trialData, "addtrial");
-  if (isTrial === null) {
-    await ctx.reply("已取消。");
-    return;
-  }
-
-  await ctx.reply("这个订阅会自动续费吗？", {
-    reply_markup: yesNoKeyboard("addrenew", "会", "不会"),
-  });
-  const renewCtx = await conversation.waitForCallbackQuery(/^addrenew:/);
-  const renewData = renewCtx.callbackQuery.data;
-  await renewCtx.answerCallbackQuery();
-  await safeDeleteMessage(renewCtx);
-  if (renewData === "addrenew:cancel") {
-    await ctx.reply("已取消。");
-    return;
-  }
-  const autoRenew = parseYesNoCallbackData(renewData, "addrenew");
-  if (autoRenew === null) {
-    await ctx.reply("已取消。");
-    return;
-  }
-
-  // Review
-  const reviewLines = [
-    "请确认订阅信息：",
-    `名称：${name}`,
-    price !== undefined ? `价格：${price} ${currency ?? ""}`.trim() : null,
-    `周期：${formatBillingCycle(cycle, billingInterval)}`,
-    `类型：${isTrial ? "体验" : "付费"}`,
-    `自动续费：${autoRenew ? "是" : "否"}`,
-    `${isTrial ? "体验到期/首次扣款" : autoRenew ? "下次扣款" : "服务到期"}：${nextBillingDate}`,
-  ].filter((l): l is string => l !== null);
-
-  await ctx.reply(reviewLines.join("\n"), {
-    reply_markup: confirmKeyboard(),
-  });
-
-  const confirmCtx = await conversation.waitForCallbackQuery(/^add:/);
-  const confirmAction = confirmCtx.callbackQuery.data;
-  await confirmCtx.answerCallbackQuery();
-  await safeDeleteMessage(confirmCtx);
-
-  if (confirmAction === "add:cancel") {
-    await ctx.reply("已取消。");
-    logger.info("Add conversation cancelled at review");
-    return;
-  }
-
-  if (confirmAction !== "add:confirm") {
-    await ctx.reply("已取消。");
-    return;
+    if (parsedReview.action === "edit_date") {
+      const updatedDate = await collectDate(conversation, ctx);
+      if (!updatedDate) return;
+      draft.nextBillingDate = updatedDate;
+      continue;
+    }
   }
 
   // Save
   const now = new Date().toISOString();
   const sub: Subscription = {
     id: crypto.randomUUID(),
-    name,
-    price,
-    currency,
-    billingCycle: cycle,
-    billingInterval,
-    nextBillingDate,
-    billingAnchorDay: getBillingAnchorDay(nextBillingDate),
+    name: draft.name,
+    price: draft.price,
+    currency: draft.currency,
+    billingCycle: draft.cycle,
+    billingInterval: draft.billingInterval,
+    nextBillingDate: draft.nextBillingDate,
+    billingAnchorDay: getBillingAnchorDay(draft.nextBillingDate),
     status: "active",
-    isTrial,
-    autoRenew,
+    isTrial: draft.isTrial,
+    autoRenew: draft.autoRenew,
     createdAt: now,
     updatedAt: now,
   };
@@ -668,6 +770,6 @@ export async function addConversation(
   });
 
   await ctx.reply(
-    `✅ 已添加“${name}”。\n短 ID：${shortId(sub.id)}\n发送 /list 查看全部订阅。`,
+    `✅ 已添加“${draft.name}”。\n短 ID：${shortId(sub.id)}\n发送 /list 查看全部订阅。`,
   );
 }

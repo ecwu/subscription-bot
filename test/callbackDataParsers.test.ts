@@ -102,6 +102,31 @@ describe("parseAddConfirmCallbackData", () => {
     const result = parseAddConfirmCallbackData("add:cancel");
     expect(result).toEqual({ action: "cancel" });
   });
+  it("parses trial toggle", () => {
+    const result = parseAddConfirmCallbackData("add:toggle_trial");
+    expect(result).toEqual({ action: "toggle_trial" });
+  });
+  it("parses auto-renew toggle", () => {
+    const result = parseAddConfirmCallbackData("add:toggle_autorenew");
+    expect(result).toEqual({ action: "toggle_autorenew" });
+  });
+  it("parses review edit actions", () => {
+    expect(parseAddConfirmCallbackData("add:edit_name")).toEqual({
+      action: "edit_name",
+    });
+    expect(parseAddConfirmCallbackData("add:edit_price")).toEqual({
+      action: "edit_price",
+    });
+    expect(parseAddConfirmCallbackData("add:edit_currency")).toEqual({
+      action: "edit_currency",
+    });
+    expect(parseAddConfirmCallbackData("add:edit_cycle")).toEqual({
+      action: "edit_cycle",
+    });
+    expect(parseAddConfirmCallbackData("add:edit_date")).toEqual({
+      action: "edit_date",
+    });
+  });
   it("returns null for unknown action", () => {
     expect(parseAddConfirmCallbackData("add:other")).toBeNull();
   });
