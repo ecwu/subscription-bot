@@ -3,9 +3,10 @@ import { createReminderRepository } from "../repositories/reminderRepository.js"
 import { createSubscriptionRepository } from "../repositories/subscriptionRepository.js";
 import { createUserRepository } from "../repositories/userRepository.js";
 import {
-  processReminderEntry,
+  processReminderEntries,
   getReminderDaysAhead,
   getReminderDateRange,
+  ReminderEntryInput,
 } from "../services/reminderService.js";
 import { createSubscriptionService } from "../services/subscriptionService.js";
 import { log } from "../utils/logger.js";
@@ -29,31 +30,36 @@ export async function handleScheduled(
   const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
 
   let sentCount = 0;
+  let messageCount = 0;
   let advancedCount = 0;
+  const reminderInputs: ReminderEntryInput[] = [];
 
   for (const date of dates) {
     const entries = await reminderRepo.listEntries(date);
     for (const entry of entries) {
-      const { sent, advanced } = await processReminderEntry(
-        env,
-        reminderRepo,
-        subRepo,
-        userRepo,
-        subscriptionService,
-        entry,
-        date,
-        daysAhead,
-      );
-      if (sent) sentCount++;
-      if (advanced) advancedCount++;
+      reminderInputs.push({ entry, date });
     }
   }
+
+  const result = await processReminderEntries(
+    env,
+    reminderRepo,
+    subRepo,
+    userRepo,
+    subscriptionService,
+    reminderInputs,
+    daysAhead,
+  );
+  sentCount = result.sent;
+  messageCount = result.messages;
+  advancedCount = result.advanced;
 
   log("info", "Scheduled reminder processing complete", {
     env: env.APP_ENV,
     daysAhead,
     dateCount: dates.length,
     sentCount,
+    messageCount,
     advancedCount,
   });
 }

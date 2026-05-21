@@ -133,4 +133,57 @@ describe("handleScheduled", () => {
       { userKey: "user-1", subscriptionId: "sub-1" },
     ]);
   });
+
+  it("combines multiple reminders for the same user into one Telegram message", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-18T09:00:00Z"));
+
+    const kv = createMockKV();
+    const env = createMockEnv(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const service = createSubscriptionService(subRepo, reminderRepo);
+
+    await userRepo.upsertUserProfile("user-1", 123456, VALID_KEY);
+    await service.create(
+      "user-1",
+      {
+        id: "sub-1",
+        name: "Netflix",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-05-18",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+    await service.create(
+      "user-1",
+      {
+        id: "sub-2",
+        name: "Spotify",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-05-18",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    await handleScheduled({} as ScheduledController, env);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.text).toContain("以下 2 个项目");
+    expect(body.text).toContain("Netflix");
+    expect(body.text).toContain("Spotify");
+  });
 });
