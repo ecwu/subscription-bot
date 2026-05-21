@@ -1,5 +1,7 @@
 # Subscription Bot
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ecwu/subscription-bot)
+
 A privacy-oriented Telegram bot for managing personal subscription services. Runs on Cloudflare Workers, stores data in Cloudflare KV, encrypts sensitive payloads at the application layer, and hashes Telegram user IDs before using them in storage keys.
 
 ## Tech Stack
