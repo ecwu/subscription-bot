@@ -53,9 +53,9 @@ afterEach(() => {
 });
 
 describe("handleScheduled", () => {
-  it("sends an early reminder without advancing the billing date", async () => {
+  it("sends a reminder on the billing date without advancing trial subscriptions", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-05-15T00:00:00Z"));
+    vi.setSystemTime(new Date("2026-05-18T09:00:00Z"));
 
     const kv = createMockKV();
     const env = createMockEnv(kv);
@@ -72,6 +72,7 @@ describe("handleScheduled", () => {
         name: "Netflix",
         billingCycle: "monthly",
         nextBillingDate: "2026-05-18",
+        isTrial: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -93,7 +94,7 @@ describe("handleScheduled", () => {
 
   it("advances due subscriptions even when the reminder send fails", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-05-18T00:00:00Z"));
+    vi.setSystemTime(new Date("2026-05-18T09:00:00Z"));
 
     const kv = createMockKV();
     const env = createMockEnv(kv);

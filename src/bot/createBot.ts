@@ -18,6 +18,8 @@ import { reportCommand } from "./commands/report.js";
 import { reportTextCommand } from "./commands/reportText.js";
 import { deleteMeCommand } from "./commands/deleteMe.js";
 import { remindersCommand } from "./commands/reminders.js";
+import { settingsCommand } from "./commands/settings.js";
+import { adminRemindersCommand } from "./commands/adminReminders.js";
 import { debugMeCommand } from "./commands/debugMe.js";
 import { addConversation } from "./conversations/addConversation.js";
 import {
@@ -25,6 +27,7 @@ import {
   editCycleConversation,
 } from "./conversations/editFieldConversation.js";
 import { resumeConversation } from "./conversations/resumeConversation.js";
+import { settingsConversation } from "./conversations/settingsConversation.js";
 import {
   deleteConfirmCallback,
   deleteCancelCallback,
@@ -121,6 +124,12 @@ export function createBot(env: Env): Bot<BotContext> {
       "resume",
     ),
   );
+  bot.use(
+    createConversation<BotContext, BaseBotContext>(
+      settingsConversation,
+      "settings",
+    ),
+  );
 
   // Commands
   bot.command("start", startCommand);
@@ -133,6 +142,8 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.command("report_text", reportTextCommand);
   bot.command("delete_me", deleteMeCommand);
   bot.command("reminders", remindersCommand);
+  bot.command("settings", settingsCommand);
+  bot.command("admin_reminders", adminRemindersCommand);
 
   // Dev-only commands
   if (env.APP_ENV !== "production") {
@@ -206,6 +217,9 @@ export function createBot(env: Env): Bot<BotContext> {
   });
   bot.callbackQuery(/^add:cancel$/, async (ctx) => {
     await ctx.answerCallbackQuery("这次确认已过期。");
+  });
+  bot.callbackQuery(/^settings:/, async (ctx) => {
+    await ctx.answerCallbackQuery("这次选择已过期，请发送 /settings 重新开始。");
   });
 
   return bot;

@@ -21,6 +21,10 @@ import { getBillingAnchorDay, getNextBillingDate } from "../../utils/date.js";
 import { parseBillingCycleText } from "../../utils/billingCycle.js";
 import { parseFlexibleDate } from "../../utils/parseDate.js";
 import { ValidationError } from "../../utils/errors.js";
+import {
+  currencyKeyboard,
+  validateCurrencyInput,
+} from "../../utils/currency.js";
 
 // TODO: grammY conversations do not have built-in timeout handling.
 // If a user starts /add and never completes it, the conversation waits
@@ -39,16 +43,8 @@ const VALID_CYCLES: readonly BillingCycle[] = [
   "custom",
   "interval",
 ];
-const COMMON_CURRENCIES = [
-  "CNY",
-  "USD",
-  "HKD",
-  "TWD",
-  "EUR",
-  "JPY",
-  "GBP",
-  "SGD",
-] as const;
+
+export const validateAddCurrency = validateCurrencyInput;
 const WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"];
 
 export function validateAddName(name: string): string | null {
@@ -72,25 +68,6 @@ export function validateAddPrice(priceStr: string): {
   return { price };
 }
 
-export function validateAddCurrency(
-  currencyStr: string,
-  hasPrice: boolean,
-): { currency?: string; error?: string } {
-  const trimmed = currencyStr.trim().toUpperCase();
-  if (trimmed === "SKIP" || trimmed === "") {
-    if (hasPrice) {
-      return { error: "已填写价格时必须选择币种。" };
-    }
-    return { currency: undefined };
-  }
-  if (!/^[A-Z]{3}$/.test(trimmed)) {
-    return {
-      error: "请输入 3 位币种代码，例如 CNY 或 USD。",
-    };
-  }
-  return { currency: trimmed };
-}
-
 export function validateAddDate(dateStr: string): {
   date?: string;
   error?: string;
@@ -108,22 +85,6 @@ function cycleKeyboard(): InlineKeyboard {
     .row()
     .text("自定义", "cycle:custom")
     .text("高级间隔", "cycle:interval");
-}
-
-function currencyKeyboard(hasPrice: boolean): InlineKeyboard {
-  const keyboard = new InlineKeyboard();
-
-  COMMON_CURRENCIES.forEach((currency, index) => {
-    keyboard.text(currency, `addcurrency:${currency}`);
-    if (index % 4 === 3) keyboard.row();
-  });
-
-  keyboard.text("其他", "addcurrency:other");
-  if (!hasPrice) {
-    keyboard.text("不填写", "addcurrency:skip");
-  }
-  keyboard.row().text("取消", "addcurrency:cancel");
-  return keyboard;
 }
 
 function addMonthsToMonth(month: string, delta: number): string {

@@ -2,8 +2,9 @@ import { BotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
+import { createUserRepository } from "../../repositories/userRepository.js";
 import { createLogger } from "../../utils/logger.js";
-import { addDays, formatDate } from "../../utils/date.js";
+import { addDays, formatDate, getLocalTimeInfo } from "../../utils/date.js";
 import { Env } from "../../types/env.js";
 
 function getReminderDaysAhead(env: Env): number {
@@ -23,8 +24,15 @@ export async function remindersCommand(ctx: BotContext): Promise<void> {
     return;
   }
 
+  const userRepo = createUserRepository(ctx.env.SUBSCRIPTION_KV);
+  const settings = await userRepo.getUserSettings(
+    ctx.userKey,
+    ctx.env.ENCRYPTION_KEY,
+  );
+  const local = getLocalTimeInfo(settings.timezone || "UTC");
+  const today = local?.date ?? formatDate(new Date());
+
   const daysAhead = getReminderDaysAhead(ctx.env);
-  const today = formatDate(new Date());
   const maxDate = addDays(today, daysAhead);
 
   const subRepo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);

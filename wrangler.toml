@@ -21,7 +21,7 @@ id = "00d51942c6564b588079bf62b25e47cb"
 preview_id = "6401a8087afa4916be481c9d71a8266c"
 
 [triggers]
-crons = ["0 8 * * *"]
+crons = ["*/30 * * * *"]
 
 # Secrets (set via `wrangler secret put`):
 # BOT_TOKEN

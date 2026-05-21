@@ -3,7 +3,7 @@ import { createReminderRepository } from "../repositories/reminderRepository.js"
 import { createSubscriptionRepository } from "../repositories/subscriptionRepository.js";
 import { createUserRepository } from "../repositories/userRepository.js";
 import {
-  createReminderService,
+  processReminderEntry,
   getReminderDaysAhead,
   getReminderDateRange,
 } from "../services/reminderService.js";
@@ -27,33 +27,25 @@ export async function handleScheduled(
   const subRepo = createSubscriptionRepository(env.SUBSCRIPTION_KV);
   const userRepo = createUserRepository(env.SUBSCRIPTION_KV);
   const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
-  const reminderService = createReminderService(
-    env,
-    reminderRepo,
-    subRepo,
-    userRepo,
-  );
 
-  for (const date of dates) {
-    await reminderService.processDay(date);
-  }
-
-  const today = dates[0];
-  const dueDates = await reminderRepo.listDatesThrough(today);
+  let sentCount = 0;
   let advancedCount = 0;
 
-  for (const date of dueDates) {
+  for (const date of dates) {
     const entries = await reminderRepo.listEntries(date);
     for (const entry of entries) {
-      const advanced = await subscriptionService.advancePastDue(
-        entry.userKey,
-        entry.subscriptionId,
-        env.ENCRYPTION_KEY,
-        today,
+      const { sent, advanced } = await processReminderEntry(
+        env,
+        reminderRepo,
+        subRepo,
+        userRepo,
+        subscriptionService,
+        entry,
+        date,
+        daysAhead,
       );
-      if (advanced && advanced.nextBillingDate > today) {
-        advancedCount++;
-      }
+      if (sent) sentCount++;
+      if (advanced) advancedCount++;
     }
   }
 
@@ -61,6 +53,7 @@ export async function handleScheduled(
     env: env.APP_ENV,
     daysAhead,
     dateCount: dates.length,
+    sentCount,
     advancedCount,
   });
 }

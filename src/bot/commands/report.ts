@@ -7,6 +7,7 @@ import {
 } from "../../services/reportService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
+import { createUserRepository } from "../../repositories/userRepository.js";
 import { createReportConfigRepository } from "../../repositories/reportConfigRepository.js";
 import { renderReportPng } from "../../utils/reportPng.js";
 import { createLogger } from "../../utils/logger.js";
@@ -35,7 +36,15 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
   }
 
   const exchangeRates = await configRepo.getExchangeRates();
-  const report = buildReportData(subscriptions, exchangeRates);
+
+  const userRepo = createUserRepository(ctx.env.SUBSCRIPTION_KV);
+  const settings = await userRepo.getUserSettings(
+    ctx.userKey,
+    ctx.env.ENCRYPTION_KEY,
+  );
+  const timezone = settings.timezone || "UTC";
+
+  const report = buildReportData(subscriptions, exchangeRates, timezone);
   const fallbackText = formatReportText(report);
 
   try {

@@ -239,6 +239,59 @@ export function parsePrivacyCallbackData(
   return null;
 }
 
+export type SettingsCallbackData =
+  | { action: "toggle_reminder" }
+  | { action: "hour" }
+  | { action: "timezone" }
+  | { action: "select_hour"; hour: number }
+  | { action: "select_timezone"; timezone: string }
+  | { action: "done" };
+
+/**
+ * Parse settings callback data.
+ *
+ * Expected formats:
+ *   settings:toggle_reminder
+ *   settings:hour
+ *   settings:timezone
+ *   settings:hour:<0-23>
+ *   settings:tz:<iana>
+ *   settings:done
+ */
+export function parseSettingsCallbackData(
+  callbackData: string,
+): SettingsCallbackData | null {
+  const prefix = "settings:";
+  if (!callbackData.startsWith(prefix)) return null;
+  const value = callbackData.slice(prefix.length);
+
+  if (value === "toggle_reminder") return { action: "toggle_reminder" };
+  if (value === "hour") return { action: "hour" };
+  if (value === "timezone") return { action: "timezone" };
+  if (value === "done") return { action: "done" };
+
+  const hourPrefix = "hour:";
+  if (value.startsWith(hourPrefix)) {
+    const raw = value.slice(hourPrefix.length);
+    if (raw.length === 0) return null;
+    const hour = Number(raw);
+    if (Number.isInteger(hour) && hour >= 0 && hour <= 23) {
+      return { action: "select_hour", hour };
+    }
+    return null;
+  }
+
+  const tzPrefix = "tz:";
+  if (value.startsWith(tzPrefix)) {
+    const timezone = value.slice(tzPrefix.length);
+    if (timezone.length > 0) {
+      return { action: "select_timezone", timezone };
+    }
+  }
+
+  return null;
+}
+
 export type ListCallbackData =
   | { action: "page"; page: number }
   | { action: "select"; subId: string; page: number }

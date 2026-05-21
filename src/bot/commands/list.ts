@@ -2,10 +2,11 @@ import { BotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
+import { createUserRepository } from "../../repositories/userRepository.js";
 import { formatSubscriptionLine } from "../../utils/formatSubscription.js";
 import { createLogger } from "../../utils/logger.js";
 import type { Subscription } from "../../models/subscription.js";
-import { formatDate } from "../../utils/date.js";
+import { formatDate, getLocalTimeInfo } from "../../utils/date.js";
 import {
   getTotalPages,
   buildListPageText,
@@ -72,7 +73,16 @@ export async function listCommand(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const today = formatDate(new Date());
+  let today = formatDate(new Date());
+  if (ctx.userKey) {
+    const userRepo = createUserRepository(ctx.env.SUBSCRIPTION_KV);
+    const settings = await userRepo.getUserSettings(
+      ctx.userKey,
+      ctx.env.ENCRYPTION_KEY,
+    );
+    const local = getLocalTimeInfo(settings.timezone || "UTC");
+    if (local) today = local.date;
+  }
   const activeSubs = subs.filter((s) => s.status !== "paused");
   const pausedSubs = subs.filter((s) => s.status === "paused");
 

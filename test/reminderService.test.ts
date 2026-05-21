@@ -1,9 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
-  createReminderService,
+  processReminderEntry,
   getReminderDaysAhead,
   getReminderDateRange,
 } from "../src/services/reminderService.js";
+import { createSubscriptionService } from "../src/services/subscriptionService.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
 import { createUserRepository } from "../src/repositories/userRepository.js";
@@ -50,6 +51,15 @@ function createMockEnv(): Env {
   };
 }
 
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
 describe("getReminderDaysAhead", () => {
   it("defaults to 3 when missing", () => {
     const env = createMockEnv();
@@ -83,12 +93,13 @@ describe("getReminderDaysAhead", () => {
 });
 
 describe("getReminderDateRange", () => {
-  it("returns today through today + daysAhead inclusive", () => {
-    const today = new Date().toISOString().split("T")[0];
+  it("returns today-1 through today + daysAhead + 1 inclusive", () => {
+    vi.setSystemTime(new Date("2026-05-20T00:00:00Z"));
     const range = getReminderDateRange(3);
 
-    expect(range).toHaveLength(4);
-    expect(range[0]).toBe(today);
+    expect(range).toHaveLength(6);
+    expect(range[0]).toBe("2026-05-19");
+    expect(range[5]).toBe("2026-05-24");
     // Verify each date is one day apart
     for (let i = 1; i < range.length; i++) {
       const prev = new Date(range[i - 1] + "T00:00:00Z");
@@ -99,12 +110,193 @@ describe("getReminderDateRange", () => {
   });
 });
 
-describe("reminderService.processDay", () => {
-  it("sends a reminder and marks it sent", async () => {
+describe("processReminderEntry", () => {
+  it("sends upcoming reminders during the user's exact local dispatch slot", async () => {
+    vi.setSystemTime(new Date("2026-06-01T00:00:00Z"));
+
     const kv = createMockKV();
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const env = createMockEnv();
+    env.SUBSCRIPTION_KV = kv;
+
+    const userKey = "user-1";
+    const subId = "sub-1";
+    const date = "2026-06-04";
+
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+    await userRepo.updateUserSettings(
+      userKey,
+      {
+        defaultCurrency: "USD",
+        reminderEnabled: true,
+        reminderHour: 8,
+        timezone: "Asia/Shanghai",
+      },
+      VALID_KEY,
+    );
+
+    await subscriptionService.create(
+      userKey,
+      {
+        id: subId,
+        name: "Netflix",
+        price: 12.99,
+        currency: "EUR",
+        billingCycle: "monthly",
+        nextBillingDate: date,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    const result = await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+      3,
+    );
+
+    expect(result.sent).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips upcoming reminders outside the exact local dispatch slot", async () => {
+    vi.setSystemTime(new Date("2026-06-01T00:30:00Z"));
+
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const env = createMockEnv();
+    env.SUBSCRIPTION_KV = kv;
+
+    const userKey = "user-1";
+    const subId = "sub-1";
+    const date = "2026-06-04";
+
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+    await userRepo.updateUserSettings(
+      userKey,
+      {
+        defaultCurrency: "USD",
+        reminderEnabled: true,
+        reminderHour: 8,
+        timezone: "Asia/Shanghai",
+      },
+      VALID_KEY,
+    );
+
+    await subscriptionService.create(
+      userKey,
+      {
+        id: subId,
+        name: "Netflix",
+        price: 12.99,
+        currency: "EUR",
+        billingCycle: "monthly",
+        nextBillingDate: date,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    const result = await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+      3,
+    );
+
+    expect(result.sent).toBe(false);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("skips upcoming reminders before the configured reminder window", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const env = createMockEnv();
+    env.SUBSCRIPTION_KV = kv;
+
+    const userKey = "user-1";
+    const subId = "sub-1";
+    const date = "2026-06-05";
+
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+    await subscriptionService.create(
+      userKey,
+      {
+        id: subId,
+        name: "Netflix",
+        billingCycle: "monthly",
+        nextBillingDate: date,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+      3,
+    );
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("sends a reminder in the dispatch slot without persisting sent state", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -112,10 +304,8 @@ describe("reminderService.processDay", () => {
     const subId = "sub-1";
     const date = "2026-06-01";
 
-    // Store user profile with encrypted chatId
     await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
 
-    // Store subscription
     const sub = {
       id: subId,
       name: "Netflix",
@@ -141,10 +331,8 @@ describe("reminderService.processDay", () => {
       updatedAt: sub.updatedAt,
     });
 
-    // Add reminder index entry
     await reminderRepo.addEntry(date, userKey, subId);
 
-    // Mock successful Telegram API call
     const mockFetch = vi
       .fn()
       .mockResolvedValue(
@@ -152,21 +340,28 @@ describe("reminderService.processDay", () => {
       );
     global.fetch = mockFetch;
 
-    const service = createReminderService(env, reminderRepo, subRepo, userRepo);
-    await service.processDay(date);
+    await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+    );
 
-    // Should have sent the message
     expect(mockFetch).toHaveBeenCalledTimes(1);
-
-    // Should have marked as sent
-    expect(await reminderRepo.hasSent(userKey, subId, date)).toBe(true);
+    expect(await reminderRepo.hasSent(userKey, subId, date)).toBe(false);
   });
 
   it("uses trial reminder wording for trial subscriptions", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
     const kv = createMockKV();
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -211,8 +406,15 @@ describe("reminderService.processDay", () => {
       );
     global.fetch = mockFetch;
 
-    const service = createReminderService(env, reminderRepo, subRepo, userRepo);
-    await service.processDay(date);
+    await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+    );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.text).toContain("体验到期提醒");
@@ -220,10 +422,13 @@ describe("reminderService.processDay", () => {
   });
 
   it("uses service-end wording for non-renewing subscriptions", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
     const kv = createMockKV();
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -268,8 +473,15 @@ describe("reminderService.processDay", () => {
       );
     global.fetch = mockFetch;
 
-    const service = createReminderService(env, reminderRepo, subRepo, userRepo);
-    await service.processDay(date);
+    await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+    );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.text).toContain("服务到期提醒");
@@ -277,10 +489,13 @@ describe("reminderService.processDay", () => {
   });
 
   it("skips stale entries when subscription is missing", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
     const kv = createMockKV();
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -290,7 +505,6 @@ describe("reminderService.processDay", () => {
 
     await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
     await reminderRepo.addEntry(date, userKey, subId);
-    // No subscription stored
 
     const mockFetch = vi
       .fn()
@@ -299,20 +513,28 @@ describe("reminderService.processDay", () => {
       );
     global.fetch = mockFetch;
 
-    const service = createReminderService(env, reminderRepo, subRepo, userRepo);
-    await service.processDay(date);
+    await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+    );
 
-    // Should not send anything
     expect(mockFetch).not.toHaveBeenCalled();
-    // Should not mark sent
     expect(await reminderRepo.hasSent(userKey, subId, date)).toBe(false);
   });
 
   it("skips stale entries when nextBillingDate mismatches", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
     const kv = createMockKV();
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -357,18 +579,28 @@ describe("reminderService.processDay", () => {
       );
     global.fetch = mockFetch;
 
-    const service = createReminderService(env, reminderRepo, subRepo, userRepo);
-    await service.processDay(indexDate);
+    await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      indexDate,
+    );
 
     expect(mockFetch).not.toHaveBeenCalled();
     expect(await reminderRepo.hasSent(userKey, subId, indexDate)).toBe(false);
   });
 
-  it("skips already-sent reminders", async () => {
+  it("uses the dispatch slot instead of historical sent markers", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
     const kv = createMockKV();
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -413,17 +645,27 @@ describe("reminderService.processDay", () => {
       );
     global.fetch = mockFetch;
 
-    const service = createReminderService(env, reminderRepo, subRepo, userRepo);
-    await service.processDay(date);
+    await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+    );
 
-    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("does not mark sent when Telegram send fails", async () => {
+  it("returns unsent when Telegram send fails", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
     const kv = createMockKV();
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
@@ -460,7 +702,6 @@ describe("reminderService.processDay", () => {
 
     await reminderRepo.addEntry(date, userKey, subId);
 
-    // Mock failed Telegram API call
     const mockFetch = vi
       .fn()
       .mockResolvedValue(
@@ -471,26 +712,34 @@ describe("reminderService.processDay", () => {
       );
     global.fetch = mockFetch;
 
-    const service = createReminderService(env, reminderRepo, subRepo, userRepo);
-    await service.processDay(date);
+    await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+    );
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(await reminderRepo.hasSent(userKey, subId, date)).toBe(false);
   });
 
   it("skips when no user profile exists", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
     const kv = createMockKV();
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
     const env = createMockEnv();
     env.SUBSCRIPTION_KV = kv;
 
     const userKey = "user-1";
     const subId = "sub-1";
     const date = "2026-06-01";
-
-    // No user profile stored
 
     const sub = {
       id: subId,
@@ -526,10 +775,153 @@ describe("reminderService.processDay", () => {
       );
     global.fetch = mockFetch;
 
-    const service = createReminderService(env, reminderRepo, subRepo, userRepo);
-    await service.processDay(date);
+    await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+    );
 
     expect(mockFetch).not.toHaveBeenCalled();
     expect(await reminderRepo.hasSent(userKey, subId, date)).toBe(false);
+  });
+
+  it("skips when reminder hour has not passed", async () => {
+    vi.setSystemTime(new Date("2026-06-01T08:00:00Z"));
+
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const env = createMockEnv();
+    env.SUBSCRIPTION_KV = kv;
+
+    const userKey = "user-1";
+    const subId = "sub-1";
+    const date = "2026-06-01";
+
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+
+    const sub = {
+      id: subId,
+      name: "Netflix",
+      price: 12.99,
+      currency: "EUR",
+      billingCycle: "monthly" as const,
+      nextBillingDate: date,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await subRepo.save(userKey, {
+      id: subId,
+      encryptedPayload: await (async () => {
+        const { encrypt, serializeEncryptedPayload } = await import(
+          "../src/crypto/encryption.js"
+        );
+        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
+        return serializeEncryptedPayload(encrypted);
+      })(),
+      nextBillingDate: date,
+      billingCycle: "monthly",
+      createdAt: sub.createdAt,
+      updatedAt: sub.updatedAt,
+    });
+
+    await reminderRepo.addEntry(date, userKey, subId);
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+    );
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("advances past-due on the billing date after sending", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
+    const env = createMockEnv();
+    env.SUBSCRIPTION_KV = kv;
+
+    const userKey = "user-1";
+    const subId = "sub-1";
+    const date = "2026-06-01";
+
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+
+    const sub = {
+      id: subId,
+      name: "Netflix",
+      price: 12.99,
+      currency: "EUR",
+      billingCycle: "monthly" as const,
+      nextBillingDate: date,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await subRepo.save(userKey, {
+      id: subId,
+      encryptedPayload: await (async () => {
+        const { encrypt, serializeEncryptedPayload } = await import(
+          "../src/crypto/encryption.js"
+        );
+        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
+        return serializeEncryptedPayload(encrypted);
+      })(),
+      nextBillingDate: date,
+      billingCycle: "monthly",
+      createdAt: sub.createdAt,
+      updatedAt: sub.updatedAt,
+    });
+
+    await reminderRepo.addEntry(date, userKey, subId);
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    const result = await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+    );
+
+    expect(result.sent).toBe(true);
+    expect(result.advanced).toBe(true);
+
+    const updatedSub = await subscriptionService.get(
+      userKey,
+      subId,
+      VALID_KEY,
+    );
+    expect(updatedSub?.nextBillingDate).toBe("2026-07-01");
   });
 });

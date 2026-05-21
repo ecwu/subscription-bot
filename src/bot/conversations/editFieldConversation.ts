@@ -19,6 +19,7 @@ import {
   buildDetailKeyboard,
   formatDetailText,
 } from "../keyboards/listManagerKeyboard.js";
+import { validateCurrencyCode } from "../../utils/currency.js";
 
 interface ListManagerConversationOptions {
   source?: "listManager";
@@ -69,19 +70,7 @@ export function validateEditPrice(priceStr: string): {
   return { price };
 }
 
-export function validateEditCurrency(currencyStr: string): {
-  currency: string;
-  error?: string;
-} {
-  const trimmed = currencyStr.trim().toUpperCase();
-  if (!/^[A-Z]{3}$/.test(trimmed)) {
-    return {
-      currency: "",
-      error: "请输入 3 位币种代码，例如 CNY 或 USD。",
-    };
-  }
-  return { currency: trimmed };
-}
+export const validateEditCurrency = validateCurrencyCode;
 
 export function validateEditDate(dateStr: string): {
   date?: string;

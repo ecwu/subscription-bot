@@ -88,6 +88,67 @@ export function getNextBillingDate(
   return null;
 }
 
+export function isUtcOffset(timezone: string): boolean {
+  return /^UTC[+-]\d{2}:\d{2}$/.test(timezone);
+}
+
+export function parseUtcOffsetMinutes(offset: string): number | null {
+  const match = offset.match(/^UTC([+-])(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const sign = match[1] === "+" ? 1 : -1;
+  const hours = Number(match[2]);
+  const minutes = Number(match[3]);
+  return sign * (hours * 60 + minutes);
+}
+
+export function getLocalTimeInfo(
+  timezone: string,
+): { date: string; hour: number; minute: number } | null {
+  if (!timezone || typeof timezone !== "string") return null;
+
+  try {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      hourCycle: "h23",
+    });
+    const parts = fmt.formatToParts(new Date());
+    const year = parts.find((p) => p.type === "year")?.value;
+    const month = parts.find((p) => p.type === "month")?.value;
+    const day = parts.find((p) => p.type === "day")?.value;
+    const hourStr = parts.find((p) => p.type === "hour")?.value;
+    const minuteStr = parts.find((p) => p.type === "minute")?.value;
+
+    if (!year || !month || !day || !hourStr || !minuteStr) return null;
+
+    return {
+      date: `${year}-${month}-${day}`,
+      hour: Number(hourStr),
+      minute: Number(minuteStr),
+    };
+  } catch {
+    // Intl failed — try manual UTC offset
+  }
+
+  const offsetMinutes = parseUtcOffsetMinutes(timezone);
+  if (offsetMinutes === null) return null;
+
+  const now = new Date();
+  const localMs = now.getTime() + offsetMinutes * 60 * 1000;
+  const local = new Date(localMs);
+
+  return {
+    date: formatDate(local),
+    hour: local.getUTCHours(),
+    minute: local.getUTCMinutes(),
+  };
+}
+
 export function getPreviousBillingDate(
   currentDate: string,
   billingCycle: BillingCycle,

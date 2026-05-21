@@ -3,9 +3,11 @@ import {
   addDays,
   addMonths,
   addYears,
+  formatDate,
   getBillingAnchorDay,
   getNextBillingDate,
   getPreviousBillingDate,
+  getLocalTimeInfo,
 } from "../utils/date.js";
 import { formatMoney } from "../utils/money.js";
 import {
@@ -136,13 +138,21 @@ export function parseExchangeRateConfig(
 export function buildReportData(
   subscriptions: Subscription[],
   exchangeRates: ExchangeRateConfig | null,
-  now: Date = new Date(),
+  timezoneOrDate?: string | Date,
 ): SplitReportData {
-  const generatedAt = now.toISOString();
+  const isDate = timezoneOrDate instanceof Date;
+  const timezone = isDate ? undefined : timezoneOrDate;
+  const referenceDate = isDate ? timezoneOrDate : new Date();
+
+  const today =
+    timezone && typeof timezone === "string"
+      ? getLocalTimeInfo(timezone)?.date ?? formatDate(referenceDate)
+      : formatDate(referenceDate);
+  const generatedAt = new Date().toISOString();
   const dayDistribution = buildFullMonthDayDistribution(
     subscriptions,
     exchangeRates,
-    now,
+    today,
   );
   const currentMonthly = buildReportView({
     title: "月度摊平支出",
@@ -151,7 +161,7 @@ export function buildReportData(
     chartSubtitle: "按扣款日汇总的月度摊平支出",
     subscriptions,
     exchangeRates,
-    now,
+    today,
     amountForSubscription: monthlyAmountIfCurrentlyActive,
     dayDistribution,
   });
@@ -162,7 +172,7 @@ export function buildReportData(
     chartSubtitle: "按本月扣款日汇总的实际扣款金额",
     subscriptions,
     exchangeRates,
-    now,
+    today,
     amountForSubscription: actualAmountIfDueThisMonth,
     dayDistribution,
   });
@@ -170,7 +180,7 @@ export function buildReportData(
   const yearMonthDistribution = buildYearMonthDistribution(
     subscriptions,
     exchangeRates,
-    now,
+    today,
   );
   const yearlyProjection = buildReportView({
     title: "年度预期支出",
@@ -179,7 +189,7 @@ export function buildReportData(
     chartSubtitle: "按月汇总的未来12个月预期扣款金额",
     subscriptions,
     exchangeRates,
-    now,
+    today,
     amountForSubscription: totalProjectedInYear,
     dayDistribution: [],
   });
@@ -202,7 +212,7 @@ interface BuildReportViewOptions {
   chartSubtitle: string;
   subscriptions: Subscription[];
   exchangeRates: ExchangeRateConfig | null;
-  now: Date;
+  today: string;
   amountForSubscription: (sub: Subscription, today: string) => number | null;
   dayDistribution: ReportDayDistribution[];
 }
@@ -214,11 +224,10 @@ function buildReportView({
   chartSubtitle,
   subscriptions,
   exchangeRates,
-  now,
+  today,
   amountForSubscription,
   dayDistribution,
 }: BuildReportViewOptions): ReportData {
-  const today = now.toISOString().slice(0, 10);
   const byCurrency = new Map<string, ReportCurrencySummary>();
   const missingRateCurrencies = new Set<string>();
   const excluded: ReportExcludedCounts = {
@@ -297,7 +306,7 @@ function buildReportView({
     totalLabel,
     chartTitle,
     chartSubtitle,
-    generatedAt: now.toISOString(),
+    generatedAt: new Date().toISOString(),
     baseCurrency: REPORT_BASE_CURRENCY,
     subscriptionCount: subscriptions.length,
     includedCount,
@@ -315,9 +324,8 @@ function buildReportView({
 function buildFullMonthDayDistribution(
   subscriptions: Subscription[],
   exchangeRates: ExchangeRateConfig | null,
-  now: Date,
+  today: string,
 ): ReportDayDistribution[] {
-  const today = now.toISOString().slice(0, 10);
   const year = Number(today.slice(0, 4));
   const month = Number(today.slice(5, 7));
   const daysInMonth = new Date(year, month, 0).getDate();
@@ -699,9 +707,8 @@ function totalProjectedInYear(sub: Subscription, today: string): number | null {
 function buildYearMonthDistribution(
   subscriptions: Subscription[],
   exchangeRates: ExchangeRateConfig | null,
-  now: Date,
+  today: string,
 ): ReportMonthDistribution[] {
-  const today = now.toISOString().slice(0, 10);
   const windowStartMonth = today.slice(0, 7);
 
   const monthTotals = new Map<string, number>();
@@ -744,11 +751,18 @@ function buildYearMonthDistribution(
 export function buildTextReportData(
   subscriptions: Subscription[],
   exchangeRates: ExchangeRateConfig | null,
-  now: Date = new Date(),
+  timezoneOrDate?: string | Date,
 ): TextReportData {
-  const today = now.toISOString().slice(0, 10);
+  const isDate = timezoneOrDate instanceof Date;
+  const timezone = isDate ? undefined : timezoneOrDate;
+  const referenceDate = isDate ? timezoneOrDate : new Date();
+
+  const today =
+    timezone && typeof timezone === "string"
+      ? getLocalTimeInfo(timezone)?.date ?? formatDate(referenceDate)
+      : formatDate(referenceDate);
   const currentMonthKey = today.slice(0, 7);
-  const generatedAt = now.toISOString();
+  const generatedAt = new Date().toISOString();
   const trialCount = subscriptions.filter(
     (sub) => sub.status !== "paused" && isTrialSubscription(sub),
   ).length;
