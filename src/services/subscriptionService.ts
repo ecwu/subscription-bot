@@ -55,6 +55,11 @@ export interface SubscriptionService {
     encryptionKey: string,
     today: string,
   ): Promise<Subscription | null>;
+  pauseExpiredNonRenewing(
+    userKey: string,
+    subId: string,
+    encryptionKey: string,
+  ): Promise<Subscription | null>;
   remove(userKey: string, subId: string): Promise<void>;
   removeAll(userKey: string): Promise<void>;
   resolveId(
@@ -283,6 +288,19 @@ export function createSubscriptionService(
       };
       await this.update(userKey, updated, encryptionKey);
       return updated;
+    },
+
+    async pauseExpiredNonRenewing(
+      userKey: string,
+      subId: string,
+      encryptionKey: string,
+    ): Promise<Subscription | null> {
+      const sub = await this.get(userKey, subId, encryptionKey);
+      if (!sub) return null;
+      if (sub.status === "paused") return sub;
+      if (sub.autoRenew !== false) return sub;
+
+      return this.pause(userKey, subId, encryptionKey);
     },
 
     async remove(userKey: string, subId: string): Promise<void> {

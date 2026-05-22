@@ -303,6 +303,81 @@ describe("subscriptionService status", () => {
     expect(advanced!.nextBillingDate).toBe("2026-01-31");
   });
 
+  it("pauses expired non-renewing subscriptions and removes reminder entry", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const sub = createSub({
+      nextBillingDate: "2026-01-31",
+      autoRenew: false,
+    });
+    await service.create("user-1", sub, VALID_KEY);
+
+    const paused = await service.pauseExpiredNonRenewing(
+      "user-1",
+      "sub-1",
+      VALID_KEY,
+    );
+
+    expect(paused).not.toBeNull();
+    expect(paused!.status).toBe("paused");
+    expect(paused!.nextBillingDate).toBe("2026-01-31");
+    expect(await reminderRepo.listEntries("2026-01-31")).toEqual([]);
+  });
+
+  it("does not pause expired auto-renewing subscriptions", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const sub = createSub({
+      nextBillingDate: "2026-01-31",
+      autoRenew: true,
+    });
+    await service.create("user-1", sub, VALID_KEY);
+
+    const result = await service.pauseExpiredNonRenewing(
+      "user-1",
+      "sub-1",
+      VALID_KEY,
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.status).toBe("active");
+    expect(await reminderRepo.listEntries("2026-01-31")).toEqual([
+      { userKey: "user-1", subscriptionId: "sub-1" },
+    ]);
+  });
+
+  it("leaves already paused non-renewing subscriptions unchanged", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const sub = createSub({
+      nextBillingDate: "2026-01-31",
+      status: "paused",
+      autoRenew: false,
+    });
+    await service.create("user-1", sub, VALID_KEY);
+
+    const result = await service.pauseExpiredNonRenewing(
+      "user-1",
+      "sub-1",
+      VALID_KEY,
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.status).toBe("paused");
+    expect(await reminderRepo.listEntries("2026-01-31")).toEqual([
+      { userKey: "user-1", subscriptionId: "sub-1" },
+    ]);
+  });
+
   it("pause returns null for non-existent subscription", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);

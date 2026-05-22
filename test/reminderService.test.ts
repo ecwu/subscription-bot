@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   processReminderEntry,
+  processReminderEntries,
   getReminderDaysAhead,
   getReminderDateRange,
 } from "../src/services/reminderService.js";
@@ -504,6 +505,11 @@ describe("processReminderEntry", () => {
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.text).toContain("服务到期提醒");
     expect(body.text).toContain("已关闭自动续费");
+
+    const updated = await subscriptionService.get(userKey, subId, VALID_KEY);
+    expect(updated?.status).toBe("paused");
+    expect(updated?.nextBillingDate).toBe(date);
+    expect(await reminderRepo.listEntries(date)).toEqual([]);
   });
 
   it("skips stale entries when subscription is missing", async () => {
@@ -887,6 +893,147 @@ describe("processReminderEntry", () => {
     );
 
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("pauses past-due non-renewing subscriptions without sending catch-up reminders", async () => {
+    vi.setSystemTime(new Date("2026-06-02T09:00:00Z"));
+
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
+    const env = createMockEnv();
+    env.SUBSCRIPTION_KV = kv;
+
+    const userKey = "user-1";
+    const subId = "sub-1";
+    const date = "2026-06-01";
+
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+    await subscriptionService.create(
+      userKey,
+      {
+        id: subId,
+        name: "Cancelled Service",
+        price: 12.99,
+        currency: "EUR",
+        billingCycle: "monthly",
+        nextBillingDate: date,
+        autoRenew: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    const result = await processReminderEntry(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      { userKey, subscriptionId: subId },
+      date,
+    );
+
+    expect(result.sent).toBe(false);
+    expect(result.advanced).toBe(false);
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    const updated = await subscriptionService.get(userKey, subId, VALID_KEY);
+    expect(updated?.status).toBe("paused");
+    expect(updated?.nextBillingDate).toBe(date);
+    expect(await reminderRepo.listEntries(date)).toEqual([]);
+  });
+
+  it("pauses non-renewing subscriptions after sending a combined batch reminder", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
+    const env = createMockEnv();
+    env.SUBSCRIPTION_KV = kv;
+
+    const userKey = "user-1";
+    const date = "2026-06-01";
+
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+    await subscriptionService.create(
+      userKey,
+      {
+        id: "sub-1",
+        name: "Cancelled One",
+        billingCycle: "monthly",
+        nextBillingDate: date,
+        autoRenew: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+    await subscriptionService.create(
+      userKey,
+      {
+        id: "sub-2",
+        name: "Cancelled Two",
+        billingCycle: "monthly",
+        nextBillingDate: date,
+        autoRenew: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    const result = await processReminderEntries(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      [
+        { entry: { userKey, subscriptionId: "sub-1" }, date },
+        { entry: { userKey, subscriptionId: "sub-2" }, date },
+      ],
+    );
+
+    expect(result.sent).toBe(2);
+    expect(result.messages).toBe(1);
+    expect(result.advanced).toBe(0);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.text).toContain("以下 2 个项目需要关注");
+
+    const first = await subscriptionService.get(userKey, "sub-1", VALID_KEY);
+    const second = await subscriptionService.get(userKey, "sub-2", VALID_KEY);
+    expect(first?.status).toBe("paused");
+    expect(second?.status).toBe("paused");
+    expect(await reminderRepo.listEntries(date)).toEqual([]);
   });
 
   it("advances past-due on the billing date after sending", async () => {

@@ -93,7 +93,7 @@ The `/reminders` command lists subscriptions with upcoming renewals within the c
 - Sorts by billing date ascending.
 - Shows name, price (if set), and billing date for each upcoming subscription.
 - If no subscriptions are due within the window, replies "近期没有即将扣款的订阅。"
-Trial subscriptions and non-auto-renewing subscriptions remain visible when due. Scheduled reminder messages use expiration-specific wording; `/reminders` itself uses the compact `扣款日` list label.
+Trial subscriptions and non-auto-renewing subscriptions remain visible when due. Scheduled reminder messages use expiration-specific wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. `/reminders` itself uses the compact `扣款日` list label.
 
 This is a single-shot command; no conversation or callback state is involved.
 

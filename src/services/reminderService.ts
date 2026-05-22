@@ -209,7 +209,15 @@ export async function processReminderEntry(
 
     // 6. Billing date is past — catch-up advancement
     if (localToday > billingDate) {
-      if (isTrialSubscription(sub) || !isAutoRenewing(sub)) {
+      if (isTrialSubscription(sub)) {
+        return result;
+      }
+      if (!isAutoRenewing(sub)) {
+        await subscriptionService.pauseExpiredNonRenewing(
+          entry.userKey,
+          entry.subscriptionId,
+          env.ENCRYPTION_KEY,
+        );
         return result;
       }
       const advanced = await subscriptionService.advancePastDue(
@@ -257,7 +265,15 @@ export async function processReminderEntry(
       return result;
     }
 
-    if (isTrialSubscription(sub) || !isAutoRenewing(sub)) {
+    if (isTrialSubscription(sub)) {
+      return result;
+    }
+    if (!isAutoRenewing(sub)) {
+      await subscriptionService.pauseExpiredNonRenewing(
+        entry.userKey,
+        entry.subscriptionId,
+        env.ENCRYPTION_KEY,
+      );
       return result;
     }
 
@@ -363,7 +379,15 @@ async function collectPendingReminder(
     }
 
     if (localToday > billingDate) {
-      if (isTrialSubscription(sub) || !isAutoRenewing(sub)) {
+      if (isTrialSubscription(sub)) {
+        return result;
+      }
+      if (!isAutoRenewing(sub)) {
+        await subscriptionService.pauseExpiredNonRenewing(
+          entry.userKey,
+          entry.subscriptionId,
+          env.ENCRYPTION_KEY,
+        );
         return result;
       }
       const advanced = await subscriptionService.advancePastDue(
@@ -474,7 +498,15 @@ export async function processReminderEntries(
       if (!localToday || localToday < reminder.sub.nextBillingDate) {
         continue;
       }
-      if (isTrialSubscription(reminder.sub) || !isAutoRenewing(reminder.sub)) {
+      if (isTrialSubscription(reminder.sub)) {
+        continue;
+      }
+      if (!isAutoRenewing(reminder.sub)) {
+        await subscriptionService.pauseExpiredNonRenewing(
+          reminder.entry.userKey,
+          reminder.entry.subscriptionId,
+          env.ENCRYPTION_KEY,
+        );
         continue;
       }
 
