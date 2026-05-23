@@ -195,6 +195,7 @@ export type AddDateCallbackData =
   | { action: "month"; month: string }
   | { action: "noop" }
   | { action: "cancel" }
+  | { action: "confirm" }
   | { action: "show" };
 
 /**
@@ -205,12 +206,14 @@ export type AddDateCallbackData =
  *   adddate:month:<YYYY-MM>
  *   adddate:noop
  *   adddate:cancel
+ *   adddate:confirm
  */
 export function parseAddDateCallbackData(
   callbackData: string,
 ): AddDateCallbackData | null {
   if (callbackData === "adddate:noop") return { action: "noop" };
   if (callbackData === "adddate:cancel") return { action: "cancel" };
+  if (callbackData === "adddate:confirm") return { action: "confirm" };
   if (callbackData === "adddate:show") return { action: "show" };
 
   const pickPrefix = "adddate:pick:";

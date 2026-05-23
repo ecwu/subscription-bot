@@ -195,6 +195,10 @@ describe("parseAddDateCallbackData", () => {
     const result = parseAddDateCallbackData("adddate:cancel");
     expect(result).toEqual({ action: "cancel" });
   });
+  it("parses confirm", () => {
+    const result = parseAddDateCallbackData("adddate:confirm");
+    expect(result).toEqual({ action: "confirm" });
+  });
   it("parses show", () => {
     const result = parseAddDateCallbackData("adddate:show");
     expect(result).toEqual({ action: "show" });

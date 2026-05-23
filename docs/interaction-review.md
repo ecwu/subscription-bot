@@ -79,10 +79,12 @@ Older list messages may show stale state; callback handlers re-load from KV befo
 
 `/resume <id>` starts `resumeConversation`:
 - If the subscription is already active, the bot says so and exits.
-- The bot shows the current next billing date.
-- User can reply `正确`, `确认`, `yes`, or `y` to keep that date.
+- The bot shows the current relevant date using the subscription's date label (`下次扣款`, `体验到期/首次扣款`, or `服务到期`).
+- User can tap `按当前日期恢复` to keep that date.
+- User can open the shared date picker to select a different date.
 - User can enter a new `YYYY-MM-DD` date before resuming.
 - `/cancel` or `取消` aborts without saving.
+- Resume preserves `isTrial` and `autoRenew`. If the subscription remains trial or non-auto-renewing, the prompt and success message explicitly mention the retained status.
 
 ## /reminders Behavior
 

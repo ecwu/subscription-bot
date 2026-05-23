@@ -173,6 +173,27 @@ describe("subscriptionService status", () => {
     expect(await reminderRepo.listEntries("2026-08-01")).toHaveLength(1);
   });
 
+  it("resuming preserves trial and auto-renew flags", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const sub = createSub({
+      status: "paused",
+      isTrial: true,
+      autoRenew: false,
+    });
+    await service.create("user-1", sub, VALID_KEY);
+
+    const resumed = await service.resume("user-1", "sub-1", VALID_KEY);
+
+    expect(resumed).not.toBeNull();
+    expect(resumed!.status).toBe("active");
+    expect(resumed!.isTrial).toBe(true);
+    expect(resumed!.autoRenew).toBe(false);
+  });
+
   it("resuming an already active subscription returns it as-is", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);

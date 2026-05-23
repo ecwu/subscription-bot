@@ -86,8 +86,14 @@ export function dateKeyboard(month: string): InlineKeyboard {
   return keyboard;
 }
 
-function collapsedDateKeyboard(): InlineKeyboard {
-  return new InlineKeyboard()
+function collapsedDateKeyboard(options?: {
+  confirmButtonLabel?: string;
+}): InlineKeyboard {
+  const keyboard = new InlineKeyboard();
+  if (options?.confirmButtonLabel) {
+    keyboard.text(options.confirmButtonLabel, "adddate:confirm").row();
+  }
+  return keyboard
     .text("选择日期", "adddate:show")
     .text("取消", "adddate:cancel");
 }
@@ -107,11 +113,14 @@ export async function collectDateInput(
   options?: {
     confirmTexts?: readonly string[];
     confirmValue?: string;
+    confirmButtonLabel?: string;
     cancelMessage?: string;
   },
 ): Promise<string | null> {
   const promptMsg = await ctx.reply(prompt, {
-    reply_markup: collapsedDateKeyboard(),
+    reply_markup: collapsedDateKeyboard({
+      confirmButtonLabel: options?.confirmButtonLabel,
+    }),
   });
 
   let calendarMonth = currentMonth();
@@ -188,6 +197,12 @@ export async function collectDateInput(
       await safeDeleteMessage(updateCtx);
       await ctx.reply(options?.cancelMessage ?? "已取消。");
       return null;
+    }
+
+    if (parsedDate.action === "confirm") {
+      await updateCtx.answerCallbackQuery();
+      await safeDeleteMessage(updateCtx);
+      return options?.confirmValue ?? null;
     }
 
     if (parsedDate.action === "month") {

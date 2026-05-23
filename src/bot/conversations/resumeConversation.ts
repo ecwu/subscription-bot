@@ -5,6 +5,12 @@ import { createSubscriptionRepository } from "../../repositories/subscriptionRep
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { collectDateInput } from "./dateInput.js";
 import { formatStatus } from "../../utils/labels.js";
+import type { Subscription } from "../../models/subscription.js";
+import {
+  formatBillingDateLabel,
+  isAutoRenewing,
+  isTrialSubscription,
+} from "../../utils/subscriptionFlags.js";
 import {
   buildDetailKeyboard,
   formatDetailText,
@@ -27,6 +33,53 @@ async function replyWithListManagerDetail(
   await ctx.reply(formatDetailText(sub), {
     reply_markup: buildDetailKeyboard(sub, page),
   });
+}
+
+function retainedStatusLabels(sub: Subscription): string[] {
+  const labels: string[] = [];
+  if (isTrialSubscription(sub)) labels.push("体验");
+  if (!isAutoRenewing(sub)) labels.push("停止续费");
+  return labels;
+}
+
+export function buildResumePrompt(sub: Subscription): string {
+  const dateLabel = formatBillingDateLabel(sub);
+  const lines = [
+    `恢复"${sub.name}"？`,
+    `当前${dateLabel}日期：${sub.nextBillingDate}`,
+    "",
+    "恢复后会重新开启提醒和日期跟踪。",
+  ];
+
+  const notes: string[] = [];
+  if (isTrialSubscription(sub)) {
+    notes.push(
+      "这个项目仍标记为体验，不会计入支出统计，也不会自动推进扣款日。",
+    );
+  }
+  if (!isAutoRenewing(sub)) {
+    notes.push("这个项目仍为停止续费，到期提醒发送后会自动暂停。");
+  }
+
+  if (notes.length > 0) {
+    lines.push(...notes);
+  }
+
+  lines.push("", "请选择按当前日期恢复，或选择日期后恢复：");
+  return lines.join("\n");
+}
+
+export function buildResumeSuccessMessage(sub: Subscription): string {
+  const dateLabel = formatBillingDateLabel(sub);
+  const lines = [
+    `已恢复"${sub.name}"。`,
+    `${dateLabel}日期：${sub.nextBillingDate}`,
+  ];
+  const retained = retainedStatusLabels(sub);
+  if (retained.length > 0) {
+    lines.push(`保留状态：${retained.join("、")}`);
+  }
+  return lines.join("\n");
 }
 
 export async function resumeConversation(
@@ -73,10 +126,10 @@ export async function resumeConversation(
   const selectedDate = await collectDateInput(
     conversation,
     ctx,
-    `恢复"${sub.name}"？\n当前下次扣款日期：${sub.nextBillingDate}\n\n如果日期正确，请发送“确认”；也可以输入新日期或点选日期：`,
+    buildResumePrompt(sub),
     {
-      confirmTexts: ["正确", "确认", "yes", "y"],
       confirmValue: sub.nextBillingDate,
+      confirmButtonLabel: "按当前日期恢复",
       cancelMessage: "已取消恢复操作。",
     },
   );
@@ -120,14 +173,10 @@ async function resumeWithDate(
   }
 
   if (isFromListManager(options)) {
-    await ctx.reply(
-      `已恢复"${resumed.name}"。\n下次扣款日期：${resumed.nextBillingDate}`,
-    );
+    await ctx.reply(buildResumeSuccessMessage(resumed));
     await replyWithListManagerDetail(ctx, resumed, options?.page ?? 0);
     return;
   }
 
-  await ctx.reply(
-    `已恢复"${resumed.name}"。\n下次扣款日期：${resumed.nextBillingDate}`,
-  );
+  await ctx.reply(buildResumeSuccessMessage(resumed));
 }

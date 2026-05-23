@@ -113,7 +113,7 @@ Paused subscriptions can be restored with `/resume <id>` or the `/list_full` det
 
 ### `/resume <id>`
 
-Starts a short resume conversation for a paused subscription. The user can confirm the existing next billing date by replying `正确`, `确认`, `yes`, or `y`, or type a new date in `YYYY-MM-DD` format. The subscription is then marked active and re-added to the reminder index.
+Starts a short resume conversation for a paused subscription. The bot shows inline buttons to resume with the existing date, open the shared date picker, or cancel. The user may also type a new date in `YYYY-MM-DD` format. The subscription is then marked active and re-added to the reminder index. Resume does not change trial or auto-renewal flags; if either flag is retained, the bot says so before and after restoring the subscription.
 
 ### `/export`
 
