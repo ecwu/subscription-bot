@@ -53,9 +53,23 @@ export function timezoneKeyboard(currentTimezone?: string): InlineKeyboard {
     if (index % 2 === 1) keyboard.row();
   });
 
-  keyboard.text("自定义时区偏移", "settings:tz:custom");
+  keyboard.text("自定义时区偏移", "settings:tzoffset");
   keyboard.row().text("返回", "settings:back");
   return keyboard;
+}
+
+export function timezoneOffsetKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text("UTC+5:30", "settings:tzoffset:+5:30")
+    .text("UTC+5:45", "settings:tzoffset:+5:45")
+    .row()
+    .text("UTC+9:30", "settings:tzoffset:+9:30")
+    .text("UTC+10", "settings:tzoffset:+10")
+    .row()
+    .text("UTC-3", "settings:tzoffset:-3")
+    .text("其他", "settings:tzoffset:other")
+    .row()
+    .text("返回", "settings:tzoffset:back");
 }
 
 export async function settingsConversation(
@@ -194,45 +208,95 @@ export async function settingsConversation(
         continue;
       }
 
-      continue;
-    }
-
-    // Handle custom timezone offset trigger
-    if (callbackData === "settings:tz:custom") {
-      await updateCtx.answerCallbackQuery();
-
-      try {
-        await updateCtx.editMessageText(
-          "请输入 UTC 偏移，例如 +8、-5、+5:30。",
-        );
-      } catch {
-        await ctx.reply("请输入 UTC 偏移，例如 +8、-5、+5:30。");
+      if (parsed.action === "timezone_offset_menu") {
+        try {
+          await updateCtx.editMessageReplyMarkup({
+            reply_markup: timezoneOffsetKeyboard(),
+          });
+        } catch {
+          await ctx.reply("请选择 UTC 偏移，或点“其他”输入。", {
+            reply_markup: timezoneOffsetKeyboard(),
+          });
+        }
+        continue;
       }
 
-      const customTzCtx = await conversation.waitFor("message:text");
-      const customTzText = customTzCtx.msg.text;
-      if (isCancelInput(customTzText)) {
-        await ctx.reply("已取消。");
-        return;
+      if (parsed.action === "timezone_offset") {
+        const normalized = normalizeUtcOffset(parsed.offset);
+        if (!normalized) {
+          await ctx.reply(
+            "无效的偏移。请使用 +8、-5、+5:30 这样的格式。\n请发送 /settings 重新开始。",
+          );
+          return;
+        }
+
+        settings = {
+          ...settings,
+          timezone: normalized,
+        };
+        await saveSettings(conversation, userKey, settings, encryptionKey);
+
+        try {
+          await updateCtx.editMessageReplyMarkup({
+            reply_markup: settingsKeyboard(settings),
+          });
+        } catch {
+          await ctx.reply("⚙️ 设置", {
+            reply_markup: settingsKeyboard(settings),
+          });
+        }
+        continue;
       }
 
-      const normalized = normalizeUtcOffset(customTzText);
-      if (!normalized) {
-        await ctx.reply(
-          "无效的偏移。请使用 +8、-5、+5:30 这样的格式。\n请发送 /settings 重新开始。",
-        );
-        return;
+      if (parsed.action === "timezone_offset_other") {
+        try {
+          await updateCtx.editMessageText(
+            "请输入 UTC 偏移，例如 +8、-5、+5:30。",
+          );
+        } catch {
+          await ctx.reply("请输入 UTC 偏移，例如 +8、-5、+5:30。");
+        }
+
+        const customTzCtx = await conversation.waitFor("message:text");
+        const customTzText = customTzCtx.msg.text;
+        if (isCancelInput(customTzText)) {
+          await ctx.reply("已取消。");
+          return;
+        }
+
+        const normalized = normalizeUtcOffset(customTzText);
+        if (!normalized) {
+          await ctx.reply(
+            "无效的偏移。请使用 +8、-5、+5:30 这样的格式。\n请发送 /settings 重新开始。",
+          );
+          return;
+        }
+
+        settings = {
+          ...settings,
+          timezone: normalized,
+        };
+        await saveSettings(conversation, userKey, settings, encryptionKey);
+
+        menuMessage = await ctx.reply("⚙️ 设置", {
+          reply_markup: settingsKeyboard(settings),
+        });
+        continue;
       }
 
-      settings = {
-        ...settings,
-        timezone: normalized,
-      };
-      await saveSettings(conversation, userKey, settings, encryptionKey);
+      if (parsed.action === "timezone_offset_back") {
+        try {
+          await updateCtx.editMessageReplyMarkup({
+            reply_markup: timezoneKeyboard(settings.timezone),
+          });
+        } catch {
+          await ctx.reply("⚙️ 设置", {
+            reply_markup: timezoneKeyboard(settings.timezone),
+          });
+        }
+        continue;
+      }
 
-      menuMessage = await ctx.reply("⚙️ 设置", {
-        reply_markup: settingsKeyboard(settings),
-      });
       continue;
     }
 

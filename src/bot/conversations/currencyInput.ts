@@ -1,4 +1,5 @@
 import { Conversation } from "@grammyjs/conversations";
+import { InlineKeyboard } from "grammy";
 import { BotContext, BaseBotContext } from "../../types/context.js";
 import { parseAddCurrencyCallbackData } from "../../utils/callbackParser.js";
 import { isCancelInput } from "../../utils/conversationInput.js";
@@ -20,11 +21,17 @@ async function safeDeleteMessage(ctx: BaseBotContext): Promise<void> {
   }
 }
 
+function customCurrencyKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text("返回币种选择", "addcurrency:back")
+    .text("取消", "addcurrency:cancel");
+}
+
 export async function collectCurrencyInput(
   conversation: Conversation<BotContext, BaseBotContext>,
   ctx: BaseBotContext,
   {
-    prompt = "请选择币种：",
+    prompt = "请选择币种，或点“其他”输入代码。",
     hasPrice,
     restartHint,
     cancelMessage = "已取消。",
@@ -35,12 +42,12 @@ export async function collectCurrencyInput(
     cancelMessage?: string;
   },
 ): Promise<CurrencyInputResult> {
-  await ctx.reply(prompt, {
-    reply_markup: currencyKeyboard(hasPrice),
-  });
-
   // eslint-disable-next-line no-constant-condition
   while (true) {
+    await ctx.reply(prompt, {
+      reply_markup: currencyKeyboard(hasPrice),
+    });
+
     const currencyCtx =
       await conversation.waitForCallbackQuery(/^addcurrency:/);
     const parsedCurrency = parseAddCurrencyCallbackData(
@@ -71,21 +78,62 @@ export async function collectCurrencyInput(
 
     if (parsedCurrency.action === "other") {
       await safeDeleteMessage(currencyCtx);
-      await ctx.reply("请输入 3 位币种代码，例如 CNY 或 USD。");
-      const customCurrencyCtx = await conversation.waitFor("message:text");
-      const customCurrencyText = customCurrencyCtx.msg.text;
-      if (isCancelInput(customCurrencyText)) {
-        await ctx.reply(cancelMessage);
-        return { cancelled: true };
-      }
-      const result = validateCurrencyInput(customCurrencyText, hasPrice);
-      if (result.error || !result.currency) {
-        await ctx.reply(
-          (result.error ?? "请输入有效的币种代码。") + (restartHint ?? ""),
+      await ctx.reply("请输入 3 位币种代码，例如 CNY 或 USD。", {
+        reply_markup: customCurrencyKeyboard(),
+      });
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const customCurrencyCtx = await conversation.wait();
+
+        if (customCurrencyCtx.message?.text) {
+          const customCurrencyText = customCurrencyCtx.message.text;
+          if (isCancelInput(customCurrencyText)) {
+            await ctx.reply(cancelMessage);
+            return { cancelled: true };
+          }
+          const result = validateCurrencyInput(customCurrencyText, hasPrice);
+          if (result.error || !result.currency) {
+            await ctx.reply(
+              (result.error ?? "请输入有效的币种代码。") + (restartHint ?? ""),
+            );
+            return { cancelled: true };
+          }
+          return { currency: result.currency, cancelled: false };
+        }
+
+        if (!customCurrencyCtx.callbackQuery?.data) continue;
+        const customParsed = parseAddCurrencyCallbackData(
+          customCurrencyCtx.callbackQuery.data,
         );
-        return { cancelled: true };
+
+        if (!customParsed) {
+          await customCurrencyCtx.answerCallbackQuery("无效的币种选择。");
+          continue;
+        }
+
+        if (customParsed.action === "back") {
+          await customCurrencyCtx.answerCallbackQuery();
+          await safeDeleteMessage(customCurrencyCtx);
+          break;
+        }
+
+        if (customParsed.action === "cancel") {
+          await customCurrencyCtx.answerCallbackQuery();
+          await safeDeleteMessage(customCurrencyCtx);
+          await ctx.reply(cancelMessage);
+          return { cancelled: true };
+        }
+
+        await customCurrencyCtx.answerCallbackQuery("请发送自定义币种代码。");
       }
-      return { currency: result.currency, cancelled: false };
+
+      continue;
+    }
+
+    if (parsedCurrency.action === "back") {
+      await safeDeleteMessage(currencyCtx);
+      continue;
     }
 
     await safeDeleteMessage(currencyCtx);

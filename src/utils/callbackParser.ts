@@ -165,6 +165,7 @@ export type AddCurrencyCallbackData =
   | { action: "select"; currency: string }
   | { action: "skip" }
   | { action: "other" }
+  | { action: "back" }
   | { action: "cancel" };
 
 /**
@@ -174,6 +175,7 @@ export type AddCurrencyCallbackData =
  *   addcurrency:<currency>
  *   addcurrency:skip
  *   addcurrency:other
+ *   addcurrency:back
  *   addcurrency:cancel
  */
 export function parseAddCurrencyCallbackData(
@@ -185,8 +187,59 @@ export function parseAddCurrencyCallbackData(
 
   if (value === "skip") return { action: "skip" };
   if (value === "other") return { action: "other" };
+  if (value === "back") return { action: "back" };
   if (value === "cancel") return { action: "cancel" };
   if (/^[A-Z]{3}$/.test(value)) return { action: "select", currency: value };
+  return null;
+}
+
+export type AddPriceCallbackData = { action: "skip" } | { action: "cancel" };
+
+/**
+ * Parse add price callback data.
+ *
+ * Expected formats:
+ *   addprice:skip
+ *   addprice:cancel
+ */
+export function parseAddPriceCallbackData(
+  callbackData: string,
+): AddPriceCallbackData | null {
+  if (callbackData === "addprice:skip") return { action: "skip" };
+  if (callbackData === "addprice:cancel") return { action: "cancel" };
+  return null;
+}
+
+export type CycleIntervalCallbackData =
+  | { action: "preset"; value: string }
+  | { action: "other" }
+  | { action: "back" }
+  | { action: "cancel" };
+
+/**
+ * Parse advanced interval cycle callback data.
+ *
+ * Expected formats:
+ *   cycleint:preset:<value>
+ *   cycleint:other
+ *   cycleint:back
+ *   cycleint:cancel
+ */
+export function parseCycleIntervalCallbackData(
+  callbackData: string,
+): CycleIntervalCallbackData | null {
+  const presetPrefix = "cycleint:preset:";
+  if (callbackData.startsWith(presetPrefix)) {
+    const value = callbackData.slice(presetPrefix.length);
+    if (/^\d+[dwmy]$/.test(value)) {
+      return { action: "preset", value };
+    }
+    return null;
+  }
+
+  if (callbackData === "cycleint:other") return { action: "other" };
+  if (callbackData === "cycleint:back") return { action: "back" };
+  if (callbackData === "cycleint:cancel") return { action: "cancel" };
   return null;
 }
 
@@ -282,6 +335,10 @@ export type SettingsCallbackData =
   | { action: "timezone" }
   | { action: "select_hour"; hour: number }
   | { action: "select_timezone"; timezone: string }
+  | { action: "timezone_offset_menu" }
+  | { action: "timezone_offset"; offset: string }
+  | { action: "timezone_offset_other" }
+  | { action: "timezone_offset_back" }
   | { action: "done" };
 
 /**
@@ -293,6 +350,10 @@ export type SettingsCallbackData =
  *   settings:timezone
  *   settings:hour:<0-23>
  *   settings:tz:<iana>
+ *   settings:tzoffset
+ *   settings:tzoffset:<offset>
+ *   settings:tzoffset:other
+ *   settings:tzoffset:back
  *   settings:done
  */
 export function parseSettingsCallbackData(
@@ -305,7 +366,19 @@ export function parseSettingsCallbackData(
   if (value === "toggle_reminder") return { action: "toggle_reminder" };
   if (value === "hour") return { action: "hour" };
   if (value === "timezone") return { action: "timezone" };
+  if (value === "tzoffset") return { action: "timezone_offset_menu" };
   if (value === "done") return { action: "done" };
+
+  const tzOffsetPrefix = "tzoffset:";
+  if (value.startsWith(tzOffsetPrefix)) {
+    const offset = value.slice(tzOffsetPrefix.length);
+    if (offset === "other") return { action: "timezone_offset_other" };
+    if (offset === "back") return { action: "timezone_offset_back" };
+    if (/^[+-]\d{1,2}(?::\d{2})?$/.test(offset)) {
+      return { action: "timezone_offset", offset };
+    }
+    return null;
+  }
 
   const hourPrefix = "hour:";
   if (value.startsWith(hourPrefix)) {

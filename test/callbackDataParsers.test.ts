@@ -5,10 +5,13 @@ import {
   parseCycleCallbackData,
   parseAddConfirmCallbackData,
   parseAddPreviewCallbackData,
+  parseAddPriceCallbackData,
   parseAddCurrencyCallbackData,
+  parseCycleIntervalCallbackData,
   parseAddDateCallbackData,
   parseEditCycleCallbackData,
   parseListCallbackData,
+  parseSettingsCallbackData,
 } from "../src/utils/callbackParser.js";
 
 describe("parseSubCallbackData", () => {
@@ -169,12 +172,67 @@ describe("parseAddCurrencyCallbackData", () => {
     const result = parseAddCurrencyCallbackData("addcurrency:other");
     expect(result).toEqual({ action: "other" });
   });
+  it("parses back", () => {
+    const result = parseAddCurrencyCallbackData("addcurrency:back");
+    expect(result).toEqual({ action: "back" });
+  });
   it("parses cancel", () => {
     const result = parseAddCurrencyCallbackData("addcurrency:cancel");
     expect(result).toEqual({ action: "cancel" });
   });
   it("returns null for invalid currency", () => {
     expect(parseAddCurrencyCallbackData("addcurrency:CN")).toBeNull();
+  });
+});
+
+describe("parseAddPriceCallbackData", () => {
+  it("parses skip", () => {
+    expect(parseAddPriceCallbackData("addprice:skip")).toEqual({
+      action: "skip",
+    });
+  });
+
+  it("parses cancel", () => {
+    expect(parseAddPriceCallbackData("addprice:cancel")).toEqual({
+      action: "cancel",
+    });
+  });
+
+  it("returns null for unknown action", () => {
+    expect(parseAddPriceCallbackData("addprice:other")).toBeNull();
+  });
+});
+
+describe("parseCycleIntervalCallbackData", () => {
+  it("parses preset", () => {
+    expect(parseCycleIntervalCallbackData("cycleint:preset:30d")).toEqual({
+      action: "preset",
+      value: "30d",
+    });
+  });
+
+  it("parses other", () => {
+    expect(parseCycleIntervalCallbackData("cycleint:other")).toEqual({
+      action: "other",
+    });
+  });
+
+  it("parses back", () => {
+    expect(parseCycleIntervalCallbackData("cycleint:back")).toEqual({
+      action: "back",
+    });
+  });
+
+  it("parses cancel", () => {
+    expect(parseCycleIntervalCallbackData("cycleint:cancel")).toEqual({
+      action: "cancel",
+    });
+  });
+
+  it("returns null for invalid preset", () => {
+    expect(
+      parseCycleIntervalCallbackData("cycleint:preset:monthly"),
+    ).toBeNull();
   });
 });
 
@@ -398,6 +456,33 @@ describe("parseListCallbackData", () => {
     });
     it("returns null for select with non-numeric page", () => {
       expect(parseListCallbackData("list:select:abc-123:abc")).toBeNull();
+    });
+  });
+});
+
+describe("parseSettingsCallbackData timezone offsets", () => {
+  it("parses timezone offset menu", () => {
+    expect(parseSettingsCallbackData("settings:tzoffset")).toEqual({
+      action: "timezone_offset_menu",
+    });
+  });
+
+  it("parses timezone offset preset", () => {
+    expect(parseSettingsCallbackData("settings:tzoffset:+5:30")).toEqual({
+      action: "timezone_offset",
+      offset: "+5:30",
+    });
+  });
+
+  it("parses timezone offset other", () => {
+    expect(parseSettingsCallbackData("settings:tzoffset:other")).toEqual({
+      action: "timezone_offset_other",
+    });
+  });
+
+  it("parses timezone offset back", () => {
+    expect(parseSettingsCallbackData("settings:tzoffset:back")).toEqual({
+      action: "timezone_offset_back",
     });
   });
 });

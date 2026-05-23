@@ -39,10 +39,10 @@ Shows a welcome message. First-time users see a quick-start guide with `/add`, `
 
 **Interactive mode** (no arguments):
 1. Asks for subscription name (non-empty).
-2. Asks for price. Send `skip` to leave unset.
-3. Select currency via inline keyboard (includes common currencies + custom input).
+2. Asks for price. Enter a number or tap **跳过价格** to leave unset. The old `skip` text is still accepted for compatibility.
+3. Select currency via inline keyboard (includes common currencies + **其他** for custom input, with a back button from custom input).
 4. Select billing cycle via inline keyboard: Weekly, Monthly, Quarterly, Yearly, Custom, or Advanced interval.
-   Advanced interval accepts day/week/month/year intervals such as `every 30 days`, `every 4 weeks`, `every 6 months`, `30d`, `4w`, `6m`, `2y`, `每30天`, `每4周`, `每6个月`, or `每2年`.
+   Advanced interval first offers common presets such as 30 days, 4 weeks, 6 months, and 1 year. **其他** accepts day/week/month/year intervals such as `every 30 days`, `every 4 weeks`, `every 6 months`, `30d`, `4w`, `6m`, `2y`, `每30天`, `每4周`, `每6个月`, or `每2年`.
 5. Select next billing date via inline calendar keyboard with month and year navigation.
 6. Confirm the generated future billing-date preview, or go back to change the cycle/date.
 7. Mark whether the subscription is a trial.
@@ -96,7 +96,7 @@ Shows full details for a subscription. `id` can be the short ID (first 8 chars),
 Cycle edits support the same fixed cycles and interval formats as `/add`, for example `/edit a1b2c3d4 cycle 30d`.
 
 **Interactive mode**:
-Click **编辑** from a `/list_full` detail view. The bot shows an inline keyboard with fields: Name, Price, Currency, Cycle, Next billing date, and Back. Text/date/cycle edits start conversations. Trial and auto-renewal are direct actions on the detail view.
+Click **编辑** from a `/list_full` detail view. The bot shows an inline keyboard with fields: Name, Price, Currency, Cycle, Next billing date, and Back. Text/date/cycle edits start conversations. Price can be skipped with a button in `/add`; currency custom input can return to the picker; advanced cycle intervals offer presets before custom text input. Trial and auto-renewal are direct actions on the detail view.
 
 ### `/delete <id>`
 

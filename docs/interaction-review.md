@@ -7,9 +7,9 @@ This document reviews the Telegram interactive flows, session behavior, callback
 The `/add` command starts a multi-step conversation when called without arguments:
 
 1. **Name** — asks for subscription name. Empty input is rejected.
-2. **Price** — asks for price. User may type `skip` to leave unset.
-3. **Currency** — inline keyboard with common currencies (CNY, USD, HKD, TWD, EUR, JPY, GBP, SGD). User can choose **其他** to type a custom 3-letter code, or **不填写** if no price was set. Required if price was set.
-4. **Billing cycle** — inline keyboard with Weekly, Monthly, Quarterly, Yearly, Custom, and Advanced interval. Advanced interval prompts for `every 30 days`, `every 4 weeks`, `every 6 months`, `30d`, `4w`, `6m`, `2y`, `每30天`, `每4周`, `每6个月`, or `每2年`.
+2. **Price** — asks for price. User can enter a number or tap **跳过价格**. Legacy `skip` text is still accepted.
+3. **Currency** — inline keyboard with common currencies (CNY, USD, HKD, TWD, EUR, JPY, GBP, SGD). User can choose **其他** to type a custom 3-letter code, return to the picker, or cancel. **不填写** is available if no price was set. Currency is required if price was set.
+4. **Billing cycle** — inline keyboard with Weekly, Monthly, Quarterly, Yearly, Custom, and Advanced interval. Advanced interval shows presets (30 days, 4 weeks, 6 months, 1 year) before custom text input. **其他** accepts `every 30 days`, `every 4 weeks`, `every 6 months`, `30d`, `4w`, `6m`, `2y`, `每30天`, `每4周`, `每6个月`, or `每2年`.
 5. **Next billing date** — inline calendar keyboard. User can navigate by month or year, pick a day, or select **今天**.
 6. **Billing date preview** — shows the next five expected billing dates. User can confirm, go back to change cycle/date, or cancel.
 7. **Trial flag** — asks whether this is a trial subscription.
@@ -40,13 +40,14 @@ Trial and auto-renewal are direct actions on the `/list_full` detail view instea
 ### editField conversation
 - Prompts for the new value.
 - Validates input (name non-empty, price non-negative, currency 3-letter, date YYYY-MM-DD).
+- Currency uses the shared picker; custom currency input can return to the picker.
 - Saves only after valid input.
 - `/cancel` aborts without saving.
 
 ### editCycle conversation
 - Shows inline keyboard with cycle options.
 - Saves immediately after selection for fixed cycles.
-- For Advanced interval, prompts for the interval text before saving.
+- For Advanced interval, shows common presets first; custom interval text remains available behind **其他**.
 - `/cancel` is not available here; the user can simply ignore the message.
 
 ### Legacy one-line usage
@@ -99,6 +100,10 @@ Trial subscriptions and non-auto-renewing subscriptions remain visible when due.
 
 This is a single-shot command; no conversation or callback state is involved.
 
+## /settings Behavior
+
+`/settings` uses inline buttons for reminder enablement, reminder hour, timezone, and default currency. Timezone selection first shows the supported timezone list. The custom UTC offset page only contains offset presets not shown as first-page timezone labels, plus **其他** for free-form offsets such as `+8`, `-5`, or `+5:30`.
+
 ## Session Behavior on Cloudflare Workers
 
 The bot now uses `KvSessionStorage` instead of grammY's default in-memory storage.
@@ -134,13 +139,15 @@ All callbacks use `parse*CallbackData` helpers. If parsing fails:
 - No further action is taken.
 
 ### Expired conversation buttons
-Buttons specific to active conversations (`cycle:`, `editcycle:`, `addcurrency:`, `adddate:`, `addpreview:`, `addtrial:`, `addrenew:`, `add:confirm`, `add:cancel`) have **fallback handlers** registered after the conversation handlers. If a conversation has ended (session expired, user cancelled, or abandoned), these fallback handlers:
+Buttons specific to active conversations (`cycle:`, `editcycle:`, `cycleint:`, `addprice:`, `addcurrency:`, `adddate:`, `addpreview:`, `addtrial:`, `addrenew:`, `add:confirm`, `add:cancel`) have **fallback handlers** registered after the conversation handlers. If a conversation has ended (session expired, user cancelled, or abandoned), these fallback handlers:
 - Answer the callback query with "This selection has expired..."
 - Prevent the Telegram loading spinner from spinning indefinitely.
 
 `adddate:` is the shared date picker callback namespace. It is used by `/add`, edit-date, and resume-date flows so users can either type a date or expand the inline calendar.
 
 `addcurrency:` is the shared currency picker callback namespace. It is used by `/add`, edit-currency, and default-currency settings flows so all currency selections use the same inline button layout.
+
+`addprice:` handles price skip/cancel buttons in `/add`. `cycleint:` handles Advanced interval presets, custom entry, back, and cancel buttons.
 
 ### Uncaught errors
 All callback handlers are wrapped in `try/catch`. If an unexpected error occurs:
@@ -211,7 +218,7 @@ All validation errors are user-facing and specific (messages are in Chinese as s
 | Field | Invalid input | Message |
 |-------|--------------|---------|
 | Name | empty | "订阅名称不能为空。" |
-| Price (add) | negative / non-numeric | "请输入非负数字，或发送 skip 跳过。" |
+| Price (add) | negative / non-numeric | "请输入非负数字，或点击按钮跳过。" |
 | Price (edit) | negative / non-numeric | "请输入非负数字。" |
 | Currency (add) | not 3-letter | "请输入 3 位币种代码，例如 CNY 或 USD。" |
 | Currency (edit) | not 3-letter | "请输入 3 位币种代码，例如 CNY 或 USD。" |

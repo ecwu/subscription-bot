@@ -40,11 +40,11 @@ describe("addConversation validators", () => {
     });
     it("rejects negative numbers", () => {
       const result = validateAddPrice("-1");
-      expect(result.error).toBe("请输入非负数字，或发送 skip 跳过。");
+      expect(result.error).toBe("请输入非负数字，或点击按钮跳过。");
     });
     it("rejects non-numeric input", () => {
       const result = validateAddPrice("abc");
-      expect(result.error).toBe("请输入非负数字，或发送 skip 跳过。");
+      expect(result.error).toBe("请输入非负数字，或点击按钮跳过。");
     });
   });
 

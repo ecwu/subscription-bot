@@ -200,8 +200,14 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.callbackQuery(/^addcurrency:/, async (ctx) => {
     await ctx.answerCallbackQuery("这次币种选择已过期，请重新开始当前操作。");
   });
+  bot.callbackQuery(/^addprice:/, async (ctx) => {
+    await ctx.answerCallbackQuery("这次价格选择已过期，请重新开始当前操作。");
+  });
   bot.callbackQuery(/^adddate:/, async (ctx) => {
     await ctx.answerCallbackQuery("这次日期选择已过期，请重新开始当前操作。");
+  });
+  bot.callbackQuery(/^cycleint:/, async (ctx) => {
+    await ctx.answerCallbackQuery("这次间隔选择已过期，请重新开始当前操作。");
   });
   bot.callbackQuery(/^addpreview:/, async (ctx) => {
     await ctx.answerCallbackQuery("这次预览已过期，请发送 /add 重新开始。");

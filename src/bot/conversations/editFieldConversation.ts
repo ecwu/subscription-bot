@@ -132,8 +132,8 @@ export async function editFieldConversation(
         : "当前未填写价格。\n请发送价格（数字）。",
     currency:
       sub.currency !== undefined
-        ? `当前币种：${sub.currency}\n请发送新币种（3 位代码）。`
-        : "当前未填写币种。\n请发送币种（3 位代码）。",
+        ? `当前币种：${sub.currency}\n请选择新币种，或点“其他”输入代码。`
+        : "当前未填写币种。\n请选择币种，或点“其他”输入代码。",
     date: `当前下次扣款日期：${sub.nextBillingDate}\n请选择或输入新日期：`,
   };
 

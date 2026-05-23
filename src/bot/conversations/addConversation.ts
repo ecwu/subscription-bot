@@ -12,7 +12,10 @@ import {
 import { shortId } from "../../utils/shortId.js";
 import { createLogger } from "../../utils/logger.js";
 import { InlineKeyboard } from "grammy";
-import { parseAddConfirmCallbackData } from "../../utils/callbackParser.js";
+import {
+  parseAddConfirmCallbackData,
+  parseAddPriceCallbackData,
+} from "../../utils/callbackParser.js";
 import { formatBillingCycle } from "../../utils/labels.js";
 import { getBillingAnchorDay, getNextBillingDate } from "../../utils/date.js";
 import { validateCurrencyInput } from "../../utils/currency.js";
@@ -56,7 +59,7 @@ export function validateAddPrice(priceStr: string): {
   }
   const price = Number(trimmed);
   if (!Number.isFinite(price) || price < 0) {
-    return { error: "请输入非负数字，或发送 skip 跳过。" };
+    return { error: "请输入非负数字，或点击按钮跳过。" };
   }
   return { price };
 }
@@ -75,6 +78,12 @@ function confirmKeyboard(): InlineKeyboard {
     confirmData: "add:confirm",
     cancelData: "add:cancel",
   });
+}
+
+function priceKeyboard(): InlineKeyboard {
+  return new InlineKeyboard()
+    .text("跳过价格", "addprice:skip")
+    .text("取消", "addprice:cancel");
 }
 
 function reviewKeyboard(price?: number): InlineKeyboard {
@@ -205,6 +214,18 @@ async function safeDeleteMessage(ctx: BaseBotContext): Promise<void> {
   }
 }
 
+async function safeDeletePromptMessage(
+  ctx: BaseBotContext,
+  chatId: number,
+  messageId: number,
+): Promise<void> {
+  try {
+    await ctx.api.deleteMessage(chatId, messageId);
+  } catch {
+    // The prompt message may already be gone.
+  }
+}
+
 async function collectCurrencyForPrice(
   conversation: Conversation<BotContext, BaseBotContext>,
   ctx: BaseBotContext,
@@ -246,19 +267,58 @@ async function collectPrice(
   conversation: Conversation<BotContext, BaseBotContext>,
   ctx: BaseBotContext,
 ): Promise<{ price?: number; cancelled: boolean }> {
-  await ctx.reply("价格是多少？请输入数字；如果不想填写价格，可以发送 skip。");
-  const priceCtx = await conversation.waitFor("message:text");
-  const priceText = priceCtx.msg.text;
-  if (isCancelInput(priceText)) {
-    await ctx.reply("已取消。");
-    return { cancelled: true };
+  const promptMsg = await ctx.reply(
+    "价格是多少？请输入数字，或点击按钮跳过。",
+    {
+      reply_markup: priceKeyboard(),
+    },
+  );
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const priceCtx = await conversation.wait();
+
+    if (priceCtx.message?.text) {
+      const priceText = priceCtx.message.text;
+      if (isCancelInput(priceText)) {
+        await safeDeletePromptMessage(
+          ctx,
+          promptMsg.chat.id,
+          promptMsg.message_id,
+        );
+        await ctx.reply("已取消。");
+        return { cancelled: true };
+      }
+      const priceResult = validateAddPrice(priceText);
+      if (priceResult.error) {
+        await ctx.reply(priceResult.error + "\n请发送 /add 重新开始。");
+        return { cancelled: true };
+      }
+      await safeDeletePromptMessage(
+        ctx,
+        promptMsg.chat.id,
+        promptMsg.message_id,
+      );
+      return { price: priceResult.price, cancelled: false };
+    }
+
+    if (!priceCtx.callbackQuery?.data) continue;
+    const parsedPrice = parseAddPriceCallbackData(priceCtx.callbackQuery.data);
+    if (!parsedPrice) {
+      await priceCtx.answerCallbackQuery("无效的价格选择。");
+      continue;
+    }
+
+    await priceCtx.answerCallbackQuery();
+    await safeDeleteMessage(priceCtx);
+
+    if (parsedPrice.action === "cancel") {
+      await ctx.reply("已取消。");
+      return { cancelled: true };
+    }
+
+    return { price: undefined, cancelled: false };
   }
-  const priceResult = validateAddPrice(priceText);
-  if (priceResult.error) {
-    await ctx.reply(priceResult.error + "\n请发送 /add 重新开始。");
-    return { cancelled: true };
-  }
-  return { price: priceResult.price, cancelled: false };
 }
 
 async function collectCycle(

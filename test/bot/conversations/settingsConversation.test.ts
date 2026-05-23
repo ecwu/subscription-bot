@@ -3,6 +3,7 @@ import {
   settingsKeyboard,
   hourPickerKeyboard,
   timezoneKeyboard,
+  timezoneOffsetKeyboard,
 } from "../../../src/bot/conversations/settingsConversation.js";
 import { parseSettingsCallbackData } from "../../../src/utils/callbackParser.js";
 import { userSettingsSchema } from "../../../src/schemas/userSettingsSchema.js";
@@ -132,6 +133,29 @@ describe("settingsConversation", () => {
       const buttons = kb.inline_keyboard.flat();
       const customBtn = buttons.find((b) => b.text === "自定义时区偏移");
       expect(customBtn).toBeDefined();
+      expect(customBtn?.callback_data).toBe("settings:tzoffset");
+    });
+  });
+
+  describe("timezoneOffsetKeyboard", () => {
+    it("renders offset presets without duplicating first-page timezone labels", () => {
+      const kb = timezoneOffsetKeyboard();
+      const buttons = kb.inline_keyboard.flat();
+      const texts = buttons.map((b) => b.text);
+      const firstPageLabels = SUPPORTED_TIMEZONES.map((tz) => tz.label);
+
+      expect(texts).toEqual(
+        expect.arrayContaining([
+          "UTC+5:30",
+          "UTC+5:45",
+          "UTC+9:30",
+          "UTC+10",
+          "UTC-3",
+          "其他",
+          "返回",
+        ]),
+      );
+      expect(texts.some((text) => firstPageLabels.includes(text))).toBe(false);
     });
   });
 
@@ -289,6 +313,29 @@ describe("settingsConversation", () => {
         action: "select_timezone",
         timezone: "Europe/Berlin",
       });
+    });
+
+    it("parses timezone offset menu", () => {
+      const result = parseSettingsCallbackData("settings:tzoffset");
+      expect(result).toEqual({ action: "timezone_offset_menu" });
+    });
+
+    it("parses timezone offset preset", () => {
+      const result = parseSettingsCallbackData("settings:tzoffset:+5:30");
+      expect(result).toEqual({
+        action: "timezone_offset",
+        offset: "+5:30",
+      });
+    });
+
+    it("parses timezone offset other", () => {
+      const result = parseSettingsCallbackData("settings:tzoffset:other");
+      expect(result).toEqual({ action: "timezone_offset_other" });
+    });
+
+    it("parses timezone offset back", () => {
+      const result = parseSettingsCallbackData("settings:tzoffset:back");
+      expect(result).toEqual({ action: "timezone_offset_back" });
     });
 
     it("returns null for unknown action", () => {
