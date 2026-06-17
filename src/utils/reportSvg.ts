@@ -10,6 +10,7 @@ const CHART_HEIGHT = 260;
 const BAR_LABEL_TOP_PADDING = 28;
 const BAR_MAX_HEIGHT = CHART_HEIGHT - BAR_LABEL_TOP_PADDING;
 const MONTHLY_FILL_OPACITY = "0.35";
+const STACK_BLOCK_GAP = 2;
 
 const COLORS = {
   ink: "#162326",
@@ -116,7 +117,9 @@ export function buildReportSvg(report: ReportData): string {
             : "";
         const actualRect =
           actualH > 0
-            ? `<rect x="${x}" y="${actualY.toFixed(1)}" width="${barWidth}" height="${actualH.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`
+            ? isMonthlyView
+              ? `<rect x="${x}" y="${actualY.toFixed(1)}" width="${barWidth}" height="${actualH.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`
+              : actualBarBlocks(item.actualCount, x, actualY, barWidth, actualH)
             : "";
 
         const topY = actualH > 0 ? actualY : monthlyY;
@@ -233,6 +236,27 @@ function monthlyViewBarLabels(
     <tspan x="${x}" class="bar-label">${escapeXml(actualLabel)}</tspan>
     <tspan x="${x}" dy="16" class="bar-label-monthly">${escapeXml(monthlyLabel)}</tspan>
   </text>`;
+}
+
+function actualBarBlocks(
+  count: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): string {
+  const blockCount = Math.max(1, count);
+  if (blockCount === 1 || height <= STACK_BLOCK_GAP * 2) {
+    return `<rect x="${x}" y="${y.toFixed(1)}" width="${width}" height="${height.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`;
+  }
+
+  const totalGap = STACK_BLOCK_GAP * (blockCount - 1);
+  const blockHeight = Math.max(1, (height - totalGap) / blockCount);
+
+  return Array.from({ length: blockCount }, (_, index) => {
+    const blockY = y + index * (blockHeight + STACK_BLOCK_GAP);
+    return `<rect x="${x}" y="${blockY.toFixed(1)}" width="${width}" height="${blockHeight.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`;
+  }).join("");
 }
 
 function compactAmount(amount: number): string {

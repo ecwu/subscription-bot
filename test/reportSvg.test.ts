@@ -16,8 +16,8 @@ function report(overrides: Partial<ReportData> = {}): ReportData {
     totalBase: 7,
     byCurrency: [],
     dayDistribution: [
-      { day: 1, actualTotal: 13, monthlyEquivalentTotal: 7 },
-      { day: 2, actualTotal: 0, monthlyEquivalentTotal: 0 },
+      { day: 1, actualTotal: 13, monthlyEquivalentTotal: 7, actualCount: 1 },
+      { day: 2, actualTotal: 0, monthlyEquivalentTotal: 0, actualCount: 0 },
     ],
     missingRateCurrencies: [],
     excluded: {
@@ -51,5 +51,35 @@ describe("buildReportSvg", () => {
       '<rect x="980" y="346" width="16" height="16" rx="3" fill="#b7791f"/>',
     );
     expect(svg).not.toContain('fill="#b7791f" fill-opacity="0.45"');
+  });
+
+  it("renders upcoming due bars as blocks while keeping one total label", () => {
+    const svg = buildReportSvg(
+      report({
+        title: "未来30天支出",
+        totalLabel: "未来30天实际扣款",
+        chartTitle: "未来30天扣款分布",
+        chartSubtitle: "按未来30天日期汇总的实际扣款金额",
+        totalBase: 20,
+        dayLabelPrefix: "T+",
+        dayDistribution: [
+          {
+            day: 0,
+            actualTotal: 20,
+            monthlyEquivalentTotal: 0,
+            actualCount: 3,
+          },
+          {
+            day: 1,
+            actualTotal: 0,
+            monthlyEquivalentTotal: 0,
+            actualCount: 0,
+          },
+        ],
+      }),
+    );
+
+    expect(svg).toContain(">20</text>");
+    expect(svg.match(/x="320" y="(418\.0|496\.0|574\.0)"/g)).toHaveLength(3);
   });
 });

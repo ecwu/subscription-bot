@@ -34,6 +34,7 @@ export interface ReportDayDistribution {
   day: number;
   actualTotal: number;
   monthlyEquivalentTotal: number;
+  actualCount: number;
 }
 
 export interface ReportMonthDistribution {
@@ -437,6 +438,7 @@ function buildFullMonthDayDistribution(
       day,
       actualTotal: actualByDay.get(day) ?? 0,
       monthlyEquivalentTotal: monthlyByDay.get(day) ?? 0,
+      actualCount: 0,
     });
   }
   return distribution;
@@ -449,6 +451,7 @@ function buildUpcomingDayDistribution(
   baseCurrency: string,
 ): ReportDayDistribution[] {
   const actualByOffset = new Map<number, number>();
+  const actualCountByOffset = new Map<number, number>();
   const windowEnd = upcomingWindowEnd(today);
 
   for (const sub of subscriptions) {
@@ -475,6 +478,10 @@ function buildUpcomingDayDistribution(
         offset,
         (actualByOffset.get(offset) ?? 0) + convertedActualAmount,
       );
+      actualCountByOffset.set(
+        offset,
+        (actualCountByOffset.get(offset) ?? 0) + 1,
+      );
     }
   }
 
@@ -484,6 +491,7 @@ function buildUpcomingDayDistribution(
       day: offset,
       actualTotal: actualByOffset.get(offset) ?? 0,
       monthlyEquivalentTotal: 0,
+      actualCount: actualCountByOffset.get(offset) ?? 0,
     });
   }
   return distribution;
@@ -661,7 +669,9 @@ function actualAmountIfDueInUpcomingWindow(
     today,
     upcomingWindowEnd(today),
   );
-  return billingDates.length > 0 ? (sub.price ?? 0) * billingDates.length : null;
+  return billingDates.length > 0
+    ? (sub.price ?? 0) * billingDates.length
+    : null;
 }
 
 function isWithinActiveWindow(sub: Subscription, today: string): boolean {

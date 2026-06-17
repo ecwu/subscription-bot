@@ -353,11 +353,13 @@ describe("buildReportData", () => {
       (item) => item.day === 15,
     )!;
     expect(offset15.actualTotal).toBeCloseTo(210);
+    expect(offset15.actualCount).toBe(2);
 
     const offset29 = report.currentMonthDue.dayDistribution.find(
       (item) => item.day === 29,
     )!;
     expect(offset29.actualTotal).toBeCloseTo(40);
+    expect(offset29.actualCount).toBe(1);
 
     // Zero-total days exist
     const day10 = report.currentMonthly.dayDistribution.find(
