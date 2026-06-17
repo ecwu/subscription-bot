@@ -10,6 +10,7 @@ const commands = [
   { command: "export", description: "导出数据" },
   { command: "report", description: "查看支出报告" },
   { command: "reminders", description: "查看提醒" },
+  { command: "settings", description: "设置默认参数" },
   { command: "delete_me", description: "删除我的数据" },
 ];
 
