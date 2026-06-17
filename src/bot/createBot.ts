@@ -20,6 +20,7 @@ import { deleteMeCommand } from "./commands/deleteMe.js";
 import { remindersCommand } from "./commands/reminders.js";
 import { settingsCommand } from "./commands/settings.js";
 import { adminRemindersCommand } from "./commands/adminReminders.js";
+import { diagnosisCommand } from "./commands/diagnosis.js";
 import { debugMeCommand } from "./commands/debugMe.js";
 import { addConversation } from "./conversations/addConversation.js";
 import {
@@ -145,6 +146,7 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.command("reminders", remindersCommand);
   bot.command("settings", settingsCommand);
   bot.command("admin_reminders", adminRemindersCommand);
+  bot.command("diagnosis", diagnosisCommand);
 
   // Dev-only commands
   if (env.APP_ENV !== "production") {

@@ -29,6 +29,13 @@
 
 `/debug_me` is only registered when `APP_ENV !== "production"`. It never exposes raw Telegram user IDs, usernames, message text, or secrets.
 
+## Admin Commands
+
+| Command      | Description                                      | Availability  |
+|-------------|--------------------------------------------------|---------------|
+| `/diagnosis`| Check environment variable presence and validity | Admin only    |
+| `/admin_reminders` | Show reminder timezone distribution       | Admin only    |
+
 ## Command Details
 
 ### `/start`
@@ -170,4 +177,22 @@ Calls `ctx.conversation.exitAll()`, safely ending all active conversations for t
 ## Admin
 
 If `ADMIN_USER_ID` is configured, that Telegram user is marked as admin (`ctx.isAdmin`).
-There are no admin-only commands yet, but future commands can gate on this flag.
+Admin-only commands reject all other users.
+
+### `/diagnosis`
+
+Checks whether required runtime configuration is present and valid:
+- `BOT_TOKEN`
+- `TELEGRAM_WEBHOOK_SECRET`
+- `ENCRYPTION_KEY`
+- `USER_HASH_SECRET`
+- `ADMIN_USER_ID`
+- `SUBSCRIPTION_KV`
+- `APP_ENV`
+- `REMINDER_DAYS_AHEAD`
+
+The report only includes status and validation messages. It never prints secret values, raw Telegram user IDs, usernames, message text, chat IDs, or `userKey`.
+
+### `/admin_reminders`
+
+Scans upcoming reminder index entries and reports timezone distribution for users with reminders enabled. It is intended for operational checks and does not expose raw user IDs or subscription details.

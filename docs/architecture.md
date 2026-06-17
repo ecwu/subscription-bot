@@ -14,7 +14,7 @@ The Subscription Bot is a Cloudflare Worker that receives Telegram updates via w
 ### Bot Layer (`src/bot/`)
 
 - `createBot.ts`: Configures the grammY bot with middleware, commands, conversations, and callbacks.
-- `commands/`: Full command handlers (`/start`, `/help`, `/add`, `/list`, `/list_full`, `/view`, `/edit`, `/delete`, `/pause`, `/resume`, `/export`, `/report`, `/report_text`, `/reminders`, `/delete_me`, `/cancel`, `/debug_me`).
+- `commands/`: Full command handlers (`/start`, `/help`, `/add`, `/list`, `/list_full`, `/view`, `/edit`, `/delete`, `/pause`, `/resume`, `/export`, `/report`, `/report_text`, `/reminders`, `/delete_me`, `/cancel`, `/diagnosis`, `/admin_reminders`, `/debug_me`).
 - `conversations/`: Multi-step interactive flows (`addConversation`, `editFieldConversation`, `editCycleConversation`, `resumeConversation`).
 - `callbacks/`: Inline keyboard callback handlers (`sub`, `edit`, `delete`, `privacy`, list manager).
 - `keyboards/`: Reusable keyboard builders for inline buttons.
