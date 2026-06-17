@@ -305,10 +305,7 @@ export async function reminderRenewCallback(ctx: BotContext): Promise<void> {
       await safeAnswerCallbackQuery(ctx, "这个订阅无法自动计算下个周期。");
       await safeEditMessageText(
         ctx,
-        `这个订阅无法自动计算下个周期，请发送 /edit ${result.subscription.id.slice(
-          0,
-          8,
-        )} date 手动更新日期。`,
+        "这个订阅无法自动计算下个周期，请发送 /list_full 后在详情中手动更新日期。",
       );
       return;
     }

@@ -63,7 +63,7 @@ function formatReminderMessage(sub: Subscription): string {
     lines.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
   }
 
-  lines.push(`\n发送 /view ${sub.id.slice(0, 8)} 查看详情。`);
+  lines.push("\n发送 /list_full 查看详情或管理订阅。");
   return lines.join("\n");
 }
 
@@ -83,7 +83,7 @@ function formatReminderListItem(sub: Subscription, index: number): string {
     parts.push(`价格：${sub.price} ${sub.currency ?? ""}`.trim());
   }
 
-  parts.push(`/view ${sub.id.slice(0, 8)}`);
+  parts.push("发送 /list_full 管理");
   return parts.join("｜");
 }
 

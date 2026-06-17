@@ -35,7 +35,7 @@ src/
 - Add subscriptions interactively or with one-line commands.
 - Track fixed cycles (`weekly`, `monthly`, `quarterly`, `yearly`), manual `custom` cycles, and interval cycles such as `30d`, `4w`, `6m`, `2y`, `every 30 days`, and `每30天`.
 - Mark subscriptions as trial or non-auto-renewing so reports and reminder wording match the real billing state.
-- Pause and resume subscriptions. Paused subscriptions are excluded from reminders, date advancement, and spending reports.
+- Pause and resume subscriptions from the inline list manager. Paused subscriptions are excluded from reminders, date advancement, and spending reports.
 - View compact lists, paginated inline list management, subscription details, JSON export, PNG reports, and text reports.
 - Send scheduled renewal reminders through Cloudflare Cron Triggers.
 

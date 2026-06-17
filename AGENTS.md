@@ -23,7 +23,7 @@ A privacy-oriented Telegram bot for managing personal subscription services. Run
 ```
 src/
 ├── bot/              # Telegram bot setup, commands, conversations, callbacks, middleware
-│   ├── commands/     # Command handlers: /add, /list, /delete, /view, /edit, /export, /delete_me, /cancel, /debug_me
+│   ├── commands/     # Command handlers: /add, /list, /list_full, /export, /report, /reminders, /settings, /delete_me, /debug_me
 │   ├── conversations/# Multi-step interactive flows: addConversation, editFieldConversation
 │   ├── callbacks/    # Inline button callbacks: sub, edit, delete, privacy
 │   └── middleware/   # requestContext, auth, rateLimit, errorHandler
@@ -195,7 +195,7 @@ Before adding a new selector:
 1. Check whether date, currency, cycle, edit-field, confirm/cancel, or cancel-text behavior already exists above.
 2. If a new option is needed, extend the shared control and its tests instead of duplicating a local keyboard.
 3. If callback formats change, update `src/utils/callbackParser.ts`, `src/bot/createBot.ts` stale fallback handlers, tests, and `docs/interaction-review.md`.
-4. Keep button text and layout consistent across `/add`, `/edit`, list manager, and `/settings`.
+4. Keep button text and layout consistent across `/add`, edit flows, list manager, and `/settings`.
 
 ## Middleware Order (in createBot)
 
@@ -218,13 +218,14 @@ bot.use(conversations());         // Enables conversation plugin
 |---------|-------------|
 | `/start` | Welcome message |
 | `/add [name price currency cycle date]` | Add subscription (interactive or one-line) |
-| `/list` | List all subscriptions with inline buttons |
-| `/view <id>` | View subscription details |
-| `/edit <id> field value` | Edit a field (interactive or one-line) |
-| `/delete <id>` | Delete a subscription |
+| `/list` | List all subscriptions as compact text |
+| `/list_full` | Manage subscriptions with inline detail/action buttons |
 | `/export` | Export all data as encrypted JSON |
+| `/report` | Generate PNG spending reports |
+| `/report_text` | Generate text spending reports |
+| `/reminders` | Show upcoming reminders |
+| `/settings` | Configure reminder and report defaults |
 | `/delete_me` | Delete all user data (requires confirmation) |
-| `/cancel` | Exit all active conversations |
 | `/debug_me` | Dev-only diagnostic info (not in production) |
 
 ## BillingCycle

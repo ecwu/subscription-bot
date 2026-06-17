@@ -9,17 +9,11 @@
 | `/add`      | Add a new subscription (interactive or one-line) | Implemented   |
 | `/list`     | List all your subscriptions in compact text      | Implemented   |
 | `/list_full`| List subscriptions with inline action buttons    | Implemented   |
-| `/view`     | View subscription details by ID                  | Implemented   |
-| `/edit`     | Edit a subscription field (interactive or one-line) | Implemented |
-| `/delete`   | Delete a specific subscription                   | Implemented   |
-| `/pause`    | Pause a subscription                             | Implemented   |
-| `/resume`   | Resume a paused subscription                     | Implemented   |
 | `/export`   | Export your subscription data as JSON            | Implemented   |
 | `/report`   | Generate subscription spending PNG reports       | Implemented   |
 | `/report_text` | Generate text spending detail report         | Implemented   |
 | `/reminders`| Show upcoming renewals within reminder window    | Implemented   |
 | `/delete_me`| Delete all your data from the bot                | Implemented   |
-| `/cancel`   | Exit all active conversations                    | Implemented   |
 
 ## Development Commands
 
@@ -87,40 +81,17 @@ Displays a paginated inline list manager. Each page shows up to 8 subscriptions 
 
 The edit menu supports name, price, currency, cycle, and next billing date.
 
-### `/view <id>`
-
-Shows full details for a subscription. `id` can be the short ID (first 8 chars), a unique UUID prefix, or the full UUID. If a prefix is ambiguous, the bot asks for the full ID.
-
-### `/edit <id> field value`
-
-**One-line mode**:
-```
-/edit <id> date <YYYY-MM-DD>
-/edit <id> price <amount> <currency>
-/edit <id> cycle <value>
-```
-
-Cycle edits support the same fixed cycles and interval formats as `/add`, for example `/edit a1b2c3d4 cycle 30d`.
-
 **Interactive mode**:
 Click **编辑** from a `/list_full` detail view. The bot shows an inline keyboard with fields: Name, Price, Currency, Cycle, Next billing date, and Back. Text/date/cycle edits start conversations. Price can be skipped with a button in `/add`; currency custom input can return to the picker; advanced cycle intervals offer presets before custom text input. Trial and auto-renewal are direct actions on the detail view.
 
-### `/delete <id>`
+The detail view also supports deleting, pausing, and resuming a subscription without typed IDs. Delete shows a confirmation inline keyboard before deleting. Pause happens immediately. Resume starts a short confirmation/date conversation.
 
-Deletes a subscription after confirmation. `id` can be short ID, a unique UUID prefix, or full UUID. Shows a confirmation inline keyboard before deleting.
-
-### `/pause <id>`
-
-Pauses a subscription. Paused subscriptions remain stored and visible, but are excluded from:
+Paused subscriptions remain stored and visible, but are excluded from:
 - Scheduled reminders
 - Automatic past-due date advancement
 - Spending reports
 
-Paused subscriptions can be restored with `/resume <id>` or the `/list_full` detail view.
-
-### `/resume <id>`
-
-Starts a short resume conversation for a paused subscription. The bot shows inline buttons to resume with the existing date, open the shared date picker, or cancel. The user may also type a new date in `YYYY-MM-DD` format. The subscription is then marked active and re-added to the reminder index. Resume does not change trial or auto-renewal flags; if either flag is retained, the bot says so before and after restoring the subscription.
+The resume conversation shows inline buttons to resume with the existing date, open the shared date picker, or cancel. The user may also type a new date in `YYYY-MM-DD` format. The subscription is then marked active and re-added to the reminder index. Resume does not change trial or auto-renewal flags; if either flag is retained, the bot says so before and after restoring the subscription.
 
 ### `/export`
 
@@ -170,9 +141,9 @@ Requires confirmation via inline keyboard before permanently deleting all user d
 - User profile
 - Associated reminder entries
 
-### `/cancel`
+### Cancelling Conversations
 
-Calls `ctx.conversation.exitAll()`, safely ending all active conversations for the current chat. Safe to use outside of conversations.
+During active conversations, sending `/cancel` or `取消` aborts the current flow without saving partial input.
 
 ## Admin
 

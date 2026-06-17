@@ -38,9 +38,9 @@ If validation fails at any step, the conversation ends with an error message and
 Interval cycles also work in one-line usage, for example `/add Gym 30 CNY 30d 2026-06-01`.
 One-line usage creates active, paid, auto-renewing subscriptions.
 
-## /edit Conversation Behavior
+## Edit Conversation Behavior
 
-One interactive edit path exists, and one-line edit remains available for common fields:
+Editing is available from the inline list manager:
 
 ### Inline edit menu (callback-based)
 1. User clicks a subscription from `/list_full`, then clicks **编辑**.
@@ -63,10 +63,6 @@ Trial and auto-renewal are direct actions on the `/list_full` detail view instea
 - For Advanced interval, shows common presets first; custom interval text remains available behind **其他**.
 - `/cancel` is not available here; the user can simply ignore the message.
 
-### Legacy one-line usage
-`/edit <id> date|price|cycle <value>` still works.
-Cycle values can be fixed cycles or interval values such as `30d` and `every 4 weeks`.
-
 ## /list_full Behavior
 
 `/list_full` opens a paginated inline list manager:
@@ -83,17 +79,17 @@ Older list messages may show stale state; callback handlers re-load from KV befo
 
 Scheduled reminder messages include quick renewal buttons for subscriptions whose next cycle can be calculated. Clicking the button advances the subscription by one billing cycle and moves the reminder index, so the same due date will not keep reminding on later days. The callback includes the reminder's original billing date, so stale clicks after the date was already advanced do not advance another cycle.
 
-## /cancel Behavior
+## Conversation Cancel Input
 
-- `/cancel` calls `ctx.conversation.exitAll()`, which safely ends all active conversations for the current chat.
-- It is safe to use **outside** a conversation; the bot simply replies "已取消。"
+- Active conversations recognize `/cancel` and `取消` as cancellation input.
 - During `/add`, cancelling before the final Confirm step guarantees **no partial data is written to KV**.
+- Outside an active conversation, `/cancel` is not registered as a standalone command.
 
-## /pause and /resume Behavior
+## Pause and Resume Behavior
 
-`/pause <id>` marks a subscription as paused and removes it from the reminder index for its next billing date. Paused subscriptions remain visible but are excluded from reminders, automatic date advancement, and spending reports.
+The `/list_full` detail view can pause or resume a subscription. Pause marks the subscription as paused and removes it from the reminder index for its next billing date. Paused subscriptions remain visible but are excluded from reminders, automatic date advancement, and spending reports.
 
-`/resume <id>` starts `resumeConversation`:
+Resume starts `resumeConversation`:
 - If the subscription is already active, the bot says so and exits.
 - The bot shows the current relevant date using the subscription's date label (`下次扣款`, `体验到期/首次扣款`, or `服务到期`).
 - User can tap `按当前日期恢复` to keep that date.
@@ -130,7 +126,7 @@ The bot now uses `KvSessionStorage` instead of grammY's default in-memory storag
 - `sequentialize(getSessionKey)` serializes updates for the same user key to reduce KV read-modify-write races.
 
 ### Impact
-- Active `/add`, edit, and resume conversations can survive isolate changes as long as the session has not expired.
+- Active `/add`, edit, and resume-date conversations can survive isolate changes as long as the session has not expired.
 - Conversations can still expire after roughly 1 hour of inactivity.
 - If a conversation expires, old inline buttons hit fallback handlers and tell the user to restart the flow.
 

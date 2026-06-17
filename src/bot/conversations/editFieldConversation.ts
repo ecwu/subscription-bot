@@ -33,7 +33,7 @@ function isFromListManager(options?: ListManagerConversationOptions): boolean {
 function restartHint(options?: ListManagerConversationOptions): string {
   return isFromListManager(options)
     ? "\n请重新从详情中选择编辑。"
-    : "\n请发送 /edit 重新开始。";
+    : "\n请发送 /list_full 重新选择要编辑的订阅。";
 }
 
 async function replyWithListManagerDetail(
@@ -212,7 +212,7 @@ export async function editFieldConversation(
   }
 
   await ctx.reply(
-    `已更新“${updated.name}”的${fieldLabels[field]}。\n发送 /view 查看结果。`,
+    `已更新“${updated.name}”的${fieldLabels[field]}。\n发送 /list_full 查看结果。`,
   );
 }
 
@@ -301,6 +301,6 @@ export async function editCycleConversation(
     `已将“${updated.name}”的周期更新为${formatBillingCycle(
       cycle,
       billingInterval,
-    )}。\n发送 /view 查看结果。`,
+    )}。\n发送 /list_full 查看结果。`,
   );
 }

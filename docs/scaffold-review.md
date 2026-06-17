@@ -76,7 +76,7 @@ Added per-isolate in-memory rate limiting (`rateLimiter` middleware). Default: 6
 ### 10. Conversations and KV session storage
 **Status: ADDED**
 
-Multi-step flows (`/add`, `/list_full` edit actions, `/resume`) are implemented using `@grammyjs/conversations`. Fallback handlers are registered for conversation-specific callbacks to handle stale button clicks after conversations end.
+Multi-step flows (`/add`, `/list_full` edit actions, and list-manager resume actions) are implemented using `@grammyjs/conversations`. Fallback handlers are registered for conversation-specific callbacks to handle stale button clicks after conversations end.
 
 The bot now uses `KvSessionStorage` instead of the default in-memory grammY session storage:
 - Session keys are HMAC-hashed Telegram user IDs.

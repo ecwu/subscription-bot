@@ -14,7 +14,7 @@ The Subscription Bot is a Cloudflare Worker that receives Telegram updates via w
 ### Bot Layer (`src/bot/`)
 
 - `createBot.ts`: Configures the grammY bot with middleware, commands, conversations, and callbacks.
-- `commands/`: Full command handlers (`/start`, `/help`, `/add`, `/list`, `/list_full`, `/view`, `/edit`, `/delete`, `/pause`, `/resume`, `/export`, `/report`, `/report_text`, `/reminders`, `/delete_me`, `/cancel`, `/diagnosis`, `/admin_reminders`, `/debug_me`).
+- `commands/`: Full command handlers (`/start`, `/help`, `/add`, `/list`, `/list_full`, `/export`, `/report`, `/report_text`, `/reminders`, `/settings`, `/delete_me`, `/diagnosis`, `/admin_reminders`, `/debug_me`).
 - `conversations/`: Multi-step interactive flows (`addConversation`, `editFieldConversation`, `editCycleConversation`, `resumeConversation`).
 - `callbacks/`: Inline keyboard callback handlers (`sub`, `edit`, `delete`, `privacy`, list manager).
 - `keyboards/`: Reusable keyboard builders for inline buttons.
@@ -68,7 +68,7 @@ TypeScript interfaces and Zod schemas for:
 - `logger.ts`: Structured JSON logging.
 - `errors.ts`: Custom error classes.
 - `shortId.ts`: Short ID generation (first 8 chars of UUID).
-- `commandParser.ts` / `editParser.ts`: Argument parsers for one-line commands.
+- `commandParser.ts`: Argument parser for one-line `/add` commands.
 - `callbackParser.ts`: Typed callback data parsers.
 - `formatSubscription.ts`: Human-readable subscription formatting.
 - `labels.ts`: Localized labels for billing cycles and other enums.
