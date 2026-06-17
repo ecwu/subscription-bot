@@ -33,7 +33,7 @@
 
 | Command      | Description                                      | Availability  |
 |-------------|--------------------------------------------------|---------------|
-| `/diagnosis`| Check environment variable presence and validity | Admin only    |
+| `/diagnosis`| Check runtime configuration presence and validity | Admin only    |
 | `/admin_reminders` | Show reminder timezone distribution       | Admin only    |
 
 ## Command Details
@@ -190,8 +190,13 @@ Checks whether required runtime configuration is present and valid:
 - `SUBSCRIPTION_KV`
 - `APP_ENV`
 - `REMINDER_DAYS_AHEAD`
+- `EXCHANGE_RATE_BASE_CURRENCY`
+- `DEFAULT_REPORT_CURRENCY`
+- KV config `config:exchange-rates:v1`
 
-The report only includes status and validation messages. It never prints secret values, raw Telegram user IDs, usernames, message text, chat IDs, or `userKey`.
+There is no global currency environment variable. User default currency is stored per user in encrypted profile settings, and report exchange rates are stored in KV at `config:exchange-rates:v1`. `/diagnosis` checks the static report currency constants and validates the KV exchange-rate config when the KV binding is available.
+
+The report only includes status and validation messages. It never prints secret values, raw Telegram user IDs, usernames, message text, chat IDs, `userKey`, or exchange-rate values.
 
 ### `/admin_reminders`
 

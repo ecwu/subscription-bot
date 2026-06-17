@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buildEnvironmentDiagnosisChecks,
+  buildEnvironmentDiagnosisReport,
   buildDiagnosisChecks,
-  buildDiagnosisReport,
   diagnosisCommand,
 } from "../../../src/bot/commands/diagnosis.js";
+import { EXCHANGE_RATES_CONFIG_KEY } from "../../../src/repositories/reportConfigRepository.js";
+import { envSchema } from "../../../src/schemas/envSchema.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import type { BotContext } from "../../../src/types/context.js";
 import type { Env } from "../../../src/types/env.js";
@@ -12,9 +15,9 @@ const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
   "base64url",
 );
 
-function createMockKV(): KVNamespace {
+function createMockKV(store: Record<string, string> = {}): KVNamespace {
   return {
-    get: vi.fn(),
+    get: vi.fn(async (key: string) => store[key] ?? null),
     put: vi.fn(),
     delete: vi.fn(),
     list: vi.fn(),
@@ -57,7 +60,16 @@ describe("diagnosisCommand", () => {
   });
 
   it("reports valid environment without leaking secret values", async () => {
-    const ctx = createMockContext();
+    const ctx = createMockContext({
+      env: createEnv({
+        SUBSCRIPTION_KV: createMockKV({
+          [EXCHANGE_RATES_CONFIG_KEY]: JSON.stringify({
+            base: "USD",
+            rates: { USD: 1, CNY: 7.2, EUR: 0.92 },
+          }),
+        }),
+      }),
+    });
 
     await diagnosisCommand(ctx);
 
@@ -65,6 +77,8 @@ describe("diagnosisCommand", () => {
     expect(replyText).toContain("环境变量自检：通过");
     expect(replyText).toContain("[OK] ENCRYPTION_KEY");
     expect(replyText).toContain("[OK] SUBSCRIPTION_KV");
+    expect(replyText).toContain("[OK] DEFAULT_REPORT_CURRENCY");
+    expect(replyText).toContain("[OK] config:exchange-rates:v1");
     expect(replyText).not.toContain("bot-token");
     expect(replyText).not.toContain("webhook-secret");
     expect(replyText).not.toContain(VALID_KEY);
@@ -74,8 +88,18 @@ describe("diagnosisCommand", () => {
 });
 
 describe("buildDiagnosisChecks", () => {
-  it("marks invalid required configuration as errors", () => {
-    const checks = buildDiagnosisChecks({
+  it("covers every environment variable declared in envSchema", () => {
+    const checkNames = buildEnvironmentDiagnosisChecks(createEnv()).map(
+      (check) => check.name,
+    );
+
+    expect(checkNames).toEqual(
+      expect.arrayContaining(envSchema.keyof().options),
+    );
+  });
+
+  it("marks invalid required configuration as errors", async () => {
+    const checks = await buildDiagnosisChecks({
       BOT_TOKEN: "",
       TELEGRAM_WEBHOOK_SECRET: "",
       ENCRYPTION_KEY: "not-a-valid-master-key",
@@ -102,12 +126,20 @@ describe("buildDiagnosisChecks", () => {
           name: "REMINDER_DAYS_AHEAD",
           level: "error",
         }),
+        expect.objectContaining({
+          name: "EXCHANGE_RATE_BASE_CURRENCY",
+          level: "ok",
+        }),
+        expect.objectContaining({
+          name: "DEFAULT_REPORT_CURRENCY",
+          level: "ok",
+        }),
       ]),
     );
   });
 
   it("accepts optional defaults when unset", () => {
-    const report = buildDiagnosisReport(
+    const report = buildEnvironmentDiagnosisReport(
       createEnv({
         ADMIN_USER_ID: undefined,
         APP_ENV: undefined,
@@ -119,5 +151,87 @@ describe("buildDiagnosisChecks", () => {
     expect(report).toContain("ADMIN_USER_ID: not set");
     expect(report).toContain("APP_ENV: not set; defaults to development");
     expect(report).toContain("REMINDER_DAYS_AHEAD: not set; defaults to 3");
+  });
+
+  it("warns when exchange-rate KV config is missing", async () => {
+    const checks = await buildDiagnosisChecks(createEnv());
+
+    expect(checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: EXCHANGE_RATES_CONFIG_KEY,
+          level: "warn",
+          message: expect.stringContaining("missing"),
+        }),
+      ]),
+    );
+  });
+
+  it("errors when exchange-rate KV config is invalid", async () => {
+    const checks = await buildDiagnosisChecks(
+      createEnv({
+        SUBSCRIPTION_KV: createMockKV({
+          [EXCHANGE_RATES_CONFIG_KEY]: JSON.stringify({
+            base: "EUR",
+            rates: { USD: 1, CNY: -1 },
+          }),
+        }),
+      }),
+    );
+
+    expect(checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: EXCHANGE_RATES_CONFIG_KEY,
+          level: "error",
+        }),
+      ]),
+    );
+  });
+
+  it("warns when exchange-rate config misses the default report currency", async () => {
+    const checks = await buildDiagnosisChecks(
+      createEnv({
+        SUBSCRIPTION_KV: createMockKV({
+          [EXCHANGE_RATES_CONFIG_KEY]: JSON.stringify({
+            base: "USD",
+            rates: { USD: 1, EUR: 0.92 },
+          }),
+        }),
+      }),
+    );
+
+    expect(checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: EXCHANGE_RATES_CONFIG_KEY,
+          level: "warn",
+          message: expect.stringContaining("CNY"),
+        }),
+      ]),
+    );
+  });
+
+  it("accepts valid exchange-rate config with the default report currency", async () => {
+    const checks = await buildDiagnosisChecks(
+      createEnv({
+        SUBSCRIPTION_KV: createMockKV({
+          [EXCHANGE_RATES_CONFIG_KEY]: JSON.stringify({
+            base: "USD",
+            rates: { USD: 1, CNY: 7.2 },
+          }),
+        }),
+      }),
+    );
+
+    expect(checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: EXCHANGE_RATES_CONFIG_KEY,
+          level: "ok",
+          message: expect.stringContaining("2 currencies"),
+        }),
+      ]),
+    );
   });
 });

@@ -1,6 +1,13 @@
 import { parseMasterKey } from "../../crypto/masterKey.js";
+import { EXCHANGE_RATES_CONFIG_KEY } from "../../repositories/reportConfigRepository.js";
+import {
+  DEFAULT_REPORT_CURRENCY,
+  EXCHANGE_RATE_BASE_CURRENCY,
+  parseExchangeRateConfig,
+} from "../../services/reportService.js";
 import { BotContext } from "../../types/context.js";
 import { Env } from "../../types/env.js";
+import { validateCurrencyCode } from "../../utils/currency.js";
 import { createLogger } from "../../utils/logger.js";
 
 type DiagnosisLevel = "ok" | "warn" | "error";
@@ -174,7 +181,88 @@ function checkReminderDaysAhead(env: Partial<Env>): DiagnosisCheck {
   };
 }
 
-export function buildDiagnosisChecks(env: Partial<Env>): DiagnosisCheck[] {
+function checkStaticReportCurrencyConfig(): DiagnosisCheck[] {
+  const baseCurrency = validateCurrencyCode(EXCHANGE_RATE_BASE_CURRENCY);
+  const defaultCurrency = validateCurrencyCode(DEFAULT_REPORT_CURRENCY);
+
+  return [
+    {
+      name: "EXCHANGE_RATE_BASE_CURRENCY",
+      level: baseCurrency.error ? "error" : "ok",
+      message: baseCurrency.error
+        ? "must be a valid 3-letter currency code"
+        : `${baseCurrency.currency} base currency`,
+    },
+    {
+      name: "DEFAULT_REPORT_CURRENCY",
+      level: defaultCurrency.error ? "error" : "ok",
+      message: defaultCurrency.error
+        ? "must be a valid 3-letter currency code"
+        : `${defaultCurrency.currency} default report currency`,
+    },
+  ];
+}
+
+async function checkExchangeRateConfig(
+  env: Partial<Env>,
+): Promise<DiagnosisCheck> {
+  if (!env.SUBSCRIPTION_KV || !hasKvMethods(env.SUBSCRIPTION_KV)) {
+    return {
+      name: EXCHANGE_RATES_CONFIG_KEY,
+      level: "warn",
+      message: "skipped because SUBSCRIPTION_KV is unavailable",
+    };
+  }
+
+  let raw: string | null;
+  try {
+    raw = await env.SUBSCRIPTION_KV.get(EXCHANGE_RATES_CONFIG_KEY);
+  } catch {
+    return {
+      name: EXCHANGE_RATES_CONFIG_KEY,
+      level: "error",
+      message: "failed to read exchange-rate config from KV",
+    };
+  }
+
+  if (!raw) {
+    return {
+      name: EXCHANGE_RATES_CONFIG_KEY,
+      level: "warn",
+      message:
+        "missing; reports still work, but cross-currency totals cannot be converted",
+    };
+  }
+
+  const parsed = parseExchangeRateConfig(raw);
+  if (!parsed) {
+    return {
+      name: EXCHANGE_RATES_CONFIG_KEY,
+      level: "error",
+      message:
+        "invalid JSON; expected base USD and positive numeric 3-letter currency rates",
+    };
+  }
+
+  const currencies = Object.keys(parsed.rates);
+  if (!currencies.includes(DEFAULT_REPORT_CURRENCY)) {
+    return {
+      name: EXCHANGE_RATES_CONFIG_KEY,
+      level: "warn",
+      message: `valid, but missing ${DEFAULT_REPORT_CURRENCY} rate for default report totals`,
+    };
+  }
+
+  return {
+    name: EXCHANGE_RATES_CONFIG_KEY,
+    level: "ok",
+    message: `valid base ${parsed.base}; ${currencies.length} currencies configured`,
+  };
+}
+
+export function buildEnvironmentDiagnosisChecks(
+  env: Partial<Env>,
+): DiagnosisCheck[] {
   return [
     checkRequiredSecret("BOT_TOKEN", env),
     checkRequiredSecret("TELEGRAM_WEBHOOK_SECRET", env),
@@ -184,6 +272,16 @@ export function buildDiagnosisChecks(env: Partial<Env>): DiagnosisCheck[] {
     checkKvBinding(env),
     checkAppEnv(env),
     checkReminderDaysAhead(env),
+    ...checkStaticReportCurrencyConfig(),
+  ];
+}
+
+export async function buildDiagnosisChecks(
+  env: Partial<Env>,
+): Promise<DiagnosisCheck[]> {
+  return [
+    ...buildEnvironmentDiagnosisChecks(env),
+    await checkExchangeRateConfig(env),
   ];
 }
 
@@ -198,8 +296,12 @@ function formatStatus(level: DiagnosisLevel): string {
   }
 }
 
-export function buildDiagnosisReport(env: Partial<Env>): string {
-  return formatDiagnosisReport(buildDiagnosisChecks(env));
+export function buildEnvironmentDiagnosisReport(env: Partial<Env>): string {
+  return formatDiagnosisReport(buildEnvironmentDiagnosisChecks(env));
+}
+
+export async function buildDiagnosisReport(env: Partial<Env>): Promise<string> {
+  return formatDiagnosisReport(await buildDiagnosisChecks(env));
 }
 
 function formatDiagnosisReport(checks: DiagnosisCheck[]): string {
@@ -231,7 +333,7 @@ export async function diagnosisCommand(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const checks = buildDiagnosisChecks(ctx.env);
+  const checks = await buildDiagnosisChecks(ctx.env);
   await ctx.reply(formatDiagnosisReport(checks));
   logger.info("Environment diagnosis reported", {
     hasErrors: checks.some((check) => check.level === "error"),
