@@ -4,10 +4,10 @@ import { buildReportSvg } from "../src/utils/reportSvg.js";
 
 function report(overrides: Partial<ReportData> = {}): ReportData {
   return {
-    title: "月度摊平支出",
-    totalLabel: "月度摊平支出",
-    chartTitle: "月度摊平分布",
-    chartSubtitle: "按扣款日汇总的月度摊平支出",
+    title: "未来30天摊平支出",
+    totalLabel: "未来30天摊平支出",
+    chartTitle: "未来30天摊平分布",
+    chartSubtitle: "按未来30天日期汇总的月度摊平支出",
     generatedAt: "2026-06-17T00:00:00.000Z",
     baseCurrency: "EUR",
     subscriptionCount: 1,

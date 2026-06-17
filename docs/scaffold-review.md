@@ -101,7 +101,7 @@ Paused subscriptions are excluded from reminders, spending reports, and automati
 ### 12. Reports
 **Status: ADDED**
 
-`/report` generates PNG reports for monthly-equivalent spending, upcoming 30-day due spending, and future 12-month projected spending. `/report_text` provides Telegram-safe text chunks with upcoming 30-day and projected line items.
+`/report` generates PNG reports for upcoming 30-day monthly-equivalent spending, upcoming 30-day due spending, and future 12-month projected spending. `/report_text` provides Telegram-safe text chunks with upcoming 30-day and projected line items.
 
 ## Remaining Risks
 

@@ -28,7 +28,7 @@ const COLORS = {
 };
 
 export function buildReportSvg(report: ReportData): string {
-  const isMonthlyView = report.title === "月度摊平支出";
+  const isMonthlyView = report.title.includes("摊平");
   const isYearView = report.monthDistribution !== undefined;
 
   let bars = "";

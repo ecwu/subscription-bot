@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  parseMainMenuCallbackData,
   parseSubCallbackData,
   parseReminderCallbackData,
   parseEditCallbackData,
@@ -14,6 +15,30 @@ import {
   parseListCallbackData,
   parseSettingsCallbackData,
 } from "../src/utils/callbackParser.js";
+
+describe("parseMainMenuCallbackData", () => {
+  it("parses menu actions", () => {
+    expect(parseMainMenuCallbackData("menu:add")).toEqual({ action: "add" });
+    expect(parseMainMenuCallbackData("menu:list")).toEqual({ action: "list" });
+    expect(parseMainMenuCallbackData("menu:report")).toEqual({
+      action: "report",
+    });
+    expect(parseMainMenuCallbackData("menu:reminders")).toEqual({
+      action: "reminders",
+    });
+    expect(parseMainMenuCallbackData("menu:settings")).toEqual({
+      action: "settings",
+    });
+    expect(parseMainMenuCallbackData("menu:help")).toEqual({ action: "help" });
+  });
+
+  it("returns null for invalid menu data", () => {
+    expect(parseMainMenuCallbackData("menu:unknown")).toBeNull();
+    expect(parseMainMenuCallbackData("menu:")).toBeNull();
+    expect(parseMainMenuCallbackData("sub:view:abc")).toBeNull();
+    expect(parseMainMenuCallbackData(undefined)).toBeNull();
+  });
+});
 
 describe("parseSubCallbackData", () => {
   it("parses view callback", () => {

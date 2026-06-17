@@ -62,6 +62,14 @@ import {
   listDeleteCancelCallback,
   listEditFieldCallback,
 } from "./callbacks/listCallbacks.js";
+import {
+  mainMenuCallback,
+  mainMenuText,
+} from "./callbacks/mainMenuCallbacks.js";
+import {
+  MAIN_MENU_ACTIONS,
+  MAIN_MENU_BUTTON_LABELS,
+} from "./keyboards/mainMenuKeyboard.js";
 
 function createGetSessionKey(env: Env) {
   return async (ctx: Context): Promise<string | undefined> => {
@@ -154,6 +162,11 @@ export function createBot(env: Env): Bot<BotContext> {
   }
 
   // Callbacks — use regex for dynamic callback data
+  for (const action of MAIN_MENU_ACTIONS) {
+    bot.hears(MAIN_MENU_BUTTON_LABELS[action], mainMenuText);
+  }
+
+  bot.callbackQuery(/^menu:/, mainMenuCallback);
   bot.callbackQuery(/^delete:confirm:/, deleteConfirmCallback);
   bot.callbackQuery(/^delete:cancel:/, deleteCancelCallback);
 

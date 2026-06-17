@@ -2,6 +2,19 @@
 
 This document reviews the Telegram interactive flows, session behavior, callback safety, and known UX limitations.
 
+## /start Main Menu Behavior
+
+`/start` sends a short welcome message with a persistent reply keyboard and an inline main menu. The menu actions route to existing flows instead of duplicating business logic:
+
+- **添加订阅** starts the `/add` conversation.
+- **管理订阅** opens the `/list_full` inline list manager.
+- **支出报告** runs `/report`.
+- **近期扣款** runs `/reminders`.
+- **提醒设置** starts `/settings`.
+- **帮助** shows `/help`.
+
+The persistent reply keyboard is the closest Telegram-supported behavior to showing choices when a user returns to the chat. Bots cannot detect that a user has opened or returned to the chat screen, so the bot cannot proactively pop up a fresh menu without an incoming update.
+
 ## /add Conversation Behavior
 
 The `/add` command starts a multi-step conversation when called without arguments:
@@ -139,6 +152,8 @@ All subscription-related callbacks (`sub:view`, `sub:edit`, `sub:delete`, `sub:p
 All callbacks use `parse*CallbackData` helpers. If parsing fails:
 - The callback query is answered with "Invalid callback data."
 - No further action is taken.
+
+Main menu callbacks use the `menu:<action>` namespace and answer invalid menu buttons with a short prompt to send `/start` again.
 
 ### Expired conversation buttons
 Buttons specific to active conversations (`cycle:`, `editcycle:`, `cycleint:`, `addprice:`, `addcurrency:`, `adddate:`, `addpreview:`, `addtrial:`, `addrenew:`, `add:confirm`, `add:cancel`) have **fallback handlers** registered after the conversation handlers. If a conversation has ended (session expired, user cancelled, or abandoned), these fallback handlers:

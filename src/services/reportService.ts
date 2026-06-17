@@ -181,7 +181,7 @@ export function buildReportData(
       ? (getLocalTimeInfo(timezone)?.date ?? formatDate(referenceDate))
       : formatDate(referenceDate);
   const generatedAt = new Date().toISOString();
-  const monthlyDayDistribution = buildFullMonthDayDistribution(
+  const monthlyDayDistribution = buildUpcomingMonthlyDayDistribution(
     subscriptions,
     exchangeRates,
     today,
@@ -194,16 +194,17 @@ export function buildReportData(
     baseCurrency,
   );
   const currentMonthly = buildReportView({
-    title: "月度摊平支出",
-    totalLabel: "月度摊平支出",
-    chartTitle: "月度摊平分布",
-    chartSubtitle: "按扣款日汇总的月度摊平支出",
+    title: "未来30天摊平支出",
+    totalLabel: "未来30天摊平支出",
+    chartTitle: "未来30天摊平分布",
+    chartSubtitle: "按未来30天日期汇总的月度摊平支出",
     subscriptions,
     exchangeRates,
     baseCurrency,
     today,
-    amountForSubscription: monthlyAmountIfCurrentlyActive,
+    amountForSubscription: monthlyAmountIfDueInUpcomingWindow,
     dayDistribution: monthlyDayDistribution,
+    dayLabelPrefix: "T+",
   });
   const currentMonthDue = buildReportView({
     title: "未来30天支出",
@@ -374,18 +375,14 @@ function buildReportView({
   };
 }
 
-function buildFullMonthDayDistribution(
+function buildUpcomingMonthlyDayDistribution(
   subscriptions: Subscription[],
   exchangeRates: ExchangeRateConfig | null,
   today: string,
   baseCurrency: string,
 ): ReportDayDistribution[] {
-  const year = Number(today.slice(0, 4));
-  const month = Number(today.slice(5, 7));
-  const daysInMonth = new Date(year, month, 0).getDate();
-
-  const actualByDay = new Map<number, number>();
-  const monthlyByDay = new Map<number, number>();
+  const monthlyByOffset = new Map<number, number>();
+  const windowEnd = upcomingWindowEnd(today);
 
   for (const sub of subscriptions) {
     if (sub.status === "paused") continue;
@@ -396,17 +393,7 @@ function buildFullMonthDayDistribution(
     if (sub.billingCycle === "custom") continue;
 
     const currency = sub.currency.toUpperCase();
-    const convertedActualAmount = convertToReportCurrency(
-      sub.price ?? 0,
-      currency,
-      exchangeRates,
-      baseCurrency,
-    );
-    if (convertedActualAmount === undefined) continue;
-
-    const monthlyDay = getBillingDay(sub.nextBillingDate);
-
-    const monthlyAmount = monthlyAmountIfCurrentlyActive(sub, today);
+    const monthlyAmount = monthlyAmountIfDueInUpcomingWindow(sub, today);
     if (monthlyAmount !== null) {
       const convertedMonthlyAmount = convertToReportCurrency(
         monthlyAmount,
@@ -416,28 +403,22 @@ function buildFullMonthDayDistribution(
       );
       if (convertedMonthlyAmount === undefined) continue;
 
-      monthlyByDay.set(
-        monthlyDay,
-        (monthlyByDay.get(monthlyDay) ?? 0) + convertedMonthlyAmount,
-      );
-    }
-
-    const actualBillingDate = findActualBillingDateForCurrentMonth(sub, today);
-    if (actualBillingDate !== null) {
-      const actualDay = getBillingDay(actualBillingDate);
-      actualByDay.set(
-        actualDay,
-        (actualByDay.get(actualDay) ?? 0) + convertedActualAmount,
+      const billingDate = findFirstBillingDateInWindow(sub, today, windowEnd);
+      if (billingDate === null) continue;
+      const offset = daysBetween(today, billingDate);
+      monthlyByOffset.set(
+        offset,
+        (monthlyByOffset.get(offset) ?? 0) + convertedMonthlyAmount,
       );
     }
   }
 
   const distribution: ReportDayDistribution[] = [];
-  for (let day = 1; day <= daysInMonth; day++) {
+  for (let offset = 0; offset < 30; offset++) {
     distribution.push({
-      day,
-      actualTotal: actualByDay.get(day) ?? 0,
-      monthlyEquivalentTotal: monthlyByDay.get(day) ?? 0,
+      day: offset,
+      actualTotal: 0,
+      monthlyEquivalentTotal: monthlyByOffset.get(offset) ?? 0,
       actualCount: 0,
     });
   }
@@ -611,53 +592,19 @@ function monthlyEquivalentForSubscription(sub: Subscription): number | null {
   return monthlyEquivalent(sub.price ?? 0, sub.billingCycle);
 }
 
-function monthlyAmountIfCurrentlyActive(
+function monthlyAmountIfDueInUpcomingWindow(
   sub: Subscription,
   today: string,
 ): number | null {
-  if (!isWithinActiveWindow(sub, today)) {
+  const billingDate = findFirstBillingDateInWindow(
+    sub,
+    today,
+    upcomingWindowEnd(today),
+  );
+  if (billingDate === null) {
     return null;
   }
   return monthlyEquivalentForSubscription(sub);
-}
-
-function findActualBillingDateForCurrentMonth(
-  sub: Subscription,
-  today: string,
-): string | null {
-  if (sub.billingCycle === "custom") return null;
-
-  // Case 1: upcoming payment this month
-  if (isInCurrentMonth(sub.nextBillingDate, today)) {
-    return sub.nextBillingDate;
-  }
-
-  // Case 2: already paid this month, nextBillingDate was advanced past current month
-  const anchorDay =
-    sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
-  const prevDate = getPreviousBillingDate(
-    sub.nextBillingDate,
-    sub.billingCycle,
-    anchorDay,
-    sub.billingInterval,
-  );
-  if (!prevDate || !isInCurrentMonth(prevDate, today) || prevDate > today) {
-    return null;
-  }
-
-  // Verify this is a real past billing, not a phantom first billing.
-  // Require that there was at least one full cycle before prevDate.
-  const prevPrevDate = getPreviousBillingDate(
-    prevDate,
-    sub.billingCycle,
-    anchorDay,
-    sub.billingInterval,
-  );
-  if (prevPrevDate && sub.createdAt.slice(0, 10) <= prevPrevDate) {
-    return prevDate;
-  }
-
-  return null;
 }
 
 function actualAmountIfDueInUpcomingWindow(
@@ -672,64 +619,6 @@ function actualAmountIfDueInUpcomingWindow(
   return billingDates.length > 0
     ? (sub.price ?? 0) * billingDates.length
     : null;
-}
-
-function isWithinActiveWindow(sub: Subscription, today: string): boolean {
-  let nextDate = sub.nextBillingDate;
-
-  // Advance past-due dates to the next future date
-  if (nextDate < today) {
-    const anchorDay =
-      sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
-    let iterations = 0;
-    while (nextDate < today && iterations < 400) {
-      const next = getNextBillingDate(
-        nextDate,
-        sub.billingCycle,
-        anchorDay,
-        sub.billingInterval,
-      );
-      if (!next || next <= nextDate) break;
-      nextDate = next;
-      iterations++;
-    }
-    if (nextDate < today) return false;
-  }
-
-  let windowEnd: string;
-  if (sub.billingCycle === "interval") {
-    const intervalEnd = intervalWindowEnd(sub, today);
-    if (!intervalEnd) return false;
-    windowEnd = intervalEnd;
-  } else if (sub.billingCycle === "weekly") windowEnd = addDays(today, 7);
-  else if (sub.billingCycle === "monthly") windowEnd = addMonths(today, 1);
-  else if (sub.billingCycle === "quarterly") windowEnd = addMonths(today, 3);
-  else if (sub.billingCycle === "yearly") windowEnd = addYears(today, 1);
-  else return false;
-
-  return nextDate <= windowEnd;
-}
-
-function intervalWindowEnd(sub: Subscription, today: string): string | null {
-  if (sub.billingCycle !== "interval") return null;
-  if (!sub.billingInterval) return null;
-  if (sub.billingInterval.unit === "day") {
-    return addDays(today, sub.billingInterval.count);
-  }
-  if (sub.billingInterval.unit === "week") {
-    return addDays(today, sub.billingInterval.count * 7);
-  }
-  if (sub.billingInterval.unit === "month") {
-    return addMonths(today, sub.billingInterval.count);
-  }
-  if (sub.billingInterval.unit === "year") {
-    return addYears(today, sub.billingInterval.count);
-  }
-  return null;
-}
-
-function isInCurrentMonth(nextBillingDate: string, today: string): boolean {
-  return nextBillingDate.slice(0, 7) === today.slice(0, 7);
 }
 
 function getBillingDay(date: string): number {
@@ -789,6 +678,14 @@ function findBillingDatesInWindow(
   }
 
   return dates;
+}
+
+function findFirstBillingDateInWindow(
+  sub: Subscription,
+  startDate: string,
+  endDate: string,
+): string | null {
+  return findBillingDatesInWindow(sub, startDate, endDate)[0] ?? null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

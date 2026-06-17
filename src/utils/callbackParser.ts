@@ -1,3 +1,36 @@
+export const MAIN_MENU_ACTIONS = [
+  "add",
+  "list",
+  "report",
+  "reminders",
+  "settings",
+  "help",
+] as const;
+
+export type MainMenuAction = (typeof MAIN_MENU_ACTIONS)[number];
+
+/**
+ * Parse main menu callback data.
+ *
+ * Expected formats:
+ *   menu:add
+ *   menu:list
+ *   menu:report
+ *   menu:reminders
+ *   menu:settings
+ *   menu:help
+ */
+export function parseMainMenuCallbackData(
+  callbackData: string | undefined,
+): { action: MainMenuAction } | null {
+  const prefix = "menu:";
+  if (!callbackData?.startsWith(prefix)) return null;
+  const action = callbackData.slice(prefix.length);
+  return MAIN_MENU_ACTIONS.includes(action as MainMenuAction)
+    ? { action: action as MainMenuAction }
+    : null;
+}
+
 export interface DeleteCallbackData {
   action: "confirm" | "cancel";
   subId: string;

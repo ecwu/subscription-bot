@@ -1,6 +1,10 @@
 import { BotContext } from "../../types/context.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createLogger } from "../../utils/logger.js";
+import {
+  mainMenuInlineKeyboard,
+  mainMenuReplyKeyboard,
+} from "../keyboards/mainMenuKeyboard.js";
 
 export async function startCommand(ctx: BotContext): Promise<void> {
   const logger = createLogger(ctx.requestId);
@@ -8,11 +12,9 @@ export async function startCommand(ctx: BotContext): Promise<void> {
   if (!ctx.userKey) {
     await ctx.reply(
       "欢迎使用订阅管理机器人。\n\n" +
-        "我可以帮你记录各种周期性订阅，提醒下次扣款日期，并汇总每月支出。\n\n" +
-        "开始使用：\n" +
-        "• /add — 添加第一个订阅\n" +
-        "• /help — 查看全部命令\n" +
-        "• /report — 查看月度支出概览",
+        "我可以帮你记录周期性订阅、提醒下次扣款，并汇总每月支出。\n\n" +
+        "请选择下面的操作开始。",
+      { reply_markup: mainMenuReplyKeyboard() },
     );
     logger.info("Start command without userKey");
     return;
@@ -25,25 +27,27 @@ export async function startCommand(ctx: BotContext): Promise<void> {
   if (isFirstTime) {
     await ctx.reply(
       "欢迎使用订阅管理机器人。\n\n" +
-        "我可以帮你记录各种周期性订阅，提醒下次扣款日期，并汇总每月支出。\n\n" +
-        "*快速开始：*\n" +
-        "1️⃣ 发送 /add 逐步添加订阅\n" +
-        "   也可以用一行命令：`/add Netflix 12.99 CNY monthly 2026-06-01`\n\n" +
-        "2️⃣ 发送 /list 查看全部订阅\n\n" +
-        "3️⃣ 发送 /report 查看月度支出\n\n" +
-        "需要帮助时，随时发送 /help。",
-      { parse_mode: "Markdown" },
+        "我可以帮你记录周期性订阅、提醒下次扣款，并汇总每月支出。\n\n" +
+        "先添加第一个订阅；添加后可以在列表里查看、编辑、暂停或删除。",
+      {
+        reply_markup: mainMenuReplyKeyboard(),
+      },
     );
+    await ctx.reply("选择一个操作：", {
+      reply_markup: mainMenuInlineKeyboard(),
+    });
     logger.info("Start command: first-time welcome");
   } else {
     await ctx.reply(
       "欢迎回来。\n\n" +
-        "常用操作：\n" +
-        "• /add — 添加新订阅\n" +
-        "• /list — 查看订阅列表\n" +
-        "• /report — 查看支出概览\n" +
-        "• /help — 查看全部命令",
+        "请选择下面的操作。底部的快捷按钮会保留，回到聊天时也可以直接点。",
+      {
+        reply_markup: mainMenuReplyKeyboard(),
+      },
     );
+    await ctx.reply("选择一个操作：", {
+      reply_markup: mainMenuInlineKeyboard(),
+    });
     logger.info("Start command: returning user welcome", {
       subscriptionCount: existingIds.length,
     });

@@ -131,7 +131,7 @@ The export does **not** include `userKey`, raw Telegram ID, `chat_id`, or encryp
 ### `/report`
 
 Generates PNG image reports from the current subscription list:
-- 月度摊平支出：monthly-equivalent run rate for subscriptions whose next billing date is within one billing-cycle window from today.
+- 未来 30 天摊平支出：monthly-equivalent run rate for subscriptions with an actual payment due from today through the next 30 days.
 - 未来 30 天支出：actual payment amounts due from today through the next 30 days.
 - 年度预期支出：projected actual charges over the next 12 months.
 - Per-currency totals and date/month distribution for each report.

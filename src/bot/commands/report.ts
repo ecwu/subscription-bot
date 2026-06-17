@@ -58,9 +58,9 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
     const yearlyProjectionPng = await renderReportPng(report.yearlyProjection);
 
     await ctx.replyWithPhoto(
-      new InputFile(currentMonthlyPng, "current-monthly-report.png"),
+      new InputFile(currentMonthlyPng, "upcoming-30-days-monthly-report.png"),
       {
-        caption: "当前月度支出",
+        caption: "未来30天摊平支出",
       },
     );
 

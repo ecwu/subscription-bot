@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import { startCommand } from "../src/bot/commands/start.js";
+import {
+  MAIN_MENU_BUTTON_LABELS,
+  mainMenuCallbackData,
+} from "../src/bot/keyboards/mainMenuKeyboard.js";
 import type { BotContext } from "../src/types/context.js";
 
 const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
@@ -55,16 +59,24 @@ describe("startCommand", () => {
 
     await startCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledTimes(1);
+    expect(ctx.reply).toHaveBeenCalledTimes(2);
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(replyText).toContain("欢迎使用");
-    expect(replyText).toContain("/add");
-    expect(replyText).toContain("/report");
-    expect(replyText).toContain("/help");
+    expect(replyText).toContain("添加第一个订阅");
 
     const replyOptions = (ctx.reply as ReturnType<typeof vi.fn>).mock
       .calls[0][1];
-    expect(replyOptions).toEqual({ parse_mode: "Markdown" });
+    expect(replyOptions.reply_markup.keyboard[0][0].text).toBe(
+      MAIN_MENU_BUTTON_LABELS.add,
+    );
+    expect(replyOptions.reply_markup.is_persistent).toBe(true);
+
+    const menuOptions = (ctx.reply as ReturnType<typeof vi.fn>).mock
+      .calls[1][1];
+    expect(menuOptions.reply_markup.inline_keyboard[0][0]).toEqual({
+      text: MAIN_MENU_BUTTON_LABELS.add,
+      callback_data: mainMenuCallbackData("add"),
+    });
   });
 
   it("welcomes returning users when subscriptions exist", async () => {
@@ -74,12 +86,17 @@ describe("startCommand", () => {
 
     await startCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledTimes(1);
+    expect(ctx.reply).toHaveBeenCalledTimes(2);
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(replyText).toContain("欢迎回来");
-    expect(replyText).toContain("/add");
-    expect(replyText).toContain("/list");
-    expect(replyText).toContain("/report");
+    expect(replyText).toContain("快捷按钮");
+
+    const menuOptions = (ctx.reply as ReturnType<typeof vi.fn>).mock
+      .calls[1][1];
+    expect(menuOptions.reply_markup.inline_keyboard.flat()).toContainEqual({
+      text: MAIN_MENU_BUTTON_LABELS.list,
+      callback_data: mainMenuCallbackData("list"),
+    });
   });
 
   it("sends a plain welcome when userKey is missing", async () => {
@@ -91,8 +108,12 @@ describe("startCommand", () => {
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const replyText = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(replyText).toContain("欢迎使用");
-    expect(replyText).toContain("/add");
-    expect(replyText).toContain("/help");
-    expect(replyText).toContain("/report");
+    expect(replyText).toContain("请选择下面的操作");
+
+    const replyOptions = (ctx.reply as ReturnType<typeof vi.fn>).mock
+      .calls[0][1];
+    expect(replyOptions.reply_markup.keyboard[0][0].text).toBe(
+      MAIN_MENU_BUTTON_LABELS.add,
+    );
   });
 });

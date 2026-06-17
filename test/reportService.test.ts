@@ -80,26 +80,26 @@ describe("buildReportData", () => {
     rates: { USD: 1, CNY: 7, EUR: 0.875 },
   };
 
-  it("normalizes currently active supported billing cycles to monthly run-rate", () => {
+  it("normalizes supported billing cycles due in the next 30 days to monthly run-rate", () => {
     const report = buildReportData(
       [
         sub({
           id: "monthly",
           price: 10,
           billingCycle: "monthly",
-          nextBillingDate: "2026-06-17",
+          nextBillingDate: "2026-06-15",
         }),
         sub({
           id: "yearly",
           price: 120,
           billingCycle: "yearly",
-          nextBillingDate: "2027-05-17",
+          nextBillingDate: "2026-06-10",
         }),
         sub({
           id: "quarterly",
           price: 30,
           billingCycle: "quarterly",
-          nextBillingDate: "2026-08-17",
+          nextBillingDate: "2026-06-12",
         }),
         sub({
           id: "weekly",
@@ -123,7 +123,7 @@ describe("buildReportData", () => {
     expect(report.currentMonthly.byCurrency[0].total).toBeCloseTo(82);
   });
 
-  it("normalizes interval cycles and uses their interval as active window", () => {
+  it("normalizes interval cycles due in the next 30 days", () => {
     const report = buildReportData(
       [
         sub({
@@ -154,15 +154,15 @@ describe("buildReportData", () => {
 
     expect(report.currentMonthly.includedCount).toBe(2);
     expect(report.currentMonthly.byCurrency[0].total).toBeCloseTo(
-      (12 * 365) / 30 / 12 + (12 * 52) / 4 / 12,
+      (12 * 52) / 4 / 12 + (12 * 52) / 4 / 12,
     );
   });
 
-  it("excludes far-future prepaid subscriptions from current monthly run-rate", () => {
+  it("excludes subscriptions not due in the next 30 days from monthly run-rate", () => {
     const report = buildReportData(
       [
         sub({
-          id: "active-yearly",
+          id: "outside-window-yearly",
           price: 120,
           billingCycle: "yearly",
           nextBillingDate: "2027-05-17",
@@ -178,8 +178,8 @@ describe("buildReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(report.currentMonthly.includedCount).toBe(1);
-    expect(report.currentMonthly.totalBase).toBeCloseTo(70);
+    expect(report.currentMonthly.includedCount).toBe(0);
+    expect(report.currentMonthly.totalBase).toBe(0);
   });
 
   it("excludes custom cycle and subscriptions without price or currency", () => {
@@ -300,7 +300,7 @@ describe("buildReportData", () => {
     ).toBeCloseTo(8.75);
   });
 
-  it("builds current-month run-rate and upcoming 30-day due distributions", () => {
+  it("builds upcoming 30-day run-rate and due distributions", () => {
     const report = buildReportData(
       [
         sub({
@@ -332,22 +332,22 @@ describe("buildReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    // May has 31 days
-    expect(report.currentMonthly.dayDistribution).toHaveLength(31);
+    expect(report.currentMonthly.dayDistribution).toHaveLength(30);
+    expect(report.currentMonthly.dayLabelPrefix).toBe("T+");
     expect(report.currentMonthDue.dayDistribution).toHaveLength(30);
     expect(report.currentMonthDue.dayLabelPrefix).toBe("T+");
 
-    const day1 = report.currentMonthly.dayDistribution.find(
-      (item) => item.day === 1,
-    )!;
-    expect(day1.monthlyEquivalentTotal).toBeCloseTo(210);
-    expect(day1.actualTotal).toBe(0);
-
-    const day15 = report.currentMonthly.dayDistribution.find(
+    const offset15Monthly = report.currentMonthly.dayDistribution.find(
       (item) => item.day === 15,
     )!;
-    expect(day15.monthlyEquivalentTotal).toBeCloseTo(40);
-    expect(day15.actualTotal).toBe(0);
+    expect(offset15Monthly.monthlyEquivalentTotal).toBeCloseTo(210);
+    expect(offset15Monthly.actualTotal).toBe(0);
+
+    const offset29Monthly = report.currentMonthly.dayDistribution.find(
+      (item) => item.day === 29,
+    )!;
+    expect(offset29Monthly.monthlyEquivalentTotal).toBeCloseTo(40);
+    expect(offset29Monthly.actualTotal).toBe(0);
 
     const offset15 = report.currentMonthDue.dayDistribution.find(
       (item) => item.day === 15,
@@ -369,7 +369,7 @@ describe("buildReportData", () => {
     expect(day10.actualTotal).toBe(0);
   });
 
-  it("handles February month length correctly", () => {
+  it("uses a fixed 30-day window across February", () => {
     const report = buildReportData(
       [
         sub({
@@ -377,15 +377,16 @@ describe("buildReportData", () => {
           price: 10,
           currency: "USD",
           nextBillingDate: "2026-02-20",
+          createdAt: "2026-02-01T00:00:00.000Z",
         }),
       ],
       rates,
       new Date("2026-02-15T00:00:00.000Z"),
     );
 
-    expect(report.currentMonthly.dayDistribution).toHaveLength(28);
+    expect(report.currentMonthly.dayDistribution).toHaveLength(30);
     const day20 = report.currentMonthly.dayDistribution.find(
-      (item) => item.day === 20,
+      (item) => item.day === 5,
     )!;
     expect(day20.monthlyEquivalentTotal).toBeCloseTo(70);
   });
@@ -419,8 +420,7 @@ describe("buildReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    // May has 31 days
-    expect(report.currentMonthly.dayDistribution).toHaveLength(31);
+    expect(report.currentMonthly.dayDistribution).toHaveLength(30);
     expect(report.currentMonthDue.dayDistribution).toHaveLength(30);
 
     // Day 20: yearly due in May + active in the monthly run-rate view
@@ -579,7 +579,7 @@ describe("buildReportData", () => {
 
     const text = formatReportText(report);
     expect(text).toContain("订阅支出报告");
-    expect(text).toContain("月度摊平支出");
+    expect(text).toContain("未来30天摊平支出");
     expect(text).toContain("未来30天支出");
     expect(text).toContain("年度预期支出");
     expect(text).not.toContain("Private Service");
