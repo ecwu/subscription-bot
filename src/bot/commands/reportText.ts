@@ -42,7 +42,12 @@ export async function reportTextCommand(ctx: BotContext): Promise<void> {
   );
   const timezone = settings.timezone || "UTC";
 
-  const data = buildTextReportData(subscriptions, exchangeRates, timezone);
+  const data = buildTextReportData(
+    subscriptions,
+    exchangeRates,
+    timezone,
+    settings.defaultCurrency,
+  );
   const chunks = formatTextReport(data);
 
   for (const chunk of chunks) {

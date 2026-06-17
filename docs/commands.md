@@ -137,7 +137,7 @@ Multi-currency conversion uses the manually maintained KV config key `config:exc
 { "base": "USD", "rates": { "USD": 1, "CNY": 7.2, "EUR": 0.923 } }
 ```
 
-Rates are maintained with USD as the exchange-rate base (`1 USD = N currency`). Report totals are still shown in CNY: source currency amounts are converted to USD first, then from USD to CNY. Currencies missing from the exchange-rate config remain visible in the per-currency section but are not converted into the CNY total.
+Rates are maintained with USD as the exchange-rate base (`1 USD = N currency`). Report totals use the user's default currency from `/settings`: source currency amounts are converted to USD first, then from USD to that default currency. Currencies missing from the exchange-rate config remain visible in the per-currency section but are not converted into the default-currency total.
 
 If PNG generation fails, the bot falls back to a plain-text report.
 
@@ -145,7 +145,7 @@ If PNG generation fails, the bot falls back to a plain-text report.
 
 Generates a text report split into Telegram-safe message chunks:
 - Current-month due line items, sorted by billing day.
-- Converted current-month total in CNY.
+- Converted current-month total in the user's default currency.
 - Future 12-month projection grouped by month.
 - Trial and non-auto-renewing counts excluded from totals.
 

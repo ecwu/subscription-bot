@@ -115,7 +115,9 @@ describe("delete confirmation callbacks", () => {
 
     await deleteConfirmCallback(ctx);
 
-    expect(await createService(kv).get("user-key", "sub-1", VALID_KEY)).toBeNull();
+    expect(
+      await createService(kv).get("user-key", "sub-1", VALID_KEY),
+    ).toBeNull();
     expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已删除。");
     expect(ctx.editMessageText).toHaveBeenCalledWith("“Netflix”已删除。");
   });
@@ -161,7 +163,9 @@ describe("delete confirmation callbacks", () => {
 
     await deleteCancelCallback(ctx);
 
-    expect(await createService(kv).get("user-key", "sub-1", VALID_KEY)).not.toBeNull();
+    expect(
+      await createService(kv).get("user-key", "sub-1", VALID_KEY),
+    ).not.toBeNull();
     expect(ctx.answerCallbackQuery).toHaveBeenCalledWith("已取消。");
     expect(ctx.editMessageText).toHaveBeenCalledWith("已取消删除。");
   });
@@ -227,7 +231,9 @@ describe("privacy delete callbacks", () => {
 
 describe("subscription callbacks", () => {
   it("formats subscription details", () => {
-    const text = formatSubDetails(createSub({ isTrial: true, autoRenew: false }));
+    const text = formatSubDetails(
+      createSub({ isTrial: true, autoRenew: false }),
+    );
 
     expect(text).toContain("Netflix");
     expect(text).toContain("价格：12.99 USD");

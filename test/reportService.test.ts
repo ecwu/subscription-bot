@@ -268,6 +268,38 @@ describe("buildReportData", () => {
     expect(report.currentMonthly.byCurrency[0].convertedTotal).toBeCloseTo(80);
   });
 
+  it("uses a caller-provided report currency for converted totals", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "usd",
+          price: 10,
+          currency: "USD",
+        }),
+        sub({
+          id: "cny",
+          price: 70,
+          currency: "CNY",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+      "EUR",
+    );
+
+    expect(report.baseCurrency).toBe("EUR");
+    expect(report.currentMonthly.baseCurrency).toBe("EUR");
+    expect(report.currentMonthly.totalBase).toBeCloseTo(17.5);
+    expect(
+      report.currentMonthly.byCurrency.find((item) => item.currency === "USD")
+        ?.convertedTotal,
+    ).toBeCloseTo(8.75);
+    expect(
+      report.currentMonthly.byCurrency.find((item) => item.currency === "CNY")
+        ?.convertedTotal,
+    ).toBeCloseTo(8.75);
+  });
+
   it("builds a full current-month day distribution with both totals", () => {
     const report = buildReportData(
       [
@@ -746,6 +778,27 @@ describe("buildTextReportData", () => {
       billingDay: 20,
     });
     expect(data.currentMonthTotal).toBeCloseTo(15 + 10 * 7);
+  });
+
+  it("uses a caller-provided report currency for text totals", () => {
+    const data = buildTextReportData(
+      [
+        sub({
+          id: "a",
+          name: "Netflix",
+          price: 10,
+          currency: "USD",
+          nextBillingDate: "2026-05-20",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+      "EUR",
+    );
+
+    expect(data.baseCurrency).toBe("EUR");
+    expect(data.currentMonthTotal).toBeCloseTo(8.75);
+    expect(data.currentMonthItems[0].convertedAmount).toBeCloseTo(8.75);
   });
 
   it("collects year month items for each subscription", () => {

@@ -199,7 +199,9 @@ describe("viewCommand", () => {
 
     await viewCommand(ctx);
 
-    expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining("/view <id>"));
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining("/view <id>"),
+    );
   });
 
   it("reports a missing subscription", async () => {

@@ -67,7 +67,9 @@ describe("parseReminderCallbackData", () => {
   });
 
   it("returns null for invalid data", () => {
-    expect(parseReminderCallbackData("reminder:other:abc:2026-06-01")).toBeNull();
+    expect(
+      parseReminderCallbackData("reminder:other:abc:2026-06-01"),
+    ).toBeNull();
     expect(parseReminderCallbackData("reminder:renew::2026-06-01")).toBeNull();
     expect(parseReminderCallbackData("reminder:renew:abc:bad-date")).toBeNull();
   });

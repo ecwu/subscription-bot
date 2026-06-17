@@ -97,10 +97,17 @@ wrangler secret put USER_HASH_SECRET
 
 `/report` generates PNG reports for monthly-equivalent spending, current-month due spending, and future 12-month projected spending. `/report_text` generates a Telegram text version with current-month line items and 12-month projected line items.
 
-Known currencies are converted to CNY using a manually maintained KV config item. Seed or update the fixed key `config:exchange-rates:v1` with JSON like:
+Known currencies are converted to CNY using a manually maintained KV config item. Exchange rates are maintained with USD as the base (`1 USD = N currency`), then converted from the source currency to USD and from USD to CNY. Seed or update the fixed key `config:exchange-rates:v1` with JSON like:
 
 ```json
-{ "base": "CNY", "rates": { "CNY": 1, "USD": 7.2, "EUR": 7.8 } }
+{ "base": "USD", "rates": { "USD": 1, "CNY": 7.2, "EUR": 0.923 } }
+```
+
+For local `wrangler dev` storage:
+
+```bash
+pnpm wrangler kv key put config:exchange-rates:v1 '{"base":"USD","rates":{"USD":1,"CNY":7.2,"EUR":0.923}}' --binding SUBSCRIPTION_KV --local
+pnpm wrangler kv key get config:exchange-rates:v1 --binding SUBSCRIPTION_KV --local
 ```
 
 Missing currencies are shown where possible but are not included in converted CNY totals. Paused subscriptions, trial subscriptions, non-auto-renewing subscriptions, custom cycles, and entries without price/currency are excluded from calculated spending totals.

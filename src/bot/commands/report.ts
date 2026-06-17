@@ -44,7 +44,12 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
   );
   const timezone = settings.timezone || "UTC";
 
-  const report = buildReportData(subscriptions, exchangeRates, timezone);
+  const report = buildReportData(
+    subscriptions,
+    exchangeRates,
+    timezone,
+    settings.defaultCurrency,
+  );
   const fallbackText = formatReportText(report);
 
   try {

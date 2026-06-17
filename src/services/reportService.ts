@@ -15,7 +15,7 @@ import {
   isTrialSubscription,
 } from "../utils/subscriptionFlags.js";
 
-export const REPORT_BASE_CURRENCY = "CNY";
+export const DEFAULT_REPORT_CURRENCY = "CNY";
 export const EXCHANGE_RATE_BASE_CURRENCY = "USD";
 
 export interface ExchangeRateConfig {
@@ -81,7 +81,7 @@ export interface ReportData {
   chartTitle: string;
   chartSubtitle: string;
   generatedAt: string;
-  baseCurrency: typeof REPORT_BASE_CURRENCY;
+  baseCurrency: string;
   subscriptionCount: number;
   includedCount: number;
   convertedCount: number;
@@ -95,7 +95,7 @@ export interface ReportData {
 
 export interface SplitReportData {
   generatedAt: string;
-  baseCurrency: typeof REPORT_BASE_CURRENCY;
+  baseCurrency: string;
   subscriptionCount: number;
   currentMonthly: ReportData;
   currentMonthDue: ReportData;
@@ -140,22 +140,36 @@ function convertToReportCurrency(
   amount: number,
   currency: string,
   exchangeRates: ExchangeRateConfig | null,
+  reportCurrency: string,
 ): number | undefined {
-  const sourceRate = exchangeRates?.rates[currency];
-  const targetRate = exchangeRates?.rates[REPORT_BASE_CURRENCY];
+  const sourceCurrency = currency.toUpperCase();
+  const targetCurrency = normalizeReportCurrency(reportCurrency);
+  if (sourceCurrency === targetCurrency) return amount;
+
+  const sourceRate = exchangeRates?.rates[sourceCurrency];
+  const targetRate = exchangeRates?.rates[targetCurrency];
   if (sourceRate === undefined || targetRate === undefined) return undefined;
 
   return (amount / sourceRate) * targetRate;
+}
+
+function normalizeReportCurrency(currency: string | undefined): string {
+  const normalized = currency?.trim().toUpperCase();
+  return normalized && isValidCurrency(normalized)
+    ? normalized
+    : DEFAULT_REPORT_CURRENCY;
 }
 
 export function buildReportData(
   subscriptions: Subscription[],
   exchangeRates: ExchangeRateConfig | null,
   timezoneOrDate?: string | Date,
+  reportCurrency?: string,
 ): SplitReportData {
   const isDate = timezoneOrDate instanceof Date;
   const timezone = isDate ? undefined : timezoneOrDate;
   const referenceDate = isDate ? timezoneOrDate : new Date();
+  const baseCurrency = normalizeReportCurrency(reportCurrency);
 
   const today =
     timezone && typeof timezone === "string"
@@ -166,6 +180,7 @@ export function buildReportData(
     subscriptions,
     exchangeRates,
     today,
+    baseCurrency,
   );
   const currentMonthly = buildReportView({
     title: "月度摊平支出",
@@ -174,6 +189,7 @@ export function buildReportData(
     chartSubtitle: "按扣款日汇总的月度摊平支出",
     subscriptions,
     exchangeRates,
+    baseCurrency,
     today,
     amountForSubscription: monthlyAmountIfCurrentlyActive,
     dayDistribution,
@@ -185,6 +201,7 @@ export function buildReportData(
     chartSubtitle: "按本月扣款日汇总的实际扣款金额",
     subscriptions,
     exchangeRates,
+    baseCurrency,
     today,
     amountForSubscription: actualAmountIfDueThisMonth,
     dayDistribution,
@@ -194,6 +211,7 @@ export function buildReportData(
     subscriptions,
     exchangeRates,
     today,
+    baseCurrency,
   );
   const yearlyProjection = buildReportView({
     title: "年度预期支出",
@@ -202,6 +220,7 @@ export function buildReportData(
     chartSubtitle: "按月汇总的未来12个月预期扣款金额",
     subscriptions,
     exchangeRates,
+    baseCurrency,
     today,
     amountForSubscription: totalProjectedInYear,
     dayDistribution: [],
@@ -210,7 +229,7 @@ export function buildReportData(
 
   return {
     generatedAt,
-    baseCurrency: REPORT_BASE_CURRENCY,
+    baseCurrency,
     subscriptionCount: subscriptions.length,
     currentMonthly,
     currentMonthDue,
@@ -225,6 +244,7 @@ interface BuildReportViewOptions {
   chartSubtitle: string;
   subscriptions: Subscription[];
   exchangeRates: ExchangeRateConfig | null;
+  baseCurrency: string;
   today: string;
   amountForSubscription: (sub: Subscription, today: string) => number | null;
   dayDistribution: ReportDayDistribution[];
@@ -237,6 +257,7 @@ function buildReportView({
   chartSubtitle,
   subscriptions,
   exchangeRates,
+  baseCurrency,
   today,
   amountForSubscription,
   dayDistribution,
@@ -301,7 +322,12 @@ function buildReportView({
     summary.total += amount;
     summary.subscriptionCount += 1;
 
-    const converted = convertToReportCurrency(amount, currency, exchangeRates);
+    const converted = convertToReportCurrency(
+      amount,
+      currency,
+      exchangeRates,
+      baseCurrency,
+    );
     if (converted === undefined) {
       missingRateCurrencies.add(currency);
     } else {
@@ -319,7 +345,7 @@ function buildReportView({
     chartTitle,
     chartSubtitle,
     generatedAt: new Date().toISOString(),
-    baseCurrency: REPORT_BASE_CURRENCY,
+    baseCurrency,
     subscriptionCount: subscriptions.length,
     includedCount,
     convertedCount,
@@ -337,6 +363,7 @@ function buildFullMonthDayDistribution(
   subscriptions: Subscription[],
   exchangeRates: ExchangeRateConfig | null,
   today: string,
+  baseCurrency: string,
 ): ReportDayDistribution[] {
   const year = Number(today.slice(0, 4));
   const month = Number(today.slice(5, 7));
@@ -358,6 +385,7 @@ function buildFullMonthDayDistribution(
       sub.price ?? 0,
       currency,
       exchangeRates,
+      baseCurrency,
     );
     if (convertedActualAmount === undefined) continue;
 
@@ -369,6 +397,7 @@ function buildFullMonthDayDistribution(
         monthlyAmount,
         currency,
         exchangeRates,
+        baseCurrency,
       );
       if (convertedMonthlyAmount === undefined) continue;
 
@@ -731,6 +760,7 @@ function buildYearMonthDistribution(
   subscriptions: Subscription[],
   exchangeRates: ExchangeRateConfig | null,
   today: string,
+  baseCurrency: string,
 ): ReportMonthDistribution[] {
   const windowStartMonth = today.slice(0, 7);
 
@@ -754,6 +784,7 @@ function buildYearMonthDistribution(
       1,
       currency,
       exchangeRates,
+      baseCurrency,
     );
     if (convertedOneUnit === undefined) continue;
 
@@ -779,10 +810,12 @@ export function buildTextReportData(
   subscriptions: Subscription[],
   exchangeRates: ExchangeRateConfig | null,
   timezoneOrDate?: string | Date,
+  reportCurrency?: string,
 ): TextReportData {
   const isDate = timezoneOrDate instanceof Date;
   const timezone = isDate ? undefined : timezoneOrDate;
   const referenceDate = isDate ? timezoneOrDate : new Date();
+  const baseCurrency = normalizeReportCurrency(reportCurrency);
 
   const today =
     timezone && typeof timezone === "string"
@@ -817,6 +850,7 @@ export function buildTextReportData(
       sub.price,
       currency,
       exchangeRates,
+      baseCurrency,
     );
 
     currentMonthItems.push({
@@ -872,6 +906,7 @@ export function buildTextReportData(
         amount,
         currency,
         exchangeRates,
+        baseCurrency,
       );
       if (convertedAmount !== undefined) {
         entry.totalConverted += convertedAmount;
@@ -908,7 +943,7 @@ export function buildTextReportData(
 
   return {
     generatedAt,
-    baseCurrency: REPORT_BASE_CURRENCY,
+    baseCurrency,
     currentMonthKey,
     trialCount,
     nonRenewingCount,

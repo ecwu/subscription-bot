@@ -4,6 +4,7 @@ import { reportTextCommand } from "../src/bot/commands/reportText.js";
 import { createSubscriptionService } from "../src/services/subscriptionService.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
+import { createUserRepository } from "../src/repositories/userRepository.js";
 import { EXCHANGE_RATES_CONFIG_KEY } from "../src/repositories/reportConfigRepository.js";
 import type { BotContext } from "../src/types/context.js";
 import type { Subscription } from "../src/models/subscription.js";
@@ -80,7 +81,24 @@ async function seedSubscription(
 async function seedRates(kv: KVNamespace): Promise<void> {
   await kv.put(
     EXCHANGE_RATES_CONFIG_KEY,
-    JSON.stringify({ base: "USD", rates: { USD: 1, CNY: 7.2 } }),
+    JSON.stringify({ base: "USD", rates: { USD: 1, CNY: 7.2, EUR: 0.875 } }),
+  );
+}
+
+async function seedSettings(
+  kv: KVNamespace,
+  defaultCurrency: string,
+): Promise<void> {
+  const repo = createUserRepository(kv);
+  await repo.updateUserSettings(
+    "user-key",
+    {
+      defaultCurrency,
+      reminderEnabled: true,
+      reminderHour: 9,
+      timezone: "UTC",
+    },
+    VALID_KEY,
   );
 }
 
@@ -114,6 +132,25 @@ describe("reportTextCommand", () => {
       .join("\n");
     expect(text).toContain("当月支出");
     expect(text).toContain("Netflix");
+  });
+
+  it("uses the user's default currency for text report totals", async () => {
+    const kv = createMockKV();
+    await seedRates(kv);
+    await seedSettings(kv, "EUR");
+    await seedSubscription(
+      kv,
+      createSub({ name: "USD Service", price: 10, currency: "USD" }),
+    );
+    const ctx = createMockContext(kv);
+
+    await reportTextCommand(ctx);
+
+    const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls
+      .map((call: [string]) => call[0])
+      .join("\n");
+    expect(text).toContain("USD Service  $10.00 → €8.75");
+    expect(text).toContain("合计 €8.75");
   });
 
   it("refuses when userKey is missing", async () => {

@@ -10,7 +10,10 @@ describe("handleHealth", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("application/json");
-    const body = (await response.json()) as { status: string; timestamp: string };
+    const body = (await response.json()) as {
+      status: string;
+      timestamp: string;
+    };
     expect(body.status).toBe("ok");
     expect(new Date(body.timestamp).toString()).not.toBe("Invalid Date");
   });

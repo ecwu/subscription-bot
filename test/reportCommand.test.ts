@@ -5,6 +5,7 @@ import { renderReportPng } from "../src/utils/reportPng.js";
 import { createSubscriptionService } from "../src/services/subscriptionService.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
+import { createUserRepository } from "../src/repositories/userRepository.js";
 import { EXCHANGE_RATES_CONFIG_KEY } from "../src/repositories/reportConfigRepository.js";
 import type { BotContext } from "../src/types/context.js";
 import type { Subscription } from "../src/models/subscription.js";
@@ -86,7 +87,24 @@ async function seedSubscription(
 async function seedRates(kv: KVNamespace): Promise<void> {
   await kv.put(
     EXCHANGE_RATES_CONFIG_KEY,
-    JSON.stringify({ base: "USD", rates: { USD: 1, CNY: 7.2 } }),
+    JSON.stringify({ base: "USD", rates: { USD: 1, CNY: 7.2, EUR: 0.875 } }),
+  );
+}
+
+async function seedSettings(
+  kv: KVNamespace,
+  defaultCurrency: string,
+): Promise<void> {
+  const repo = createUserRepository(kv);
+  await repo.updateUserSettings(
+    "user-key",
+    {
+      defaultCurrency,
+      reminderEnabled: true,
+      reminderHour: 9,
+      timezone: "UTC",
+    },
+    VALID_KEY,
   );
 }
 
@@ -122,6 +140,21 @@ describe("reportCommand", () => {
     expect(renderReportPngMock).toHaveBeenCalledTimes(3);
     expect(ctx.replyWithPhoto).toHaveBeenCalledTimes(3);
     expect(ctx.reply).not.toHaveBeenCalled();
+  });
+
+  it("uses the user's default currency for PNG report data", async () => {
+    const kv = createMockKV();
+    await seedRates(kv);
+    await seedSettings(kv, "EUR");
+    await seedSubscription(kv, createSub({ price: 10, currency: "USD" }));
+    const ctx = createMockContext(kv);
+
+    await reportCommand(ctx);
+
+    expect(renderReportPngMock).toHaveBeenCalledTimes(3);
+    const currentMonthly = renderReportPngMock.mock.calls[0][0];
+    expect(currentMonthly.baseCurrency).toBe("EUR");
+    expect(currentMonthly.totalBase).toBeCloseTo(8.75);
   });
 
   it("falls back to text when PNG rendering fails", async () => {
