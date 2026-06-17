@@ -9,6 +9,7 @@ const CHART_WIDTH = 1040;
 const CHART_HEIGHT = 260;
 const BAR_LABEL_TOP_PADDING = 28;
 const BAR_MAX_HEIGHT = CHART_HEIGHT - BAR_LABEL_TOP_PADDING;
+const MONTHLY_FILL_OPACITY = "0.35";
 
 const COLORS = {
   ink: "#162326",
@@ -111,18 +112,15 @@ export function buildReportSvg(report: ReportData): string {
 
         const monthlyRect =
           monthlyH > 0
-            ? `<rect x="${x}" y="${monthlyY.toFixed(1)}" width="${barWidth}" height="${monthlyH.toFixed(1)}" rx="3" fill="${COLORS.teal}"/>`
+            ? `<rect x="${x}" y="${monthlyY.toFixed(1)}" width="${barWidth}" height="${monthlyH.toFixed(1)}" rx="3" fill="${COLORS.teal}"${isMonthlyView ? ` fill-opacity="${MONTHLY_FILL_OPACITY}"` : ""}/>`
             : "";
         const actualRect =
           actualH > 0
-            ? `<rect x="${x}" y="${actualY.toFixed(1)}" width="${barWidth}" height="${actualH.toFixed(1)}" rx="3" fill="${COLORS.gold}"${isMonthlyView ? ' fill-opacity="0.45"' : ""}/>`
+            ? `<rect x="${x}" y="${actualY.toFixed(1)}" width="${barWidth}" height="${actualH.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`
             : "";
 
         const topY = actualH > 0 ? actualY : monthlyY;
-        const labelValue = isMonthlyView
-          ? item.monthlyEquivalentTotal
-          : item.actualTotal;
-        const showLabel = labelValue > 0;
+        const showLabel = item.actualTotal > 0;
 
         const showDayLabel =
           index === 0 || index === daysInMonth - 1 || item.day % 5 === 0;
@@ -135,7 +133,7 @@ export function buildReportSvg(report: ReportData): string {
           ${monthlyRect}
           ${actualRect}
           ${showDayLabel ? `<text x="${x + barWidth / 2}" y="${CHART_Y + CHART_HEIGHT + 24}" text-anchor="middle" class="axis">${escapeXml(dayLabel)}</text>` : ""}
-          ${showLabel ? `<text x="${x + barWidth / 2}" y="${Math.max(topY - 8, CHART_Y - 4).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(compactAmount(labelValue))}</text>` : ""}`;
+          ${isMonthlyView ? monthlyViewBarLabels(item, x + barWidth / 2, topY) : showLabel ? `<text x="${x + barWidth / 2}" y="${Math.max(topY - 8, CHART_Y - 4).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(compactAmount(item.actualTotal))}</text>` : ""}`;
       })
       .join("");
 
@@ -148,9 +146,9 @@ export function buildReportSvg(report: ReportData): string {
 
     legendItems = isMonthlyView
       ? `
-  <rect x="${legendX}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.teal}"/>
+  <rect x="${legendX}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.teal}" fill-opacity="${MONTHLY_FILL_OPACITY}"/>
   <text x="${legendX + 24}" y="${legendY + 14}" class="legend">月度摊平</text>
-  <rect x="${legendX + 140}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.gold}" fill-opacity="0.45"/>
+  <rect x="${legendX + 140}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.gold}"/>
   <text x="${legendX + 164}" y="${legendY + 14}" class="legend">实际扣款</text>`
       : `
   <rect x="${legendX + 70}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.gold}"/>
@@ -179,6 +177,7 @@ export function buildReportSvg(report: ReportData): string {
     .row-small { font-size: 17px; font-weight: 400; fill: ${COLORS.faint}; }
     .axis { font-size: 14px; font-weight: 400; fill: ${COLORS.muted}; }
     .bar-label { font-size: 14px; font-weight: 700; fill: ${COLORS.ink}; }
+    .bar-label-monthly { font-size: 14px; font-weight: 700; fill: ${COLORS.teal}; opacity: 0.65; }
     .note { font-size: 19px; font-weight: 400; fill: ${COLORS.muted}; }
     .legend { font-size: 16px; font-weight: 700; fill: ${COLORS.muted}; }
   </style>
@@ -217,6 +216,23 @@ export function buildReportSvg(report: ReportData): string {
       : ""
   }
 </svg>`;
+}
+
+function monthlyViewBarLabels(
+  item: { actualTotal: number; monthlyEquivalentTotal: number },
+  x: number,
+  topY: number,
+): string {
+  if (item.actualTotal <= 0 && item.monthlyEquivalentTotal <= 0) return "";
+
+  const labelY = Math.max(topY - 24, CHART_Y - 12);
+  const actualLabel = `扣${compactAmount(item.actualTotal)}`;
+  const monthlyLabel = `摊${compactAmount(item.monthlyEquivalentTotal)}`;
+
+  return `<text x="${x}" y="${labelY.toFixed(1)}" text-anchor="middle">
+    <tspan x="${x}" class="bar-label">${escapeXml(actualLabel)}</tspan>
+    <tspan x="${x}" dy="16" class="bar-label-monthly">${escapeXml(monthlyLabel)}</tspan>
+  </text>`;
 }
 
 function compactAmount(amount: number): string {
