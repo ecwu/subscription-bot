@@ -177,6 +177,11 @@ describe("processReminderEntry", () => {
 
     expect(result.sent).toBe(true);
     expect(mockFetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.reply_markup.inline_keyboard[0][0]).toEqual({
+      text: "已续费一个周期",
+      callback_data: "reminder:renew:sub-1:2026-06-04",
+    });
   });
 
   it("skips upcoming reminders outside the exact local dispatch slot", async () => {
@@ -1028,6 +1033,20 @@ describe("processReminderEntry", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.text).toContain("以下 2 个项目需要关注");
+    expect(body.reply_markup.inline_keyboard).toEqual([
+      [
+        {
+          text: "已续费：Cancelled One",
+          callback_data: "reminder:renew:sub-1:2026-06-01",
+        },
+      ],
+      [
+        {
+          text: "已续费：Cancelled Two",
+          callback_data: "reminder:renew:sub-2:2026-06-01",
+        },
+      ],
+    ]);
 
     const first = await subscriptionService.get(userKey, "sub-1", VALID_KEY);
     const second = await subscriptionService.get(userKey, "sub-2", VALID_KEY);

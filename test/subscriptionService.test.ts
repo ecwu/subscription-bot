@@ -306,6 +306,78 @@ describe("subscriptionService", () => {
     expect(stored?.billingInterval).toEqual({ unit: "day", count: 30 });
   });
 
+  it("renews one cycle and moves the reminder index", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const userKey = "user-key-123";
+    await service.create(
+      userKey,
+      {
+        id: "sub-1",
+        name: "Netflix",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-01-31",
+        billingAnchorDay: 31,
+        isTrial: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const result = await service.renewOneCycle(
+      userKey,
+      "sub-1",
+      VALID_KEY,
+      "2026-01-31",
+    );
+
+    expect(result.status).toBe("renewed");
+    if (result.status !== "renewed") throw new Error("expected renewal");
+    expect(result.subscription.nextBillingDate).toBe("2026-02-28");
+    expect(result.subscription.isTrial).toBe(false);
+    expect(await reminderRepo.listEntries("2026-01-31")).toEqual([]);
+    expect(await reminderRepo.listEntries("2026-02-28")).toEqual([
+      { userKey, subscriptionId: "sub-1" },
+    ]);
+  });
+
+  it("does not renew from a stale reminder date", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const userKey = "user-key-123";
+    await service.create(
+      userKey,
+      {
+        id: "sub-1",
+        name: "Netflix",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-02-28",
+        billingAnchorDay: 31,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+
+    const result = await service.renewOneCycle(
+      userKey,
+      "sub-1",
+      VALID_KEY,
+      "2026-01-31",
+    );
+
+    expect(result.status).toBe("stale");
+    const current = await service.get(userKey, "sub-1", VALID_KEY);
+    expect(current?.nextBillingDate).toBe("2026-02-28");
+  });
+
   it("does not advance custom billing cycles", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);

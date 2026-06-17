@@ -10,10 +10,19 @@ import { UserSettings } from "../models/userSettings.js";
 import { DEFAULT_USER_SETTINGS } from "../models/userSettings.js";
 import { SubscriptionService } from "./subscriptionService.js";
 import { Env } from "../types/env.js";
-import { sendMessage } from "./telegramService.js";
+import {
+  sendMessage,
+  TelegramInlineKeyboardMarkup,
+} from "./telegramService.js";
 import { decrypt, parseEncryptedPayload } from "../crypto/encryption.js";
 import { log } from "../utils/logger.js";
-import { addDays, formatDate, getLocalTimeInfo } from "../utils/date.js";
+import {
+  addDays,
+  formatDate,
+  getBillingAnchorDay,
+  getLocalTimeInfo,
+  getNextBillingDate,
+} from "../utils/date.js";
 import {
   isAutoRenewing,
   isTrialSubscription,
@@ -94,6 +103,40 @@ function formatCombinedReminderMessage(subs: Subscription[]): string {
     "",
     ...sorted.map((sub, index) => formatReminderListItem(sub, index + 1)),
   ].join("\n");
+}
+
+function canRenewOneCycle(sub: Subscription): boolean {
+  const billingAnchorDay =
+    sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
+  return (
+    getNextBillingDate(
+      sub.nextBillingDate,
+      sub.billingCycle,
+      billingAnchorDay,
+      sub.billingInterval,
+    ) !== null
+  );
+}
+
+function formatRenewButtonLabel(sub: Subscription, total: number): string {
+  if (total === 1) return "已续费一个周期";
+  return `已续费：${sub.name}`;
+}
+
+function reminderRenewKeyboard(
+  subs: Subscription[],
+): TelegramInlineKeyboardMarkup | undefined {
+  const renewableSubs = subs.filter(canRenewOneCycle);
+  if (renewableSubs.length === 0) return undefined;
+
+  return {
+    inline_keyboard: renewableSubs.map((sub) => [
+      {
+        text: formatRenewButtonLabel(sub, renewableSubs.length),
+        callback_data: `reminder:renew:${sub.id}:${sub.nextBillingDate}`,
+      },
+    ]),
+  };
 }
 
 export interface ReminderEntryResult {
@@ -239,7 +282,9 @@ export async function processReminderEntry(
 
     // 8. Send in this user's single daily dispatch slot.
     const message = formatReminderMessage(sub);
-    const sendResult = await sendMessage(env, userProfile.chatId, message);
+    const sendResult = await sendMessage(env, userProfile.chatId, message, {
+      reply_markup: reminderRenewKeyboard([sub]),
+    });
 
     if (!sendResult.ok) {
       log("warn", "Failed to send reminder", {
@@ -462,10 +507,14 @@ export async function processReminderEntries(
 
   for (const reminders of pendingByUser.values()) {
     const first = reminders[0];
+    const subs = reminders.map((item) => item.sub);
     const sendResult = await sendMessage(
       env,
       first.userProfile.chatId,
-      formatCombinedReminderMessage(reminders.map((item) => item.sub)),
+      formatCombinedReminderMessage(subs),
+      {
+        reply_markup: reminderRenewKeyboard(subs),
+      },
     );
 
     if (!sendResult.ok) {

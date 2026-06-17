@@ -57,6 +57,40 @@ export function parseSubCallbackData(
   return { action: action as SubCallbackData["action"], subId };
 }
 
+export interface ReminderCallbackData {
+  action: "renew";
+  subId: string;
+  billingDate: string;
+}
+
+/**
+ * Parse reminder action callback data.
+ *
+ * Expected format:
+ *   reminder:renew:<subId>:<YYYY-MM-DD>
+ */
+export function parseReminderCallbackData(
+  callbackData: string,
+): ReminderCallbackData | null {
+  const prefix = "reminder:";
+  if (!callbackData.startsWith(prefix)) return null;
+  const rest = callbackData.slice(prefix.length);
+  const parts = rest.split(":");
+  const action = parts[0];
+  const billingDate = parts[parts.length - 1];
+  const subId = parts.slice(1, parts.length - 1).join(":");
+
+  if (
+    action !== "renew" ||
+    !subId ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(billingDate)
+  ) {
+    return null;
+  }
+
+  return { action, subId, billingDate };
+}
+
 export interface EditCallbackData {
   field: string;
   subId: string;

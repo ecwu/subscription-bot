@@ -16,9 +16,10 @@ import {
 } from "../utils/subscriptionFlags.js";
 
 export const REPORT_BASE_CURRENCY = "CNY";
+export const EXCHANGE_RATE_BASE_CURRENCY = "USD";
 
 export interface ExchangeRateConfig {
-  base: typeof REPORT_BASE_CURRENCY;
+  base: typeof EXCHANGE_RATE_BASE_CURRENCY;
   rates: Record<string, number>;
 }
 
@@ -114,7 +115,7 @@ export function parseExchangeRateConfig(
   }
 
   if (!isRecord(parsed)) return null;
-  if (parsed.base !== REPORT_BASE_CURRENCY) return null;
+  if (parsed.base !== EXCHANGE_RATE_BASE_CURRENCY) return null;
   if (!isRecord(parsed.rates)) return null;
 
   const rates: Record<string, number> = {};
@@ -127,12 +128,24 @@ export function parseExchangeRateConfig(
     rates[normalized] = value;
   }
 
-  if (rates[REPORT_BASE_CURRENCY] !== 1) return null;
+  if (rates[EXCHANGE_RATE_BASE_CURRENCY] !== 1) return null;
 
   return {
-    base: REPORT_BASE_CURRENCY,
+    base: EXCHANGE_RATE_BASE_CURRENCY,
     rates,
   };
+}
+
+function convertToReportCurrency(
+  amount: number,
+  currency: string,
+  exchangeRates: ExchangeRateConfig | null,
+): number | undefined {
+  const sourceRate = exchangeRates?.rates[currency];
+  const targetRate = exchangeRates?.rates[REPORT_BASE_CURRENCY];
+  if (sourceRate === undefined || targetRate === undefined) return undefined;
+
+  return (amount / sourceRate) * targetRate;
 }
 
 export function buildReportData(
@@ -288,11 +301,10 @@ function buildReportView({
     summary.total += amount;
     summary.subscriptionCount += 1;
 
-    const rate = exchangeRates?.rates[currency];
-    if (rate === undefined) {
+    const converted = convertToReportCurrency(amount, currency, exchangeRates);
+    if (converted === undefined) {
       missingRateCurrencies.add(currency);
     } else {
-      const converted = amount * rate;
       summary.convertedTotal = (summary.convertedTotal ?? 0) + converted;
       totalBase += converted;
       convertedCount += 1;
@@ -342,16 +354,27 @@ function buildFullMonthDayDistribution(
     if (sub.billingCycle === "custom") continue;
 
     const currency = sub.currency.toUpperCase();
-    const rate = exchangeRates?.rates[currency];
-    if (rate === undefined) continue;
+    const convertedActualAmount = convertToReportCurrency(
+      sub.price ?? 0,
+      currency,
+      exchangeRates,
+    );
+    if (convertedActualAmount === undefined) continue;
 
     const monthlyDay = getBillingDay(sub.nextBillingDate);
 
     const monthlyAmount = monthlyAmountIfCurrentlyActive(sub, today);
     if (monthlyAmount !== null) {
+      const convertedMonthlyAmount = convertToReportCurrency(
+        monthlyAmount,
+        currency,
+        exchangeRates,
+      );
+      if (convertedMonthlyAmount === undefined) continue;
+
       monthlyByDay.set(
         monthlyDay,
-        (monthlyByDay.get(monthlyDay) ?? 0) + monthlyAmount * rate,
+        (monthlyByDay.get(monthlyDay) ?? 0) + convertedMonthlyAmount,
       );
     }
 
@@ -360,7 +383,7 @@ function buildFullMonthDayDistribution(
       const actualDay = getBillingDay(actualBillingDate);
       actualByDay.set(
         actualDay,
-        (actualByDay.get(actualDay) ?? 0) + (sub.price ?? 0) * rate,
+        (actualByDay.get(actualDay) ?? 0) + convertedActualAmount,
       );
     }
   }
@@ -727,8 +750,12 @@ function buildYearMonthDistribution(
     if (sub.billingCycle === "custom") continue;
 
     const currency = sub.currency.toUpperCase();
-    const rate = exchangeRates?.rates[currency];
-    if (rate === undefined) continue;
+    const convertedOneUnit = convertToReportCurrency(
+      1,
+      currency,
+      exchangeRates,
+    );
+    if (convertedOneUnit === undefined) continue;
 
     const amounts = projectedAmountsByMonth(sub, today);
     if (!amounts) continue;
@@ -737,7 +764,7 @@ function buildYearMonthDistribution(
       if (monthTotals.has(monthKey)) {
         monthTotals.set(
           monthKey,
-          (monthTotals.get(monthKey) ?? 0) + amount * rate,
+          (monthTotals.get(monthKey) ?? 0) + amount * convertedOneUnit,
         );
       }
     }
@@ -786,8 +813,11 @@ export function buildTextReportData(
     if (billingDate === null) continue;
 
     const currency = sub.currency.toUpperCase();
-    const rate = exchangeRates?.rates[currency];
-    const convertedAmount = rate !== undefined ? sub.price * rate : undefined;
+    const convertedAmount = convertToReportCurrency(
+      sub.price,
+      currency,
+      exchangeRates,
+    );
 
     currentMonthItems.push({
       name: sub.name,
@@ -830,7 +860,6 @@ export function buildTextReportData(
     if (sub.billingCycle === "custom") continue;
 
     const currency = sub.currency.toUpperCase();
-    const rate = exchangeRates?.rates[currency];
 
     const amounts = projectedAmountsByMonth(sub, today);
     if (!amounts) continue;
@@ -839,7 +868,11 @@ export function buildTextReportData(
       const entry = yearMonthMap.get(monthKey);
       if (!entry) continue;
 
-      const convertedAmount = rate !== undefined ? amount * rate : undefined;
+      const convertedAmount = convertToReportCurrency(
+        amount,
+        currency,
+        exchangeRates,
+      );
       if (convertedAmount !== undefined) {
         entry.totalConverted += convertedAmount;
       }

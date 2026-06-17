@@ -134,10 +134,10 @@ Subscriptions without price or currency, and subscriptions with `custom` billing
 Multi-currency conversion uses the manually maintained KV config key `config:exchange-rates:v1`:
 
 ```json
-{ "base": "CNY", "rates": { "CNY": 1, "USD": 7.2, "EUR": 7.8 } }
+{ "base": "USD", "rates": { "USD": 1, "CNY": 7.2, "EUR": 0.923 } }
 ```
 
-Currencies missing from the exchange-rate config remain visible in the per-currency section but are not converted into the CNY total.
+Rates are maintained with USD as the exchange-rate base (`1 USD = N currency`). Report totals are still shown in CNY: source currency amounts are converted to USD first, then from USD to CNY. Currencies missing from the exchange-rate config remain visible in the per-currency section but are not converted into the CNY total.
 
 If PNG generation fails, the bot falls back to a plain-text report.
 
@@ -153,6 +153,8 @@ Generates a text report split into Telegram-safe message chunks:
 
 Lists subscriptions with upcoming renewals within the configured reminder window (default 3 days, controlled by `REMINDER_DAYS_AHEAD`).
 Paused subscriptions are excluded. Trial subscriptions and non-auto-renewing subscriptions are included when their date is within the window. Scheduled reminder messages use trial-expiration or service-expiration wording; after the scheduled task sends the due-date service-expiration reminder for a non-auto-renewing subscription, it automatically marks that subscription as paused. This command uses the compact list label `扣款日`.
+
+Scheduled reminder messages include an inline **已续费一个周期** action when the bot can calculate the next billing date. It advances that subscription by one cycle, updates the reminder index, and ignores stale clicks from older reminder messages.
 
 ### `/delete_me`
 

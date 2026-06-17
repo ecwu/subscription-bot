@@ -86,7 +86,7 @@ async function seedSubscription(
 async function seedRates(kv: KVNamespace): Promise<void> {
   await kv.put(
     EXCHANGE_RATES_CONFIG_KEY,
-    JSON.stringify({ base: "CNY", rates: { CNY: 1, USD: 7.2 } }),
+    JSON.stringify({ base: "USD", rates: { USD: 1, CNY: 7.2 } }),
   );
 }
 

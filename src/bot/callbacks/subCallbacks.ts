@@ -6,7 +6,10 @@ import { confirmationKeyboard } from "../keyboards/confirmationKeyboard.js";
 import { editMenuKeyboard } from "../keyboards/editMenuKeyboard.js";
 import { subscriptionActionsKeyboard } from "../keyboards/subscriptionActionsKeyboard.js";
 import { createLogger } from "../../utils/logger.js";
-import { parseSubCallbackData } from "../../utils/callbackParser.js";
+import {
+  parseReminderCallbackData,
+  parseSubCallbackData,
+} from "../../utils/callbackParser.js";
 import { InlineKeyboard } from "grammy";
 import { formatBillingCycle, formatStatus } from "../../utils/labels.js";
 import type { Subscription } from "../../models/subscription.js";
@@ -252,6 +255,75 @@ export async function subResumeCallback(ctx: BotContext): Promise<void> {
     await ctx.conversation.enter("resume", parsed.subId);
   } catch (error) {
     logger.error("Error in subResumeCallback", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");
+  }
+}
+
+export async function reminderRenewCallback(ctx: BotContext): Promise<void> {
+  const logger = createLogger(ctx.requestId);
+
+  try {
+    if (!ctx.userKey) {
+      await safeAnswerCallbackQuery(ctx, "无法识别用户。");
+      return;
+    }
+
+    const parsed = parseReminderCallbackData(ctx.callbackQuery?.data ?? "");
+    if (!parsed) {
+      await safeAnswerCallbackQuery(ctx, "按钮数据无效。");
+      return;
+    }
+
+    const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);
+    const reminderRepo = createReminderRepository(ctx.env.SUBSCRIPTION_KV);
+    const service = createSubscriptionService(repo, reminderRepo);
+    const result = await service.renewOneCycle(
+      ctx.userKey,
+      parsed.subId,
+      ctx.env.ENCRYPTION_KEY,
+      parsed.billingDate,
+    );
+
+    if (result.status === "not_found") {
+      await safeAnswerCallbackQuery(ctx, "没有找到这个订阅。");
+      await safeEditMessageText(ctx, "没有找到这个订阅，或它已被删除。");
+      return;
+    }
+
+    if (result.status === "stale") {
+      await safeAnswerCallbackQuery(ctx, "这条提醒已经处理过。");
+      await safeEditMessageText(
+        ctx,
+        `这条提醒已经处理过。\n当前下次日期：${result.subscription.nextBillingDate}`,
+      );
+      return;
+    }
+
+    if (result.status === "unsupported") {
+      await safeAnswerCallbackQuery(ctx, "这个订阅无法自动计算下个周期。");
+      await safeEditMessageText(
+        ctx,
+        `这个订阅无法自动计算下个周期，请发送 /edit ${result.subscription.id.slice(
+          0,
+          8,
+        )} date 手动更新日期。`,
+      );
+      return;
+    }
+
+    await safeAnswerCallbackQuery(ctx, "已更新下次日期。");
+    await safeEditMessageText(
+      ctx,
+      `已记录"${result.subscription.name}"已续费一个周期。\n下次日期：${result.subscription.nextBillingDate}`,
+    );
+
+    logger.info("Subscription renewed from reminder callback", {
+      subId: parsed.subId,
+    });
+  } catch (error) {
+    logger.error("Error in reminderRenewCallback", {
       error: error instanceof Error ? error.message : String(error),
     });
     await safeAnswerCallbackQuery(ctx, "操作失败，请稍后再试。");

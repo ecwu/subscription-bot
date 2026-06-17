@@ -25,14 +25,17 @@ function sub(
 }
 
 describe("parseExchangeRateConfig", () => {
-  it("parses a valid CNY exchange-rate config", () => {
+  it("parses a valid USD exchange-rate config", () => {
     const config = parseExchangeRateConfig(
-      JSON.stringify({ base: "CNY", rates: { CNY: 1, USD: 7.2, eur: 7.8 } }),
+      JSON.stringify({
+        base: "USD",
+        rates: { USD: 1, CNY: 7.2, eur: 0.923 },
+      }),
     );
 
     expect(config).toEqual({
-      base: "CNY",
-      rates: { CNY: 1, USD: 7.2, EUR: 7.8 },
+      base: "USD",
+      rates: { USD: 1, CNY: 7.2, EUR: 0.923 },
     });
   });
 
@@ -43,15 +46,15 @@ describe("parseExchangeRateConfig", () => {
 
   it("returns null for unsupported base currency", () => {
     const config = parseExchangeRateConfig(
-      JSON.stringify({ base: "USD", rates: { CNY: 1, USD: 1 } }),
+      JSON.stringify({ base: "CNY", rates: { CNY: 1, USD: 1 } }),
     );
 
     expect(config).toBeNull();
   });
 
-  it("returns null when CNY is not exactly 1", () => {
+  it("returns null when USD is not exactly 1", () => {
     const config = parseExchangeRateConfig(
-      JSON.stringify({ base: "CNY", rates: { CNY: 7.2, USD: 7.2 } }),
+      JSON.stringify({ base: "USD", rates: { CNY: 7.2, USD: 7.2 } }),
     );
 
     expect(config).toBeNull();
@@ -60,12 +63,12 @@ describe("parseExchangeRateConfig", () => {
   it("returns null for invalid rates", () => {
     expect(
       parseExchangeRateConfig(
-        JSON.stringify({ base: "CNY", rates: { CNY: 1, USD: 0 } }),
+        JSON.stringify({ base: "USD", rates: { CNY: 7.2, USD: 0 } }),
       ),
     ).toBeNull();
     expect(
       parseExchangeRateConfig(
-        JSON.stringify({ base: "CNY", rates: { CNY: 1, US: 7.2 } }),
+        JSON.stringify({ base: "USD", rates: { CNY: 7.2, US: 1 } }),
       ),
     ).toBeNull();
   });
@@ -73,8 +76,8 @@ describe("parseExchangeRateConfig", () => {
 
 describe("buildReportData", () => {
   const rates = {
-    base: "CNY" as const,
-    rates: { CNY: 1, USD: 7, EUR: 8 },
+    base: "USD" as const,
+    rates: { USD: 1, CNY: 7, EUR: 0.875 },
   };
 
   it("normalizes currently active supported billing cycles to monthly run-rate", () => {
@@ -246,6 +249,23 @@ describe("buildReportData", () => {
       total: 10,
       convertedTotal: undefined,
     });
+  });
+
+  it("converts non-USD currencies through USD before the report currency", () => {
+    const report = buildReportData(
+      [
+        sub({
+          id: "eur",
+          price: 10,
+          currency: "EUR",
+        }),
+      ],
+      rates,
+      new Date("2026-05-17T00:00:00.000Z"),
+    );
+
+    expect(report.currentMonthly.totalBase).toBeCloseTo(80);
+    expect(report.currentMonthly.byCurrency[0].convertedTotal).toBeCloseTo(80);
   });
 
   it("builds a full current-month day distribution with both totals", () => {
@@ -689,8 +709,8 @@ describe("buildReportData", () => {
 
 describe("buildTextReportData", () => {
   const rates = {
-    base: "CNY" as const,
-    rates: { CNY: 1, USD: 7, EUR: 8 },
+    base: "USD" as const,
+    rates: { USD: 1, CNY: 7, EUR: 0.875 },
   };
 
   it("collects current month items with billing day", () => {
@@ -875,8 +895,8 @@ describe("buildTextReportData", () => {
 
 describe("formatTextReport", () => {
   const rates = {
-    base: "CNY" as const,
-    rates: { CNY: 1, USD: 7 },
+    base: "USD" as const,
+    rates: { USD: 1, CNY: 7 },
   };
 
   it("formats current month and year items as text", () => {

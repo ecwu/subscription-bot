@@ -20,16 +20,16 @@ describe("reportConfigRepository", () => {
   it("loads exchange rates from the fixed KV key", async () => {
     const kv = createMockKV({
       [EXCHANGE_RATES_CONFIG_KEY]: JSON.stringify({
-        base: "CNY",
-        rates: { CNY: 1, USD: 7.2 },
+        base: "USD",
+        rates: { USD: 1, CNY: 7.2 },
       }),
     });
 
     const repo = createReportConfigRepository(kv);
 
     await expect(repo.getExchangeRates()).resolves.toEqual({
-      base: "CNY",
-      rates: { CNY: 1, USD: 7.2 },
+      base: "USD",
+      rates: { USD: 1, CNY: 7.2 },
     });
   });
 
@@ -42,7 +42,7 @@ describe("reportConfigRepository", () => {
   it("returns null for invalid config", async () => {
     const kv = createMockKV({
       [EXCHANGE_RATES_CONFIG_KEY]: JSON.stringify({
-        base: "USD",
+        base: "CNY",
         rates: { CNY: 1, USD: 1 },
       }),
     });

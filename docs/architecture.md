@@ -137,7 +137,7 @@ reportService build data
 PNG reports via reportSvg/reportPng or Telegram text chunks
 ```
 
-Spending totals exclude paused, trial, non-auto-renewing, custom-cycle, and incomplete price/currency subscriptions. Missing exchange rates keep a currency visible where possible but exclude it from converted CNY totals.
+Spending totals exclude paused, trial, non-auto-renewing, custom-cycle, and incomplete price/currency subscriptions. Exchange rates are maintained with USD as the base (`1 USD = N currency`), then converted to the CNY report currency via USD. Missing exchange rates keep a currency visible where possible but exclude it from converted CNY totals.
 
 ## Security
 

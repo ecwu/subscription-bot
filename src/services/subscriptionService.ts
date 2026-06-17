@@ -21,6 +21,12 @@ export type ResolveResult =
   | { kind: "ambiguous"; matches: string[] }
   | { kind: "not_found" };
 
+export type RenewOneCycleResult =
+  | { status: "renewed"; subscription: Subscription }
+  | { status: "stale"; subscription: Subscription }
+  | { status: "unsupported"; subscription: Subscription }
+  | { status: "not_found" };
+
 export interface SubscriptionService {
   create(
     userKey: string,
@@ -60,6 +66,12 @@ export interface SubscriptionService {
     subId: string,
     encryptionKey: string,
   ): Promise<Subscription | null>;
+  renewOneCycle(
+    userKey: string,
+    subId: string,
+    encryptionKey: string,
+    expectedBillingDate?: string,
+  ): Promise<RenewOneCycleResult>;
   remove(userKey: string, subId: string): Promise<void>;
   removeAll(userKey: string): Promise<void>;
   resolveId(
@@ -301,6 +313,47 @@ export function createSubscriptionService(
       if (sub.autoRenew !== false) return sub;
 
       return this.pause(userKey, subId, encryptionKey);
+    },
+
+    async renewOneCycle(
+      userKey: string,
+      subId: string,
+      encryptionKey: string,
+      expectedBillingDate?: string,
+    ): Promise<RenewOneCycleResult> {
+      const sub = await this.get(userKey, subId, encryptionKey);
+      if (!sub) return { status: "not_found" };
+
+      if (
+        expectedBillingDate !== undefined &&
+        sub.nextBillingDate !== expectedBillingDate
+      ) {
+        return { status: "stale", subscription: sub };
+      }
+
+      const billingAnchorDay =
+        sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
+      const nextBillingDate = getNextBillingDate(
+        sub.nextBillingDate,
+        sub.billingCycle,
+        billingAnchorDay,
+        sub.billingInterval,
+      );
+
+      if (!nextBillingDate) {
+        return { status: "unsupported", subscription: sub };
+      }
+
+      const updated: Subscription = {
+        ...sub,
+        status: "active",
+        isTrial: false,
+        nextBillingDate,
+        billingAnchorDay,
+        updatedAt: new Date().toISOString(),
+      };
+      await this.update(userKey, updated, encryptionKey);
+      return { status: "renewed", subscription: updated };
     },
 
     async remove(userKey: string, subId: string): Promise<void> {

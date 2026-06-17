@@ -37,6 +37,36 @@ describe("telegramService.sendMessage", () => {
     expect(callBody.text).toBe("Hello");
   });
 
+  it("passes through inline keyboard markup", async () => {
+    const env = createMockEnv();
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    await sendMessage(env, 123456, "Hello", {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "已续费一个周期",
+              callback_data: "reminder:renew:sub-1:2026-06-01",
+            },
+          ],
+        ],
+      },
+    });
+
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.reply_markup.inline_keyboard[0][0]).toEqual({
+      text: "已续费一个周期",
+      callback_data: "reminder:renew:sub-1:2026-06-01",
+    });
+  });
+
   it("returns failure with status and description on error", async () => {
     const env = createMockEnv();
 

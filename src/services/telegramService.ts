@@ -6,6 +6,14 @@ export interface TelegramSendResult {
   description?: string;
 }
 
+export interface TelegramInlineKeyboardMarkup {
+  inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
+}
+
+export interface TelegramSendOptions {
+  reply_markup?: TelegramInlineKeyboardMarkup;
+}
+
 /**
  * Send a plain text message via the Telegram Bot API.
  * Does not log the token, chatId, or message text.
@@ -14,6 +22,7 @@ export async function sendMessage(
   env: Env,
   chatId: number | string,
   text: string,
+  options: TelegramSendOptions = {},
 ): Promise<TelegramSendResult> {
   const url = `https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`;
 
@@ -24,6 +33,7 @@ export async function sendMessage(
       chat_id: chatId,
       text,
       disable_web_page_preview: true,
+      ...options,
     }),
   });
 

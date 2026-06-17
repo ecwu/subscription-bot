@@ -68,6 +68,8 @@ Cycle values can be fixed cycles or interval values such as `30d` and `every 4 w
 
 Older list messages may show stale state; callback handlers re-load from KV before mutating.
 
+Scheduled reminder messages include quick renewal buttons for subscriptions whose next cycle can be calculated. Clicking the button advances the subscription by one billing cycle and moves the reminder index, so the same due date will not keep reminding on later days. The callback includes the reminder's original billing date, so stale clicks after the date was already advanced do not advance another cycle.
+
 ## /cancel Behavior
 
 - `/cancel` calls `ctx.conversation.exitAll()`, which safely ends all active conversations for the current chat.

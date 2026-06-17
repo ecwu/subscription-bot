@@ -42,6 +42,7 @@ import {
   subDeleteCallback,
   subPauseCallback,
   subResumeCallback,
+  reminderRenewCallback,
 } from "./callbacks/subCallbacks.js";
 import {
   editFieldCallback,
@@ -160,6 +161,7 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.callbackQuery(/^sub:delete:/, subDeleteCallback);
   bot.callbackQuery(/^sub:pause:/, subPauseCallback);
   bot.callbackQuery(/^sub:resume:/, subResumeCallback);
+  bot.callbackQuery(/^reminder:renew:/, reminderRenewCallback);
 
   // Edit field callbacks
   bot.callbackQuery(/^edit:name:/, editFieldCallback);

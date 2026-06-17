@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   parseSubCallbackData,
+  parseReminderCallbackData,
   parseEditCallbackData,
   parseCycleCallbackData,
   parseAddConfirmCallbackData,
@@ -39,6 +40,36 @@ describe("parseSubCallbackData", () => {
   });
   it("returns null for unknown action", () => {
     expect(parseSubCallbackData("sub:unknown:abc")).toBeNull();
+  });
+});
+
+describe("parseReminderCallbackData", () => {
+  it("parses renew callback", () => {
+    const result = parseReminderCallbackData(
+      "reminder:renew:abc-123:2026-06-01",
+    );
+    expect(result).toEqual({
+      action: "renew",
+      subId: "abc-123",
+      billingDate: "2026-06-01",
+    });
+  });
+
+  it("parses subId with colons", () => {
+    const result = parseReminderCallbackData(
+      "reminder:renew:abc:123:2026-06-01",
+    );
+    expect(result).toEqual({
+      action: "renew",
+      subId: "abc:123",
+      billingDate: "2026-06-01",
+    });
+  });
+
+  it("returns null for invalid data", () => {
+    expect(parseReminderCallbackData("reminder:other:abc:2026-06-01")).toBeNull();
+    expect(parseReminderCallbackData("reminder:renew::2026-06-01")).toBeNull();
+    expect(parseReminderCallbackData("reminder:renew:abc:bad-date")).toBeNull();
   });
 });
 
