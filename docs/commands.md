@@ -13,6 +13,7 @@
 | `/report`   | Generate subscription spending PNG reports       | Implemented   |
 | `/report_text` | Generate text spending detail report         | Implemented   |
 | `/reminders`| Show upcoming renewals within reminder window    | Implemented   |
+| `/settings` | Configure reminder and report defaults           | Implemented   |
 | `/delete_me`| Delete all your data from the bot                | Implemented   |
 
 ## Development Commands
@@ -34,7 +35,7 @@
 
 ### `/start`
 
-Shows a welcome message. First-time users see a quick-start guide with `/add`, `/list`, and `/report`. Returning users see common actions.
+Shows a welcome message with the persistent reply keyboard. First-time users are prompted to add their first subscription and can use the bottom menu buttons. Returning users see a shorter welcome message with the same persistent menu.
 
 ### `/add`
 
@@ -134,6 +135,16 @@ Paused subscriptions are excluded. Trial subscriptions and non-auto-renewing sub
 
 Scheduled reminder messages include an inline **已续费一个周期** action when the bot can calculate the next billing date. It advances that subscription by one cycle, updates the reminder index, and ignores stale clicks from older reminder messages.
 
+### `/settings`
+
+Starts the settings conversation for:
+- Default report currency
+- Reminder enablement
+- Reminder hour
+- Timezone, using supported IANA timezones or custom UTC offsets such as `+8`, `-5`, and `+5:30`
+
+Settings are stored in the encrypted user profile. Defaults are `USD`, reminders enabled, `09:00`, and `UTC`.
+
 ### `/delete_me`
 
 Requires confirmation via inline keyboard before permanently deleting all user data:
@@ -152,7 +163,7 @@ Admin-only commands reject all other users.
 
 ### `/diagnosis`
 
-Checks whether required runtime configuration is present and valid:
+Checks whether required runtime configuration and report currency constants are present and valid:
 - `BOT_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
 - `ENCRYPTION_KEY`

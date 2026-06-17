@@ -23,8 +23,8 @@ A privacy-oriented Telegram bot for managing personal subscription services. Run
 ```
 src/
 ├── bot/              # Telegram bot setup, commands, conversations, callbacks, middleware
-│   ├── commands/     # Command handlers: /add, /list, /list_full, /export, /report, /reminders, /settings, /delete_me, /debug_me
-│   ├── conversations/# Multi-step interactive flows: addConversation, editFieldConversation
+│   ├── commands/     # Command handlers: /start, /help, /add, /list, /list_full, /export, /report, /report_text, /reminders, /settings, /delete_me, admin/dev commands
+│   ├── conversations/# Multi-step interactive flows: add, edit field/cycle, resume, settings
 │   ├── callbacks/    # Inline button callbacks: sub, edit, delete, privacy
 │   └── middleware/   # requestContext, auth, rateLimit, errorHandler
 ├── handlers/         # Worker entry points: webhook, scheduled, health
@@ -69,7 +69,7 @@ pnpm deploy
 
 All three must pass before merging:
 - `pnpm types:check` — strict TypeScript with `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`
-- `pnpm test:run` — 146+ tests across 18 files
+- `pnpm test:run` — 550+ tests across 46 files
 - `pnpm lint` — ESLint with `@typescript-eslint/recommended`
 
 ## Environment Variables
@@ -82,6 +82,7 @@ All three must pass before merging:
 | `USER_HASH_SECRET` | Yes | High-entropy random string |
 | `ADMIN_USER_ID` | No | Telegram user ID granted admin privileges (e.g. for future admin-only commands) |
 | `APP_ENV` | No | `development` (default), `production`, `test` |
+| `REMINDER_DAYS_AHEAD` | No | Non-negative number of days ahead to include in reminders (default: `3`) |
 
 For local development, secrets go in `.dev.vars`. For production, use `wrangler secret put`.
 
@@ -111,7 +112,7 @@ Per-user encryption keys are derived via HKDF-SHA-256 from `ENCRYPTION_KEY` and 
 `encrypt(data, userKey, masterKey)` and `decrypt(encryptedPayload, userKey, masterKey)` are the only data encryption functions. `deriveUserKey(userKey, masterKey)` produces a 32-byte key.
 
 ### 5. Cloudflare Workers constraints
-- Session is **in-memory per isolate**. Conversations may reset if isolates change.
+- Sessions are stored in encrypted Cloudflare KV with a 1-hour TTL; conversations can still expire after inactivity and KV remains eventually consistent.
 - KV operations are async and may have eventual consistency.
 - No D1, Durable Objects, Queues, or R2 are used.
 
@@ -200,7 +201,8 @@ Before adding a new selector:
 ## Middleware Order (in createBot)
 
 ```typescript
-bot.use(session({ initial: () => ({}) }));
+bot.use(sequentialize(getSessionKey));
+bot.use(session({ initial: () => ({}), getSessionKey, storage: new KvSessionStorage(...) }));
 bot.use(requestContext(env));    // Sets ctx.env, ctx.userKey, ctx.requestId
 bot.use(auth);                    // Sets ctx.isAdmin based on ADMIN_USER_ID
 bot.use(rateLimiter());           // Per-isolate best-effort rate limiting
@@ -217,6 +219,7 @@ bot.use(conversations());         // Enables conversation plugin
 | Command | Description |
 |---------|-------------|
 | `/start` | Welcome message |
+| `/help` | Show available commands |
 | `/add [name price currency cycle date]` | Add subscription (interactive or one-line) |
 | `/list` | List all subscriptions as compact text |
 | `/list_full` | Manage subscriptions with inline detail/action buttons |
@@ -226,6 +229,8 @@ bot.use(conversations());         // Enables conversation plugin
 | `/reminders` | Show upcoming reminders |
 | `/settings` | Configure reminder and report defaults |
 | `/delete_me` | Delete all user data (requires confirmation) |
+| `/diagnosis` | Admin-only runtime configuration diagnosis |
+| `/admin_reminders` | Admin-only reminder timezone distribution |
 | `/debug_me` | Dev-only diagnostic info (not in production) |
 
 ## BillingCycle
@@ -290,7 +295,7 @@ All subscription-related callbacks verify the subscription still exists before a
 
 4. **In-memory rate limiting**: Resets on isolate recycle. Acceptable for MVP but not a hard guarantee.
 
-5. **Session loss**: Conversations may disappear if the isolate changes between messages. Users must restart flows. Documented as acceptable MVP behavior.
+5. **Session expiration and consistency**: Conversations are KV-backed and can survive isolate changes, but they expire after roughly 1 hour of inactivity and KV is still eventually consistent.
 
 6. **Delete all is non-atomic**: `SubscriptionRepository.deleteAll()` deletes subscription records, index, and profile key sequentially. Best-effort only.
 
