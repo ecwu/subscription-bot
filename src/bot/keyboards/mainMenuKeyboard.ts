@@ -1,10 +1,15 @@
-import { InlineKeyboard, Keyboard } from "grammy";
-import {
-  MAIN_MENU_ACTIONS,
-  type MainMenuAction,
-} from "../../utils/callbackParser.js";
+import { Keyboard } from "grammy";
 
-export { MAIN_MENU_ACTIONS, type MainMenuAction };
+export const MAIN_MENU_ACTIONS = [
+  "add",
+  "list",
+  "report",
+  "reminders",
+  "settings",
+  "help",
+] as const;
+
+export type MainMenuAction = (typeof MAIN_MENU_ACTIONS)[number];
 
 export const MAIN_MENU_BUTTON_LABELS: Record<MainMenuAction, string> = {
   add: "➕ 添加订阅",
@@ -15,10 +20,6 @@ export const MAIN_MENU_BUTTON_LABELS: Record<MainMenuAction, string> = {
   help: "❓ 帮助",
 };
 
-export function mainMenuCallbackData(action: MainMenuAction): string {
-  return `menu:${action}`;
-}
-
 export function actionFromMainMenuText(
   text: string | undefined,
 ): MainMenuAction | null {
@@ -27,18 +28,6 @@ export function actionFromMainMenuText(
     (action) => MAIN_MENU_BUTTON_LABELS[action] === text,
   );
   return entry ?? null;
-}
-
-export function mainMenuInlineKeyboard(): InlineKeyboard {
-  return new InlineKeyboard()
-    .text(MAIN_MENU_BUTTON_LABELS.add, mainMenuCallbackData("add"))
-    .text(MAIN_MENU_BUTTON_LABELS.list, mainMenuCallbackData("list"))
-    .row()
-    .text(MAIN_MENU_BUTTON_LABELS.report, mainMenuCallbackData("report"))
-    .text(MAIN_MENU_BUTTON_LABELS.reminders, mainMenuCallbackData("reminders"))
-    .row()
-    .text(MAIN_MENU_BUTTON_LABELS.settings, mainMenuCallbackData("settings"))
-    .text(MAIN_MENU_BUTTON_LABELS.help, mainMenuCallbackData("help"));
 }
 
 export function mainMenuReplyKeyboard(): Keyboard {

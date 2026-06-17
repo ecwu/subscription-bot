@@ -2,25 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   MAIN_MENU_BUTTON_LABELS,
   actionFromMainMenuText,
-  mainMenuCallbackData,
-  mainMenuInlineKeyboard,
   mainMenuReplyKeyboard,
 } from "../src/bot/keyboards/mainMenuKeyboard.js";
 
 describe("main menu keyboard", () => {
-  it("builds an inline keyboard with callback actions", () => {
-    const keyboard = mainMenuInlineKeyboard();
-
-    expect(keyboard.inline_keyboard[0][0]).toEqual({
-      text: MAIN_MENU_BUTTON_LABELS.add,
-      callback_data: mainMenuCallbackData("add"),
-    });
-    expect(keyboard.inline_keyboard.flat()).toContainEqual({
-      text: MAIN_MENU_BUTTON_LABELS.settings,
-      callback_data: mainMenuCallbackData("settings"),
-    });
-  });
-
   it("builds a persistent reply keyboard", () => {
     const keyboard = mainMenuReplyKeyboard();
 

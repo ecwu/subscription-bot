@@ -62,10 +62,7 @@ import {
   listDeleteCancelCallback,
   listEditFieldCallback,
 } from "./callbacks/listCallbacks.js";
-import {
-  mainMenuCallback,
-  mainMenuText,
-} from "./callbacks/mainMenuCallbacks.js";
+import { mainMenuText } from "./mainMenuActions.js";
 import {
   MAIN_MENU_ACTIONS,
   MAIN_MENU_BUTTON_LABELS,
@@ -166,7 +163,6 @@ export function createBot(env: Env): Bot<BotContext> {
     bot.hears(MAIN_MENU_BUTTON_LABELS[action], mainMenuText);
   }
 
-  bot.callbackQuery(/^menu:/, mainMenuCallback);
   bot.callbackQuery(/^delete:confirm:/, deleteConfirmCallback);
   bot.callbackQuery(/^delete:cancel:/, deleteCancelCallback);
 
