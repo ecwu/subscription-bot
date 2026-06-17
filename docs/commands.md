@@ -132,7 +132,7 @@ The export does **not** include `userKey`, raw Telegram ID, `chat_id`, or encryp
 
 Generates PNG image reports from the current subscription list:
 - 月度摊平支出：monthly-equivalent run rate for subscriptions whose next billing date is within one billing-cycle window from today.
-- 当月支出：actual payment amounts due in the current calendar month.
+- 未来 30 天支出：actual payment amounts due from today through the next 30 days.
 - 年度预期支出：projected actual charges over the next 12 months.
 - Per-currency totals and date/month distribution for each report.
 
@@ -151,8 +151,8 @@ If PNG generation fails, the bot falls back to a plain-text report.
 ### `/report_text`
 
 Generates a text report split into Telegram-safe message chunks:
-- Current-month due line items, sorted by billing day.
-- Converted current-month total in the user's default currency.
+- Upcoming 30-day due line items, sorted by billing date.
+- Converted upcoming 30-day total in the user's default currency.
 - Future 12-month projection grouped by month.
 - Trial and non-auto-renewing counts excluded from totals.
 

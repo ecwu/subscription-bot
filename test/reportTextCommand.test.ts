@@ -130,7 +130,7 @@ describe("reportTextCommand", () => {
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls
       .map((call: [string]) => call[0])
       .join("\n");
-    expect(text).toContain("当月支出");
+    expect(text).toContain("未来30天支出");
     expect(text).toContain("Netflix");
   });
 

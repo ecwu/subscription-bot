@@ -54,7 +54,7 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
 
   try {
     const currentMonthlyPng = await renderReportPng(report.currentMonthly);
-    const currentMonthDuePng = await renderReportPng(report.currentMonthDue);
+    const upcomingDuePng = await renderReportPng(report.currentMonthDue);
     const yearlyProjectionPng = await renderReportPng(report.yearlyProjection);
 
     await ctx.replyWithPhoto(
@@ -65,9 +65,9 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
     );
 
     await ctx.replyWithPhoto(
-      new InputFile(currentMonthDuePng, "current-month-due-report.png"),
+      new InputFile(upcomingDuePng, "upcoming-30-days-report.png"),
       {
-        caption: "当月支出",
+        caption: "未来30天支出",
       },
     );
 

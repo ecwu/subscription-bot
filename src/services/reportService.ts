@@ -55,6 +55,7 @@ export interface TextReportSubscriptionItem {
   currency: string;
   convertedAmount?: number;
   billingDay?: number;
+  billingDate?: string;
 }
 
 export interface TextReportMonthItems {
@@ -67,6 +68,8 @@ export interface TextReportData {
   generatedAt: string;
   baseCurrency: string;
   currentMonthKey: string;
+  upcomingWindowStart: string;
+  upcomingWindowEnd: string;
   trialCount: number;
   nonRenewingCount: number;
   currentMonthItems: TextReportSubscriptionItem[];
@@ -91,6 +94,7 @@ export interface ReportData {
   monthDistribution?: ReportMonthDistribution[];
   missingRateCurrencies: string[];
   excluded: ReportExcludedCounts;
+  dayLabelPrefix?: string;
 }
 
 export interface SplitReportData {
@@ -176,7 +180,13 @@ export function buildReportData(
       ? (getLocalTimeInfo(timezone)?.date ?? formatDate(referenceDate))
       : formatDate(referenceDate);
   const generatedAt = new Date().toISOString();
-  const dayDistribution = buildFullMonthDayDistribution(
+  const monthlyDayDistribution = buildFullMonthDayDistribution(
+    subscriptions,
+    exchangeRates,
+    today,
+    baseCurrency,
+  );
+  const upcomingDayDistribution = buildUpcomingDayDistribution(
     subscriptions,
     exchangeRates,
     today,
@@ -192,19 +202,20 @@ export function buildReportData(
     baseCurrency,
     today,
     amountForSubscription: monthlyAmountIfCurrentlyActive,
-    dayDistribution,
+    dayDistribution: monthlyDayDistribution,
   });
   const currentMonthDue = buildReportView({
-    title: "当月支出",
-    totalLabel: "本月实际扣款",
-    chartTitle: "本月扣款日分布",
-    chartSubtitle: "按本月扣款日汇总的实际扣款金额",
+    title: "未来30天支出",
+    totalLabel: "未来30天实际扣款",
+    chartTitle: "未来30天扣款分布",
+    chartSubtitle: "按未来30天日期汇总的实际扣款金额",
     subscriptions,
     exchangeRates,
     baseCurrency,
     today,
-    amountForSubscription: actualAmountIfDueThisMonth,
-    dayDistribution,
+    amountForSubscription: actualAmountIfDueInUpcomingWindow,
+    dayDistribution: upcomingDayDistribution,
+    dayLabelPrefix: "T+",
   });
 
   const yearMonthDistribution = buildYearMonthDistribution(
@@ -248,6 +259,7 @@ interface BuildReportViewOptions {
   today: string;
   amountForSubscription: (sub: Subscription, today: string) => number | null;
   dayDistribution: ReportDayDistribution[];
+  dayLabelPrefix?: string;
 }
 
 function buildReportView({
@@ -261,6 +273,7 @@ function buildReportView({
   today,
   amountForSubscription,
   dayDistribution,
+  dayLabelPrefix,
 }: BuildReportViewOptions): ReportData {
   const byCurrency = new Map<string, ReportCurrencySummary>();
   const missingRateCurrencies = new Set<string>();
@@ -356,6 +369,7 @@ function buildReportView({
     dayDistribution,
     missingRateCurrencies: Array.from(missingRateCurrencies).sort(),
     excluded,
+    dayLabelPrefix,
   };
 }
 
@@ -423,6 +437,53 @@ function buildFullMonthDayDistribution(
       day,
       actualTotal: actualByDay.get(day) ?? 0,
       monthlyEquivalentTotal: monthlyByDay.get(day) ?? 0,
+    });
+  }
+  return distribution;
+}
+
+function buildUpcomingDayDistribution(
+  subscriptions: Subscription[],
+  exchangeRates: ExchangeRateConfig | null,
+  today: string,
+  baseCurrency: string,
+): ReportDayDistribution[] {
+  const actualByOffset = new Map<number, number>();
+  const windowEnd = upcomingWindowEnd(today);
+
+  for (const sub of subscriptions) {
+    if (sub.status === "paused") continue;
+    if (isTrialSubscription(sub)) continue;
+    if (!isAutoRenewing(sub)) continue;
+    if (sub.price === undefined) continue;
+    if (!sub.currency) continue;
+    if (sub.billingCycle === "custom") continue;
+
+    const currency = sub.currency.toUpperCase();
+    const convertedActualAmount = convertToReportCurrency(
+      sub.price,
+      currency,
+      exchangeRates,
+      baseCurrency,
+    );
+    if (convertedActualAmount === undefined) continue;
+
+    const billingDates = findBillingDatesInWindow(sub, today, windowEnd);
+    for (const billingDate of billingDates) {
+      const offset = daysBetween(today, billingDate);
+      actualByOffset.set(
+        offset,
+        (actualByOffset.get(offset) ?? 0) + convertedActualAmount,
+      );
+    }
+  }
+
+  const distribution: ReportDayDistribution[] = [];
+  for (let offset = 0; offset < 30; offset++) {
+    distribution.push({
+      day: offset,
+      actualTotal: actualByOffset.get(offset) ?? 0,
+      monthlyEquivalentTotal: 0,
     });
   }
   return distribution;
@@ -503,9 +564,11 @@ function appendReportSection(lines: string[], report: ReportData): void {
             `等值 ${formatMoney(item.monthlyEquivalentTotal, report.baseCurrency)}`,
           );
         }
-        lines.push(
-          `- ${String(item.day).padStart(2, "0")} 日：${parts.join("，")}`,
-        );
+        const dayLabel =
+          report.dayLabelPrefix !== undefined
+            ? `${report.dayLabelPrefix}${item.day}`
+            : `${String(item.day).padStart(2, "0")} 日`;
+        lines.push(`- ${dayLabel}：${parts.join("，")}`);
       }
     }
   }
@@ -589,12 +652,16 @@ function findActualBillingDateForCurrentMonth(
   return null;
 }
 
-function actualAmountIfDueThisMonth(
+function actualAmountIfDueInUpcomingWindow(
   sub: Subscription,
   today: string,
 ): number | null {
-  const billingDate = findActualBillingDateForCurrentMonth(sub, today);
-  return billingDate !== null ? (sub.price ?? 0) : null;
+  const billingDates = findBillingDatesInWindow(
+    sub,
+    today,
+    upcomingWindowEnd(today),
+  );
+  return billingDates.length > 0 ? (sub.price ?? 0) * billingDates.length : null;
 }
 
 function isWithinActiveWindow(sub: Subscription, today: string): boolean {
@@ -658,6 +725,60 @@ function isInCurrentMonth(nextBillingDate: string, today: string): boolean {
 function getBillingDay(date: string): number {
   const parsed = Number(date.slice(8, 10));
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= 31 ? parsed : 1;
+}
+
+function upcomingWindowEnd(today: string): string {
+  return addDays(today, 29);
+}
+
+function daysBetween(startDate: string, endDate: string): number {
+  const start = Date.parse(`${startDate}T00:00:00.000Z`);
+  const end = Date.parse(`${endDate}T00:00:00.000Z`);
+  return Math.round((end - start) / 86_400_000);
+}
+
+function findBillingDatesInWindow(
+  sub: Subscription,
+  startDate: string,
+  endDate: string,
+): string[] {
+  if (sub.billingCycle === "custom") return [];
+
+  const anchorDay =
+    sub.billingAnchorDay ?? getBillingAnchorDay(sub.nextBillingDate);
+  let billingDate = sub.nextBillingDate;
+  let iterations = 0;
+
+  while (billingDate < startDate && iterations < 400) {
+    const next = getNextBillingDate(
+      billingDate,
+      sub.billingCycle,
+      anchorDay,
+      sub.billingInterval,
+    );
+    if (!next || next <= billingDate) return [];
+    billingDate = next;
+    iterations++;
+  }
+
+  const dates: string[] = [];
+  while (billingDate <= endDate && iterations < 400) {
+    if (billingDate >= startDate && sub.createdAt.slice(0, 10) <= billingDate) {
+      dates.push(billingDate);
+    }
+
+    const next = getNextBillingDate(
+      billingDate,
+      sub.billingCycle,
+      anchorDay,
+      sub.billingInterval,
+    );
+    if (!next || next <= billingDate) break;
+    billingDate = next;
+    iterations++;
+  }
+
+  return dates;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -822,6 +943,8 @@ export function buildTextReportData(
       ? (getLocalTimeInfo(timezone)?.date ?? formatDate(referenceDate))
       : formatDate(referenceDate);
   const currentMonthKey = today.slice(0, 7);
+  const upcomingWindowStart = today;
+  const upcomingWindowEndDate = upcomingWindowEnd(today);
   const generatedAt = new Date().toISOString();
   const trialCount = subscriptions.filter(
     (sub) => sub.status !== "paused" && isTrialSubscription(sub),
@@ -842,27 +965,38 @@ export function buildTextReportData(
     if (!sub.currency) continue;
     if (sub.billingCycle === "custom") continue;
 
-    const billingDate = findActualBillingDateForCurrentMonth(sub, today);
-    if (billingDate === null) continue;
+    const billingDates = findBillingDatesInWindow(
+      sub,
+      upcomingWindowStart,
+      upcomingWindowEndDate,
+    );
+    if (billingDates.length === 0) continue;
 
     const currency = sub.currency.toUpperCase();
-    const convertedAmount = convertToReportCurrency(
-      sub.price,
-      currency,
-      exchangeRates,
-      baseCurrency,
-    );
 
-    currentMonthItems.push({
-      name: sub.name,
-      amount: sub.price,
-      currency,
-      convertedAmount,
-      billingDay: getBillingDay(billingDate),
-    });
+    for (const billingDate of billingDates) {
+      const convertedAmount = convertToReportCurrency(
+        sub.price,
+        currency,
+        exchangeRates,
+        baseCurrency,
+      );
+
+      currentMonthItems.push({
+        name: sub.name,
+        amount: sub.price,
+        currency,
+        convertedAmount,
+        billingDay: getBillingDay(billingDate),
+        billingDate,
+      });
+    }
   }
 
   currentMonthItems.sort((a, b) => {
+    if (a.billingDate && b.billingDate && a.billingDate !== b.billingDate) {
+      return a.billingDate.localeCompare(b.billingDate);
+    }
     if (a.billingDay !== b.billingDay) return a.billingDay! - b.billingDay!;
     return a.name.localeCompare(b.name);
   });
@@ -945,6 +1079,8 @@ export function buildTextReportData(
     generatedAt,
     baseCurrency,
     currentMonthKey,
+    upcomingWindowStart,
+    upcomingWindowEnd: upcomingWindowEndDate,
     trialCount,
     nonRenewingCount,
     currentMonthItems,
@@ -976,11 +1112,16 @@ export function formatTextReport(data: TextReportData): string[] {
       item.convertedAmount !== undefined && item.currency !== data.baseCurrency
         ? ` → ${formatMoney(item.convertedAmount, data.baseCurrency)}`
         : "";
-    const day = item.billingDay !== undefined ? `  ${item.billingDay}日` : "";
-    return `${item.name}  ${money}${arrow}${day}`;
+    const date =
+      item.billingDate !== undefined
+        ? `  ${item.billingDate}`
+        : item.billingDay !== undefined
+          ? `  ${item.billingDay}日`
+          : "";
+    return `${item.name}  ${money}${arrow}${date}`;
   };
 
-  push(`当月支出 · ${data.currentMonthKey}`);
+  push(`未来30天支出 · ${data.upcomingWindowStart}~${data.upcomingWindowEnd}`);
   if (data.trialCount > 0 || data.nonRenewingCount > 0) {
     const notes: string[] = [];
     if (data.trialCount > 0) notes.push(`体验 ${data.trialCount}`);

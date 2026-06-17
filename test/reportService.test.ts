@@ -300,7 +300,7 @@ describe("buildReportData", () => {
     ).toBeCloseTo(8.75);
   });
 
-  it("builds a full current-month day distribution with both totals", () => {
+  it("builds current-month run-rate and upcoming 30-day due distributions", () => {
     const report = buildReportData(
       [
         sub({
@@ -334,12 +334,8 @@ describe("buildReportData", () => {
 
     // May has 31 days
     expect(report.currentMonthly.dayDistribution).toHaveLength(31);
-    expect(report.currentMonthDue.dayDistribution).toHaveLength(31);
-
-    // Both views share the same full-month distribution
-    expect(report.currentMonthly.dayDistribution).toEqual(
-      report.currentMonthDue.dayDistribution,
-    );
+    expect(report.currentMonthDue.dayDistribution).toHaveLength(30);
+    expect(report.currentMonthDue.dayLabelPrefix).toBe("T+");
 
     const day1 = report.currentMonthly.dayDistribution.find(
       (item) => item.day === 1,
@@ -352,6 +348,16 @@ describe("buildReportData", () => {
     )!;
     expect(day15.monthlyEquivalentTotal).toBeCloseTo(40);
     expect(day15.actualTotal).toBe(0);
+
+    const offset15 = report.currentMonthDue.dayDistribution.find(
+      (item) => item.day === 15,
+    )!;
+    expect(offset15.actualTotal).toBeCloseTo(210);
+
+    const offset29 = report.currentMonthDue.dayDistribution.find(
+      (item) => item.day === 29,
+    )!;
+    expect(offset29.actualTotal).toBeCloseTo(40);
 
     // Zero-total days exist
     const day10 = report.currentMonthly.dayDistribution.find(
@@ -382,7 +388,7 @@ describe("buildReportData", () => {
     expect(day20.monthlyEquivalentTotal).toBeCloseTo(70);
   });
 
-  it("allows actual and monthly-equivalent totals to coexist on the same day", () => {
+  it("keeps run-rate and upcoming actual totals in separate day windows", () => {
     const report = buildReportData(
       [
         sub({
@@ -413,32 +419,31 @@ describe("buildReportData", () => {
 
     // May has 31 days
     expect(report.currentMonthly.dayDistribution).toHaveLength(31);
-    expect(report.currentMonthDue.dayDistribution).toHaveLength(31);
+    expect(report.currentMonthDue.dayDistribution).toHaveLength(30);
 
-    // Day 20: yearly due in May + active
+    // Day 20: yearly due in May + active in the monthly run-rate view
     const day20 = report.currentMonthDue.dayDistribution.find(
-      (item) => item.day === 20,
+      (item) => item.day === 3,
     )!;
     expect(day20.actualTotal).toBeCloseTo(120 * 7);
-    expect(day20.monthlyEquivalentTotal).toBeCloseTo(10 * 7);
+    expect(day20.monthlyEquivalentTotal).toBe(0);
 
     // Day 31: quarterly due in May + active
     const day31 = report.currentMonthDue.dayDistribution.find(
-      (item) => item.day === 31,
+      (item) => item.day === 14,
     )!;
     expect(day31.actualTotal).toBeCloseTo(30 * 8);
-    expect(day31.monthlyEquivalentTotal).toBeCloseTo(10 * 8);
+    expect(day31.monthlyEquivalentTotal).toBe(0);
 
-    // Day 1: next-month subscription is active but not due in May
+    // Next-month subscription is active in run-rate but due in the upcoming window
     const day1 = report.currentMonthDue.dayDistribution.find(
-      (item) => item.day === 1,
+      (item) => item.day === 15,
     )!;
-    expect(day1.actualTotal).toBe(0);
-    expect(day1.monthlyEquivalentTotal).toBeCloseTo(10 * 7);
+    expect(day1.actualTotal).toBeCloseTo(10 * 7);
+    expect(day1.monthlyEquivalentTotal).toBe(0);
 
-    // Current report totals remain unchanged
-    expect(report.currentMonthDue.includedCount).toBe(2);
-    expect(report.currentMonthDue.totalBase).toBe(120 * 7 + 30 * 8);
+    expect(report.currentMonthDue.includedCount).toBe(3);
+    expect(report.currentMonthDue.totalBase).toBe(120 * 7 + 30 * 8 + 10 * 7);
     expect(report.currentMonthDue.byCurrency).toEqual([
       {
         currency: "EUR",
@@ -448,14 +453,14 @@ describe("buildReportData", () => {
       },
       {
         currency: "USD",
-        total: 120,
-        convertedTotal: 840,
-        subscriptionCount: 1,
+        total: 130,
+        convertedTotal: 910,
+        subscriptionCount: 2,
       },
     ]);
   });
 
-  it("lookback includes already-paid monthly subscription in current month due", () => {
+  it("excludes already-paid monthly subscription from upcoming 30-day due", () => {
     const report = buildReportData(
       [
         sub({
@@ -472,15 +477,15 @@ describe("buildReportData", () => {
     );
 
     expect(report.currentMonthDue.includedCount).toBe(1);
-    expect(report.currentMonthDue.totalBase).toBeCloseTo(70); // 10 * 7
+    expect(report.currentMonthDue.totalBase).toBeCloseTo(70); // 2026-06-03 is upcoming
 
-    const day3 = report.currentMonthDue.dayDistribution.find(
-      (item) => item.day === 3,
+    const offset17 = report.currentMonthDue.dayDistribution.find(
+      (item) => item.day === 17,
     )!;
-    expect(day3.actualTotal).toBeCloseTo(70);
+    expect(offset17.actualTotal).toBeCloseTo(70);
   });
 
-  it("lookback includes already-paid quarterly subscription in current month due", () => {
+  it("excludes already-paid quarterly subscription outside upcoming 30 days", () => {
     const report = buildReportData(
       [
         sub({
@@ -496,16 +501,11 @@ describe("buildReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(report.currentMonthDue.includedCount).toBe(1);
-    expect(report.currentMonthDue.totalBase).toBeCloseTo(210); // 30 * 7
-
-    const day15 = report.currentMonthDue.dayDistribution.find(
-      (item) => item.day === 15,
-    )!;
-    expect(day15.actualTotal).toBeCloseTo(210);
+    expect(report.currentMonthDue.includedCount).toBe(0);
+    expect(report.currentMonthDue.totalBase).toBe(0);
   });
 
-  it("lookback includes already-paid yearly subscription in current month due", () => {
+  it("excludes already-paid yearly subscription outside upcoming 30 days", () => {
     const report = buildReportData(
       [
         sub({
@@ -521,16 +521,11 @@ describe("buildReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(report.currentMonthDue.includedCount).toBe(1);
-    expect(report.currentMonthDue.totalBase).toBeCloseTo(840); // 120 * 7
-
-    const day10 = report.currentMonthDue.dayDistribution.find(
-      (item) => item.day === 10,
-    )!;
-    expect(day10.actualTotal).toBeCloseTo(840);
+    expect(report.currentMonthDue.includedCount).toBe(0);
+    expect(report.currentMonthDue.totalBase).toBe(0);
   });
 
-  it("lookback excludes newly created subscription with phantom past date", () => {
+  it("includes newly created subscription when future billing is in upcoming 30 days", () => {
     const report = buildReportData(
       [
         sub({
@@ -546,7 +541,8 @@ describe("buildReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(report.currentMonthDue.includedCount).toBe(0);
+    expect(report.currentMonthDue.includedCount).toBe(1);
+    expect(report.currentMonthDue.totalBase).toBeCloseTo(70);
   });
 
   it("monthly run-rate includes past-due subscription after advancing", () => {
@@ -582,7 +578,7 @@ describe("buildReportData", () => {
     const text = formatReportText(report);
     expect(text).toContain("订阅支出报告");
     expect(text).toContain("月度摊平支出");
-    expect(text).toContain("当月支出");
+    expect(text).toContain("未来30天支出");
     expect(text).toContain("年度预期支出");
     expect(text).not.toContain("Private Service");
   });
@@ -745,7 +741,7 @@ describe("buildTextReportData", () => {
     rates: { USD: 1, CNY: 7, EUR: 0.875 },
   };
 
-  it("collects current month items with billing day", () => {
+  it("collects upcoming 30-day items with billing date", () => {
     const data = buildTextReportData(
       [
         sub({
@@ -769,13 +765,17 @@ describe("buildTextReportData", () => {
 
     expect(data.currentMonthKey).toBe("2026-05");
     expect(data.currentMonthItems).toHaveLength(2);
+    expect(data.upcomingWindowStart).toBe("2026-05-17");
+    expect(data.upcomingWindowEnd).toBe("2026-06-15");
     expect(data.currentMonthItems[0]).toMatchObject({
-      name: "Spotify",
-      billingDay: 10,
-    });
-    expect(data.currentMonthItems[1]).toMatchObject({
       name: "Netflix",
       billingDay: 20,
+      billingDate: "2026-05-20",
+    });
+    expect(data.currentMonthItems[1]).toMatchObject({
+      name: "Spotify",
+      billingDay: 10,
+      billingDate: "2026-06-10",
     });
     expect(data.currentMonthTotal).toBeCloseTo(15 + 10 * 7);
   });
@@ -869,7 +869,7 @@ describe("buildTextReportData", () => {
     expect(data.currentMonthItems[0].name).toBe("Valid");
   });
 
-  it("includes lookback items in current month", () => {
+  it("includes upcoming items after already-paid current-month billing", () => {
     const data = buildTextReportData(
       [
         sub({
@@ -887,10 +887,10 @@ describe("buildTextReportData", () => {
     );
 
     expect(data.currentMonthItems).toHaveLength(1);
-    expect(data.currentMonthItems[0].billingDay).toBe(3);
+    expect(data.currentMonthItems[0].billingDate).toBe("2026-06-03");
   });
 
-  it("sorts current month items by billing day", () => {
+  it("sorts upcoming items by billing date", () => {
     const data = buildTextReportData(
       [
         sub({
@@ -912,8 +912,8 @@ describe("buildTextReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(data.currentMonthItems[0].billingDay).toBe(5);
-    expect(data.currentMonthItems[1].billingDay).toBe(25);
+    expect(data.currentMonthItems[0].billingDate).toBe("2026-05-25");
+    expect(data.currentMonthItems[1].billingDate).toBe("2026-06-05");
   });
 
   it("sorts year items by converted amount descending", () => {
@@ -977,11 +977,11 @@ describe("formatTextReport", () => {
     const chunks = formatTextReport(data);
     const text = chunks.join("\n");
 
-    expect(text).toContain("当月支出 · 2026-05");
+    expect(text).toContain("未来30天支出 · 2026-05-17~2026-06-15");
     expect(text).toContain("Spotify");
     expect(text).toContain("Netflix");
-    expect(text).toContain("10日");
-    expect(text).toContain("20日");
+    expect(text).toContain("2026-06-10");
+    expect(text).toContain("2026-05-20");
     expect(text).toContain("年度预期");
   });
 

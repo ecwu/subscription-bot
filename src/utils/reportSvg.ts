@@ -126,11 +126,15 @@ export function buildReportSvg(report: ReportData): string {
 
         const showDayLabel =
           index === 0 || index === daysInMonth - 1 || item.day % 5 === 0;
+        const dayLabel =
+          report.dayLabelPrefix !== undefined
+            ? `${report.dayLabelPrefix}${item.day}`
+            : `D${String(item.day).padStart(2, "0")}`;
 
         return `
           ${monthlyRect}
           ${actualRect}
-          ${showDayLabel ? `<text x="${x + barWidth / 2}" y="${CHART_Y + CHART_HEIGHT + 24}" text-anchor="middle" class="axis">D${String(item.day).padStart(2, "0")}</text>` : ""}
+          ${showDayLabel ? `<text x="${x + barWidth / 2}" y="${CHART_Y + CHART_HEIGHT + 24}" text-anchor="middle" class="axis">${escapeXml(dayLabel)}</text>` : ""}
           ${showLabel ? `<text x="${x + barWidth / 2}" y="${Math.max(topY - 8, CHART_Y - 4).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(compactAmount(labelValue))}</text>` : ""}`;
       })
       .join("");
