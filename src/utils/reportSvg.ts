@@ -3,6 +3,8 @@ import type {
   SplitReportData,
   TextReportSubscriptionItem,
 } from "../services/reportService.js";
+import { max as d3Max } from "d3-array";
+import { scaleBand, scaleLinear } from "d3-scale";
 import { formatMoney } from "./money.js";
 import { REPORT_FONT_FAMILY, REPORT_SATORI_FONTS } from "./reportFonts.js";
 import satori from "satori";
@@ -18,6 +20,27 @@ const BAR_LABEL_TOP_PADDING = 28;
 const BAR_MAX_HEIGHT = CHART_HEIGHT - BAR_LABEL_TOP_PADDING;
 const MONTHLY_FILL_OPACITY = "0.35";
 const STACK_BLOCK_GAP = 2;
+
+type BarDatum = {
+  key: string;
+  value: number;
+};
+
+type BarLayout = {
+  key: string;
+  value: number;
+  x: number;
+  centerX: number;
+  width: number;
+  height: number;
+  topY: number;
+};
+
+type BarChartLayout = {
+  bars: BarLayout[];
+  gap: number;
+  heightForValue: (value: number) => number;
+};
 
 const COLORS = {
   ink: "#162326",
@@ -165,26 +188,31 @@ export function buildReportSvg(report: ReportData): string {
 
   if (isYearView && report.monthDistribution) {
     const monthData = report.monthDistribution;
-    const maxDistribution = Math.max(
-      ...monthData.map((item) => item.actualTotal),
-      1,
+    const chart = createBarChartLayout(
+      monthData.map((item) => ({
+        key: item.monthKey,
+        value: item.actualTotal,
+      })),
+      {
+        x: CHART_X,
+        y: CHART_Y,
+        width: CHART_WIDTH,
+        height: BAR_MAX_HEIGHT,
+        minBarWidth: 16,
+        maxBarWidth: 70,
+        minBarHeight: 2,
+      },
     );
-    const barStep = Math.floor(CHART_WIDTH / Math.max(monthData.length, 1));
-    const barWidth = Math.min(70, Math.max(16, barStep - 12));
 
     bars = monthData
       .map((item, index) => {
-        const actualH =
-          item.actualTotal > 0
-            ? Math.max(2, (item.actualTotal / maxDistribution) * BAR_MAX_HEIGHT)
-            : 0;
-
-        const x = CHART_X + index * barStep + (barStep - barWidth) / 2;
+        const bar = chart.bars[index];
+        const actualH = bar.height;
         const actualY = CHART_Y + CHART_HEIGHT - actualH;
 
         const actualRect =
           actualH > 0
-            ? `<rect x="${x}" y="${actualY.toFixed(1)}" width="${barWidth}" height="${actualH.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`
+            ? `<rect x="${bar.x}" y="${actualY.toFixed(1)}" width="${bar.width}" height="${actualH.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`
             : "";
 
         const showLabel = item.actualTotal > 0;
@@ -193,8 +221,8 @@ export function buildReportSvg(report: ReportData): string {
 
         return `
           ${actualRect}
-          <text x="${x + barWidth / 2}" y="${CHART_Y + CHART_HEIGHT + 24}" text-anchor="middle" class="axis">${escapeXml(monthLabel)}</text>
-          ${showLabel ? `<text x="${x + barWidth / 2}" y="${Math.max(actualY - 8, CHART_Y - 4).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(compactAmount(item.actualTotal))}</text>` : ""}`;
+          <text x="${bar.centerX}" y="${CHART_Y + CHART_HEIGHT + 24}" text-anchor="middle" class="axis">${escapeXml(monthLabel)}</text>
+          ${showLabel ? `<text x="${bar.centerX}" y="${Math.max(actualY - 8, CHART_Y - 4).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(compactAmount(item.actualTotal))}</text>` : ""}`;
       })
       .join("");
 
@@ -206,48 +234,53 @@ export function buildReportSvg(report: ReportData): string {
   <rect x="${legendX}" y="${legendY}" width="16" height="16" rx="3" fill="${COLORS.gold}"/>
   <text x="${legendX + 24}" y="${legendY + 14}" class="legend">预期扣款</text>`;
   } else {
-    const maxDistribution = Math.max(
-      ...report.dayDistribution.map((item) =>
-        isMonthlyView
+    const chart = createBarChartLayout(
+      report.dayDistribution.map((item) => ({
+        key: String(item.day),
+        value: isMonthlyView
           ? item.actualTotal + item.monthlyEquivalentTotal
           : item.actualTotal,
-      ),
-      1,
+      })),
+      {
+        x: CHART_X,
+        y: CHART_Y,
+        width: CHART_WIDTH,
+        height: BAR_MAX_HEIGHT,
+        minBarWidth: 10,
+        maxBarWidth: 40,
+        minBarHeight: 2,
+      },
     );
-    const barStep = Math.floor(
-      CHART_WIDTH / Math.max(report.dayDistribution.length, 1),
-    );
-    const barWidth = Math.min(40, Math.max(10, barStep - 6));
     const daysInMonth = report.dayDistribution.length;
 
     bars = report.dayDistribution
       .map((item, index) => {
+        const bar = chart.bars[index];
         const monthlyH =
           isMonthlyView && item.monthlyEquivalentTotal > 0
-            ? Math.max(
-                2,
-                (item.monthlyEquivalentTotal / maxDistribution) *
-                  BAR_MAX_HEIGHT,
-              )
+            ? chart.heightForValue(item.monthlyEquivalentTotal)
             : 0;
         const actualH =
-          item.actualTotal > 0
-            ? Math.max(2, (item.actualTotal / maxDistribution) * BAR_MAX_HEIGHT)
-            : 0;
+          item.actualTotal > 0 ? chart.heightForValue(item.actualTotal) : 0;
 
-        const x = CHART_X + index * barStep + (barStep - barWidth) / 2;
         const monthlyY = CHART_Y + CHART_HEIGHT - monthlyH;
         const actualY = monthlyY - actualH;
 
         const monthlyRect =
           monthlyH > 0
-            ? `<rect x="${x}" y="${monthlyY.toFixed(1)}" width="${barWidth}" height="${monthlyH.toFixed(1)}" rx="3" fill="${COLORS.teal}"${isMonthlyView ? ` fill-opacity="${MONTHLY_FILL_OPACITY}"` : ""}/>`
+            ? `<rect x="${bar.x}" y="${monthlyY.toFixed(1)}" width="${bar.width}" height="${monthlyH.toFixed(1)}" rx="3" fill="${COLORS.teal}"${isMonthlyView ? ` fill-opacity="${MONTHLY_FILL_OPACITY}"` : ""}/>`
             : "";
         const actualRect =
           actualH > 0
             ? isMonthlyView
-              ? `<rect x="${x}" y="${actualY.toFixed(1)}" width="${barWidth}" height="${actualH.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`
-              : actualBarBlocks(item.actualCount, x, actualY, barWidth, actualH)
+              ? `<rect x="${bar.x}" y="${actualY.toFixed(1)}" width="${bar.width}" height="${actualH.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`
+              : actualBarBlocks(
+                  item.actualCount,
+                  bar.x,
+                  actualY,
+                  bar.width,
+                  actualH,
+                )
             : "";
 
         const topY = actualH > 0 ? actualY : monthlyY;
@@ -263,8 +296,8 @@ export function buildReportSvg(report: ReportData): string {
         return `
           ${monthlyRect}
           ${actualRect}
-          ${showDayLabel ? `<text x="${x + barWidth / 2}" y="${CHART_Y + CHART_HEIGHT + 24}" text-anchor="middle" class="axis">${escapeXml(dayLabel)}</text>` : ""}
-          ${isMonthlyView ? monthlyViewBarLabels(item, x + barWidth / 2, topY) : showLabel ? `<text x="${x + barWidth / 2}" y="${Math.max(topY - 8, CHART_Y - 4).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(compactAmount(item.actualTotal))}</text>` : ""}`;
+          ${showDayLabel ? `<text x="${bar.centerX}" y="${CHART_Y + CHART_HEIGHT + 24}" text-anchor="middle" class="axis">${escapeXml(dayLabel)}</text>` : ""}
+          ${isMonthlyView ? monthlyViewBarLabels(item, bar.centerX, topY) : showLabel ? `<text x="${bar.centerX}" y="${Math.max(topY - 8, CHART_Y - 4).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(compactAmount(item.actualTotal))}</text>` : ""}`;
       })
       .join("");
 
@@ -385,6 +418,71 @@ function actualBarBlocks(
     const blockY = y + index * (blockHeight + STACK_BLOCK_GAP);
     return `<rect x="${x}" y="${blockY.toFixed(1)}" width="${width}" height="${blockHeight.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`;
   }).join("");
+}
+
+function createBarChartLayout(
+  data: BarDatum[],
+  options: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    minBarWidth: number;
+    maxBarWidth: number;
+    minBarHeight: number;
+  },
+): BarChartLayout {
+  const domain = data.map((item) => item.key);
+  const xScale = scaleBand<string>()
+    .domain(domain)
+    .range([options.x, options.x + options.width])
+    .paddingInner(0.16)
+    .paddingOuter(0.08);
+  const maxValue = d3Max(data, (item) => item.value) ?? 0;
+  const yScale = scaleLinear()
+    .domain([0, Math.max(maxValue, 1)])
+    .range([0, options.height]);
+  const scaledWidth = xScale.bandwidth();
+  const barWidth = clamp(
+    scaledWidth,
+    Math.min(options.minBarWidth, scaledWidth),
+    options.maxBarWidth,
+  );
+
+  const heightForValue = (value: number) => {
+    if (value <= 0) return 0;
+    return Math.max(options.minBarHeight, yScale(value));
+  };
+
+  const bars = data.map((item) => {
+    const bandX = xScale(item.key) ?? options.x;
+    const x = bandX + (scaledWidth - barWidth) / 2;
+    const height = heightForValue(item.value);
+
+    return {
+      key: item.key,
+      value: item.value,
+      x: roundChartNumber(x),
+      centerX: roundChartNumber(x + barWidth / 2),
+      width: roundChartNumber(barWidth),
+      height,
+      topY: options.y + options.height - height,
+    };
+  });
+
+  return {
+    bars,
+    gap: Math.max(0, Math.floor(xScale.step() - barWidth)),
+    heightForValue,
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function roundChartNumber(value: number): number {
+  return Number(value.toFixed(1));
 }
 
 type SatoriElement = {
@@ -592,20 +690,37 @@ function overviewDueChartNode(report: ReportData): SatoriElement {
 
   const chartWidth = 464;
   const chartHeight = 96;
-  const max = Math.max(...data.map((item) => item.actualTotal), 1);
-  const step = Math.floor(chartWidth / data.length);
-  const barWidth = Math.min(34, Math.max(12, step - 8));
+  const chart = createBarChartLayout(
+    data.map((item) => ({ key: String(item.day), value: item.actualTotal })),
+    {
+      x: 0,
+      y: 0,
+      width: chartWidth,
+      height: chartHeight,
+      minBarWidth: 12,
+      maxBarWidth: 34,
+      minBarHeight: 3,
+    },
+  );
 
   return h(
     "div",
-    { style: { display: "flex", alignItems: "flex-end", gap: 8, height: 110 } },
-    ...data.map((item) => {
-      const height = Math.max(3, (item.actualTotal / max) * chartHeight);
+    {
+      style: {
+        display: "flex",
+        alignItems: "flex-end",
+        gap: chart.gap,
+        width: chartWidth,
+        height: 110,
+      },
+    },
+    ...data.map((item, index) => {
+      const bar = chart.bars[index];
       return h(
         "div",
         {
           style: {
-            width: barWidth,
+            width: bar.width,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -625,8 +740,8 @@ function overviewDueChartNode(report: ReportData): SatoriElement {
         ),
         h("div", {
           style: {
-            width: barWidth,
-            height,
+            width: bar.width,
+            height: bar.height,
             backgroundColor: COLORS.gold,
             borderRadius: 3,
             marginTop: 4,
@@ -661,24 +776,39 @@ function overviewYearChartNode(report: ReportData): SatoriElement {
 
   const chartWidth = 464;
   const chartHeight = 72;
-  const max = Math.max(...data.map((item) => item.actualTotal), 1);
-  const step = Math.floor(chartWidth / Math.max(data.length, 1));
-  const barWidth = Math.min(26, Math.max(8, step - 7));
+  const chart = createBarChartLayout(
+    data.map((item) => ({ key: item.monthKey, value: item.actualTotal })),
+    {
+      x: 0,
+      y: 0,
+      width: chartWidth,
+      height: chartHeight,
+      minBarWidth: 8,
+      maxBarWidth: 26,
+      minBarHeight: 2,
+    },
+  );
 
   return h(
     "div",
-    { style: { display: "flex", alignItems: "flex-end", gap: 7, height: 92 } },
+    {
+      style: {
+        display: "flex",
+        alignItems: "flex-end",
+        gap: chart.gap,
+        width: chartWidth,
+        height: 92,
+      },
+    },
     ...data.map((item, index) => {
-      const height =
-        item.actualTotal > 0
-          ? Math.max(2, (item.actualTotal / max) * chartHeight)
-          : 0;
+      const bar = chart.bars[index];
+      const height = bar.height;
       const showLabel = index === 0 || index === data.length - 1;
       return h(
         "div",
         {
           style: {
-            width: barWidth,
+            width: bar.width,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -686,7 +816,7 @@ function overviewYearChartNode(report: ReportData): SatoriElement {
         },
         h("div", {
           style: {
-            width: barWidth,
+            width: bar.width,
             height: Math.max(height, 1),
             backgroundColor: height > 0 ? COLORS.teal : "transparent",
             borderRadius: 3,
