@@ -165,8 +165,11 @@ describe("reportCommand", () => {
     const kv = createMockKV();
     await seedRates(kv);
     await seedSubscription(kv, createSub({ name: "Very Private Name" }));
-    renderReportOverviewPngMock.mockRejectedValue(new Error("render failed"));
+    renderReportOverviewPngMock.mockRejectedValue(
+      new Error("render failed for Very Private Name"),
+    );
     const ctx = createMockContext(kv);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     await reportCommand(ctx);
 
@@ -178,6 +181,9 @@ describe("reportCommand", () => {
     expect(text).toContain("未来30天支出");
     expect(text).toContain("年度预期支出");
     expect(text).not.toContain("Very Private Name");
+    const warnPayload = JSON.parse(String(warnSpy.mock.calls[0][0]));
+    expect(warnPayload.errorMessage).toBe("render failed for [redacted]");
+    warnSpy.mockRestore();
   });
 
   it("falls back to text when Telegram photo sending fails", async () => {

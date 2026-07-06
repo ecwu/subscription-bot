@@ -4,7 +4,7 @@ compatibility_date = "2026-07-06"
 compatibility_flags = ["nodejs_compat"]
 
 rules = [
-  { type = "Data", globs = ["**/*.woff2"], fallthrough = true },
+  { type = "Data", globs = ["**/*.woff2", "**/*.woff"], fallthrough = true },
 ]
 
 [vars]

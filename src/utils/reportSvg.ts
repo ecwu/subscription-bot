@@ -5,6 +5,8 @@ import type {
 } from "../services/reportService.js";
 import { formatMoney } from "./money.js";
 import satori from "satori";
+import robotoBold from "typeface-roboto/files/roboto-latin-700.woff";
+import robotoRegular from "typeface-roboto/files/roboto-latin-400.woff";
 
 const WIDTH = 1200;
 const HEIGHT = 700;
@@ -16,10 +18,6 @@ const BAR_LABEL_TOP_PADDING = 28;
 const BAR_MAX_HEIGHT = CHART_HEIGHT - BAR_LABEL_TOP_PADDING;
 const MONTHLY_FILL_OPACITY = "0.35";
 const STACK_BLOCK_GAP = 2;
-const ROBOTO_REGULAR_URL =
-  "https://cdn.jsdelivr.net/npm/typeface-roboto@1.1.13/files/roboto-latin-400.woff";
-const ROBOTO_BOLD_URL =
-  "https://cdn.jsdelivr.net/npm/typeface-roboto@1.1.13/files/roboto-latin-700.woff";
 
 const COLORS = {
   ink: "#162326",
@@ -403,11 +401,6 @@ function h(
 }
 
 async function buildSatoriSvg(element: SatoriElement): Promise<string> {
-  const [robotoRegular, robotoBold] = await Promise.all([
-    loadSatoriFont(ROBOTO_REGULAR_URL),
-    loadSatoriFont(ROBOTO_BOLD_URL),
-  ]);
-
   const svg = await satori(element as any, {
     width: WIDTH,
     height: HEIGHT,
@@ -427,22 +420,6 @@ async function buildSatoriSvg(element: SatoriElement): Promise<string> {
   });
 
   return svg.replace(/font-family="roboto"/g, 'font-family="Noto Sans SC"');
-}
-
-const satoriFontCache = new Map<string, Promise<ArrayBuffer>>();
-
-function loadSatoriFont(url: string): Promise<ArrayBuffer> {
-  const cached = satoriFontCache.get(url);
-  if (cached) return cached;
-
-  const loaded = fetch(url).then(async (response) => {
-    if (!response.ok) {
-      throw new Error(`Failed to load report layout font: ${response.status}`);
-    }
-    return response.arrayBuffer();
-  });
-  satoriFontCache.set(url, loaded);
-  return loaded;
 }
 
 function overviewMetricCard(

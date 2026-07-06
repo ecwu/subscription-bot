@@ -89,6 +89,7 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
   } catch (error) {
     logger.warn("Report PNG failed; sent text fallback", {
       errorType: error instanceof Error ? error.name : typeof error,
+      errorMessage: sanitizeReportErrorMessage(error, textReport),
       subscriptionCount: report.subscriptionCount,
       currentMonthlyIncludedCount: report.currentMonthly.includedCount,
       currentMonthlyConvertedCount: report.currentMonthly.convertedCount,
@@ -105,4 +106,23 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
     });
     await ctx.reply(fallbackText);
   }
+}
+
+function sanitizeReportErrorMessage(
+  error: unknown,
+  textReport: ReturnType<typeof buildTextReportData>,
+): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  let sanitized = raw.slice(0, 300);
+  const names = new Set<string>();
+  for (const item of textReport.currentMonthItems) names.add(item.name);
+  for (const month of textReport.yearMonthItems) {
+    for (const item of month.items) names.add(item.name);
+  }
+
+  for (const name of names) {
+    if (name) sanitized = sanitized.split(name).join("[redacted]");
+  }
+
+  return sanitized;
 }
