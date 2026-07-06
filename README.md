@@ -83,6 +83,7 @@ pnpm lint
 | `ADMIN_USER_ID` | No | Telegram user ID marked as admin |
 | `APP_ENV` | No | `development` (default), `production`, `test` |
 | `REMINDER_DAYS_AHEAD` | No | Number of days ahead to send renewal reminders (default: 3) |
+| `XCURRENCY_API_KEY` | No | XCurrency commercial data API key for admin-triggered exchange-rate sync |
 
 Secrets belong in `.dev.vars` locally and in Wrangler secrets for production:
 
@@ -91,13 +92,30 @@ wrangler secret put BOT_TOKEN
 wrangler secret put TELEGRAM_WEBHOOK_SECRET
 wrangler secret put ENCRYPTION_KEY
 wrangler secret put USER_HASH_SECRET
+wrangler secret put XCURRENCY_API_KEY
 ```
 
 ## Report Exchange Rates
 
 `/report` generates PNG reports for monthly-equivalent spending, current-month due spending, and future 12-month projected spending. `/report_text` generates a Telegram text version with current-month line items and 12-month projected line items.
 
-Known currencies are converted to the user's default report currency from `/settings` using a manually maintained KV config item. Exchange rates are maintained with USD as the base (`1 USD = N currency`), then converted from the source currency to USD and from USD to the selected default currency. Seed or update the fixed key `config:exchange-rates:v1` with JSON like:
+Known currencies are converted to the user's default report currency from `/settings` using exchange rates stored in KV. Exchange rates are maintained with USD as the base (`1 USD = N currency`), then converted from the source currency to USD and from USD to the selected default currency.
+
+The bot supports two exchange-rate sources:
+- XCurrency live rates stored at `config:exchange-rates:xcurrency:v1`
+- Manually maintained rates stored at `config:exchange-rates:v1`
+
+When both exist and are valid, XCurrency rates are used. If XCurrency rates are missing or invalid, reports fall back to the manual config.
+
+Admins can sync XCurrency rates with:
+
+```text
+/admin_sync_exchange_rates
+```
+
+The command requires `XCURRENCY_API_KEY`. If the key is missing, the command skips without writing KV. The XCurrency endpoint returns USD-quoted rates (`1 currency = N USD`), and the bot stores their inverse so the existing report format remains `1 USD = N currency`.
+
+Seed or update the manual fallback key `config:exchange-rates:v1` with JSON like:
 
 ```json
 { "base": "USD", "rates": { "USD": 1, "CNY": 7.2, "EUR": 0.923 } }

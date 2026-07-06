@@ -30,6 +30,7 @@
 |-------------|--------------------------------------------------|---------------|
 | `/diagnosis`| Check runtime configuration presence and validity | Admin only    |
 | `/admin_reminders` | Show reminder timezone distribution       | Admin only    |
+| `/admin_sync_exchange_rates` | Fetch and persist XCurrency live exchange rates | Admin only |
 
 ## Command Details
 
@@ -110,13 +111,15 @@ Generates PNG image reports from the current subscription list:
 
 Subscriptions without price or currency, and subscriptions with `custom` billing cycle, are excluded from the calculated total but counted in the report. Trial subscriptions and subscriptions with auto-renewal disabled are also excluded from spending totals and surfaced as excluded counts.
 
-Multi-currency conversion uses the manually maintained KV config key `config:exchange-rates:v1`:
+Multi-currency conversion uses exchange rates stored in KV. The bot checks the XCurrency live-rate key `config:exchange-rates:xcurrency:v1` first, then falls back to the manually maintained key `config:exchange-rates:v1`:
 
 ```json
 { "base": "USD", "rates": { "USD": 1, "CNY": 7.2, "EUR": 0.923 } }
 ```
 
 Rates are maintained with USD as the exchange-rate base (`1 USD = N currency`). Report totals use the user's default currency from `/settings`: source currency amounts are converted to USD first, then from USD to that default currency. Currencies missing from the exchange-rate config remain visible in the per-currency section but are not converted into the default-currency total.
+
+Admins can refresh the XCurrency key with `/admin_sync_exchange_rates` when `XCURRENCY_API_KEY` is configured. The XCurrency API returns USD-quoted values (`1 currency = N USD`), and the bot stores their inverse to keep the internal format unchanged.
 
 If PNG generation fails, the bot falls back to a plain-text report.
 
@@ -172,14 +175,21 @@ Checks whether required runtime configuration and report currency constants are 
 - `SUBSCRIPTION_KV`
 - `APP_ENV`
 - `REMINDER_DAYS_AHEAD`
+- `XCURRENCY_API_KEY`
 - `EXCHANGE_RATE_BASE_CURRENCY`
 - `DEFAULT_REPORT_CURRENCY`
-- KV config `config:exchange-rates:v1`
+- KV exchange-rate config, preferring `config:exchange-rates:xcurrency:v1` and falling back to `config:exchange-rates:v1`
 
-There is no global currency environment variable. User default currency is stored per user in encrypted profile settings, and report exchange rates are stored in KV at `config:exchange-rates:v1`. `/diagnosis` checks the static report currency constants and validates the KV exchange-rate config when the KV binding is available.
+There is no global currency environment variable. User default currency is stored per user in encrypted profile settings, and report exchange rates are stored in KV. `/diagnosis` checks the static report currency constants and validates the effective KV exchange-rate config when the KV binding is available.
 
 The report only includes status and validation messages. It never prints secret values, raw Telegram user IDs, usernames, message text, chat IDs, `userKey`, or exchange-rate values.
 
 ### `/admin_reminders`
 
 Scans upcoming reminder index entries and reports timezone distribution for users with reminders enabled. It is intended for operational checks and does not expose raw user IDs or subscription details.
+
+### `/admin_sync_exchange_rates`
+
+Fetches all fiat currency rates from XCurrency commercial data with quote currency `USD`, converts them into the bot's internal `1 USD = N currency` format, and persists them to `config:exchange-rates:xcurrency:v1`.
+
+If `XCURRENCY_API_KEY` is not configured, the command terminates without writing KV. The command only reports currency count and API timestamp; it does not print API keys or rate values.

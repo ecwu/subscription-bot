@@ -38,4 +38,5 @@ export const envSchema = z.object({
         message: "REMINDER_DAYS_AHEAD must be a non-negative integer",
       },
     ),
+  XCURRENCY_API_KEY: z.string().optional(),
 });

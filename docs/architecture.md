@@ -43,7 +43,7 @@ Data access layer over Cloudflare KV:
 - `subscriptionRepository.ts`: CRUD for subscriptions with index management, plus `rebuildIndex` and `cleanupOrphanedEntries` for repair.
 - `userRepository.ts`: User profile storage (encrypted chat ID, first/last seen timestamps).
 - `reminderRepository.ts`: Reminder list management per date, plus sent-marker tracking.
-- `reportConfigRepository.ts`: Reads exchange-rate config from KV for `/report` currency conversion.
+- `reportConfigRepository.ts`: Reads exchange-rate config from KV for `/report` currency conversion, preferring XCurrency live-rate config over the manual fallback.
 
 ### Crypto (`src/crypto/`)
 
@@ -132,12 +132,14 @@ subscriptionService.list + decrypt
         ↓
 reportConfigRepository.getExchangeRates
         ↓
+KV config: config:exchange-rates:xcurrency:v1, then config:exchange-rates:v1
+        ↓
 reportService build data
         ↓
 PNG reports via reportSvg/reportPng or Telegram text chunks
 ```
 
-Spending totals exclude paused, trial, non-auto-renewing, custom-cycle, and incomplete price/currency subscriptions. Exchange rates are maintained with USD as the base (`1 USD = N currency`), then converted to the user's default report currency via USD. Missing exchange rates keep a currency visible where possible but exclude it from converted default-currency totals.
+Spending totals exclude paused, trial, non-auto-renewing, custom-cycle, and incomplete price/currency subscriptions. Exchange rates are maintained with USD as the base (`1 USD = N currency`), then converted to the user's default report currency via USD. Reports prefer XCurrency rates stored at `config:exchange-rates:xcurrency:v1` and fall back to manual rates stored at `config:exchange-rates:v1`. Missing exchange rates keep a currency visible where possible but exclude it from converted default-currency totals.
 
 ## Security
 

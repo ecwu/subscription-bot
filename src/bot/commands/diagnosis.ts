@@ -181,6 +181,23 @@ function checkReminderDaysAhead(env: Partial<Env>): DiagnosisCheck {
   };
 }
 
+function checkXCurrencyApiKey(env: Partial<Env>): DiagnosisCheck {
+  const value = env.XCURRENCY_API_KEY;
+  if (value === undefined || value === "") {
+    return {
+      name: "XCURRENCY_API_KEY",
+      level: "warn",
+      message: "not set; /admin_sync_exchange_rates is unavailable",
+    };
+  }
+
+  return {
+    name: "XCURRENCY_API_KEY",
+    level: "ok",
+    message: "set",
+  };
+}
+
 function checkStaticReportCurrencyConfig(): DiagnosisCheck[] {
   const baseCurrency = validateCurrencyCode(EXCHANGE_RATE_BASE_CURRENCY);
   const defaultCurrency = validateCurrencyCode(DEFAULT_REPORT_CURRENCY);
@@ -272,6 +289,7 @@ export function buildEnvironmentDiagnosisChecks(
     checkKvBinding(env),
     checkAppEnv(env),
     checkReminderDaysAhead(env),
+    checkXCurrencyApiKey(env),
     ...checkStaticReportCurrencyConfig(),
   ];
 }

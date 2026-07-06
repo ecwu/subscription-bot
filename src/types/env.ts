@@ -7,4 +7,5 @@ export interface Env {
   SUBSCRIPTION_KV: KVNamespace;
   APP_ENV?: string;
   REMINDER_DAYS_AHEAD?: string;
+  XCURRENCY_API_KEY?: string;
 }
