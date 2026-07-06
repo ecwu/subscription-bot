@@ -136,7 +136,9 @@ export function buildReportOverviewSvg(
         missingNote
           ? h("div", { style: { color: COLORS.rose, fontWeight: 700 } }, missingNote)
           : null,
-        excludedNote ? h("div", null, excludedNote) : null,
+        excludedNote
+          ? h("div", { style: { display: "flex" } }, excludedNote)
+          : null,
       ),
     ),
   );
@@ -391,10 +393,17 @@ function h(
   props: Record<string, unknown> | null,
   ...children: SatoriChild[]
 ): SatoriElement {
+  const nextProps = props ?? {};
+  const style = nextProps.style as Record<string, unknown> | undefined;
+  const normalizedProps =
+    type === "div" && style?.display === undefined
+      ? { ...nextProps, style: { ...(style ?? {}), display: "flex" } }
+      : nextProps;
+
   return {
     type,
     props: {
-      ...(props ?? {}),
+      ...normalizedProps,
       children: children.length === 1 ? children[0] : children,
     },
   };
@@ -461,7 +470,14 @@ function overviewMetricCard(
 function overviewSectionTitle(title: string): SatoriElement {
   return h(
     "div",
-    { style: { marginBottom: 12, fontSize: 24, fontWeight: 700 } },
+    {
+      style: {
+        display: "flex",
+        marginBottom: 12,
+        fontSize: 24,
+        fontWeight: 700,
+      },
+    },
     title,
   );
 }
@@ -497,7 +513,7 @@ function overviewUpcomingRows(
     return [
       h(
         "div",
-        { style: { color: COLORS.muted, fontSize: 18 } },
+        { style: { display: "flex", color: COLORS.muted, fontSize: 18 } },
         "未来 30 天暂无扣款",
       ),
     ];
@@ -514,10 +530,21 @@ function overviewUpcomingRows(
     return h(
       "div",
       { style: { display: "flex", flexDirection: "column" } },
-      h("div", { style: { fontSize: 21, fontWeight: 700 } }, name),
       h(
         "div",
-        { style: { marginTop: 3, color: COLORS.muted, fontSize: 18 } },
+        { style: { display: "flex", fontSize: 21, fontWeight: 700 } },
+        name,
+      ),
+      h(
+        "div",
+        {
+          style: {
+            display: "flex",
+            marginTop: 3,
+            color: COLORS.muted,
+            fontSize: 18,
+          },
+        },
         `${date} · ${formatMoney(item.amount, item.currency)}${converted}`,
       ),
     );
@@ -529,7 +556,7 @@ function overviewDueChartNode(report: ReportData): SatoriElement {
   if (data.length === 0) {
     return h(
       "div",
-      { style: { color: COLORS.muted, fontSize: 18 } },
+      { style: { display: "flex", color: COLORS.muted, fontSize: 18 } },
       "未来 30 天暂无扣款",
     );
   }
@@ -557,7 +584,14 @@ function overviewDueChartNode(report: ReportData): SatoriElement {
         },
         h(
           "div",
-          { style: { color: COLORS.ink, fontSize: 13, fontWeight: 700 } },
+          {
+            style: {
+              display: "flex",
+              color: COLORS.ink,
+              fontSize: 13,
+              fontWeight: 700,
+            },
+          },
           compactAmount(item.actualTotal),
         ),
         h("div", {
@@ -571,7 +605,14 @@ function overviewDueChartNode(report: ReportData): SatoriElement {
         }),
         h(
           "div",
-          { style: { marginTop: 5, color: COLORS.muted, fontSize: 13 } },
+          {
+            style: {
+              display: "flex",
+              marginTop: 5,
+              color: COLORS.muted,
+              fontSize: 13,
+            },
+          },
           `T+${item.day}`,
         ),
       );
@@ -584,7 +625,7 @@ function overviewYearChartNode(report: ReportData): SatoriElement {
   if (data.every((item) => item.actualTotal === 0)) {
     return h(
       "div",
-      { style: { color: COLORS.muted, fontSize: 18 } },
+      { style: { display: "flex", color: COLORS.muted, fontSize: 18 } },
       "暂无年度预期扣款",
     );
   }
@@ -624,7 +665,14 @@ function overviewYearChartNode(report: ReportData): SatoriElement {
         }),
         h(
           "div",
-          { style: { marginTop: 5, color: COLORS.muted, fontSize: 13 } },
+          {
+            style: {
+              display: "flex",
+              marginTop: 5,
+              color: COLORS.muted,
+              fontSize: 13,
+            },
+          },
           showLabel ? monthNameFromKey(item.monthKey) : "",
         ),
       );
