@@ -124,7 +124,7 @@ export async function collectDateInput(
   });
 
   let calendarMonth = currentMonth();
-  // eslint-disable-next-line no-constant-condition
+
   while (true) {
     const updateCtx = await conversation.wait();
 

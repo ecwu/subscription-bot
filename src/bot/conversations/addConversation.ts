@@ -274,7 +274,6 @@ async function collectPrice(
     },
   );
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const priceCtx = await conversation.wait();
 
@@ -423,7 +422,6 @@ export async function addConversation(
     autoRenew: true,
   };
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     await ctx.reply(buildReviewMessage(draft), {
       reply_markup: reviewKeyboard(draft.price),

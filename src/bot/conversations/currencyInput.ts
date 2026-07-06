@@ -42,7 +42,6 @@ export async function collectCurrencyInput(
     cancelMessage?: string;
   },
 ): Promise<CurrencyInputResult> {
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     await ctx.reply(prompt, {
       reply_markup: currencyKeyboard(hasPrice),
@@ -82,7 +81,6 @@ export async function collectCurrencyInput(
         reply_markup: customCurrencyKeyboard(),
       });
 
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const customCurrencyCtx = await conversation.wait();
 

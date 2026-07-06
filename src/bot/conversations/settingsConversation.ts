@@ -102,7 +102,6 @@ export async function settingsConversation(
     reply_markup: settingsKeyboard(settings),
   });
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const updateCtx = await conversation.wait();
 

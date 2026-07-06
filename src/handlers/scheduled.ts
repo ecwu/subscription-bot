@@ -29,9 +29,6 @@ export async function handleScheduled(
   const userRepo = createUserRepository(env.SUBSCRIPTION_KV);
   const subscriptionService = createSubscriptionService(subRepo, reminderRepo);
 
-  let sentCount = 0;
-  let messageCount = 0;
-  let advancedCount = 0;
   const reminderInputs: ReminderEntryInput[] = [];
 
   for (const date of dates) {
@@ -41,7 +38,11 @@ export async function handleScheduled(
     }
   }
 
-  const result = await processReminderEntries(
+  const {
+    sent: sentCount,
+    messages: messageCount,
+    advanced: advancedCount,
+  } = await processReminderEntries(
     env,
     reminderRepo,
     subRepo,
@@ -50,9 +51,6 @@ export async function handleScheduled(
     reminderInputs,
     daysAhead,
   );
-  sentCount = result.sent;
-  messageCount = result.messages;
-  advancedCount = result.advanced;
 
   log("info", "Scheduled reminder processing complete", {
     env: env.APP_ENV,

@@ -85,7 +85,6 @@ export async function collectCycleInput(
     restartHint: string;
   },
 ): Promise<CycleSelection | null> {
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     await ctx.reply(prompt, {
       reply_markup: cycleKeyboard(callbackData),
@@ -109,7 +108,6 @@ export async function collectCycleInput(
       return { cycle: selectedCycle };
     }
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       await ctx.reply("请选择高级间隔，或点“其他”输入自定义间隔。", {
         reply_markup: intervalKeyboard(),

@@ -17,7 +17,7 @@ export const envSchema = z.object({
         }
       },
       {
-        message:
+        error:
           "ENCRYPTION_KEY must be a base64url-encoded 32-byte value. Generate with: node -e \"console.log(Buffer.from(crypto.randomBytes(32)).toString('base64url'))\"",
       },
     ),
@@ -35,7 +35,7 @@ export const envSchema = z.object({
         return Number.isFinite(parsed) && parsed >= 0;
       },
       {
-        message: "REMINDER_DAYS_AHEAD must be a non-negative integer",
+        error: "REMINDER_DAYS_AHEAD must be a non-negative integer",
       },
     ),
   XCURRENCY_API_KEY: z.string().optional(),

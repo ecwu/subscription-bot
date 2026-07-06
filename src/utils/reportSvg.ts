@@ -31,9 +31,9 @@ export function buildReportSvg(report: ReportData): string {
   const isMonthlyView = report.title.includes("摊平");
   const isYearView = report.monthDistribution !== undefined;
 
-  let bars = "";
-  let chartEmpty = true;
-  let legendItems = "";
+  let bars: string;
+  let chartEmpty: boolean;
+  let legendItems: string;
 
   if (isYearView && report.monthDistribution) {
     const monthData = report.monthDistribution;
