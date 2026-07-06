@@ -9,7 +9,7 @@ import satori from "satori";
 
 const WIDTH = 1200;
 const HEIGHT = 700;
-const OVERVIEW_HEIGHT = 820;
+const OVERVIEW_HEIGHT = 720;
 const CHART_X = 80;
 const CHART_Y = 390;
 const CHART_WIDTH = 1040;
@@ -63,23 +63,23 @@ export function buildReportOverviewSvg(
           color: COLORS.ink,
           display: "flex",
           flexDirection: "column",
-          padding: 72,
+          padding: 48,
           fontFamily: REPORT_FONT_FAMILY,
         },
       },
       h(
         "div",
         { style: { display: "flex", flexDirection: "column" } },
-        h("div", { style: { fontSize: 42, fontWeight: 400 } }, "订阅支出总览"),
+        h("div", { style: { fontSize: 38, fontWeight: 400 } }, "订阅支出总览"),
         h(
           "div",
-          { style: { marginTop: 8, fontSize: 20, color: COLORS.muted } },
+          { style: { marginTop: 6, fontSize: 18, color: COLORS.muted } },
           `生成于 ${report.generatedAt.slice(0, 10)} · 基准货币 ${report.baseCurrency} · 当前订阅 ${report.subscriptionCount} 个`,
         ),
       ),
       h(
         "div",
-        { style: { display: "flex", gap: 34, marginTop: 28 } },
+        { style: { display: "flex", gap: 18, marginTop: 18 } },
         overviewMetricCard(
           "未来 30 天扣款",
           formatMoney(report.currentMonthDue.totalBase, report.baseCurrency),
@@ -98,31 +98,31 @@ export function buildReportOverviewSvg(
       ),
       h(
         "div",
-        { style: { display: "flex", gap: 32, marginTop: 34 } },
+        { style: { display: "flex", gap: 24, marginTop: 22 } },
         h(
           "div",
-          { style: { display: "flex", flexDirection: "column", width: 512 } },
+          { style: { display: "flex", flexDirection: "column", width: 560 } },
           overviewSectionTitle("未来 30 天扣款明细"),
           overviewPanel(
             h(
               "div",
-              { style: { display: "flex", flexDirection: "column", gap: 12 } },
+              { style: { display: "flex", flexDirection: "column", gap: 6 } },
               ...overviewUpcomingRows(upcomingItems, report.baseCurrency),
             ),
-            { height: 288 },
+            { height: 354 },
           ),
         ),
         h(
           "div",
-          { style: { display: "flex", flexDirection: "column", width: 512 } },
+          { style: { display: "flex", flexDirection: "column", width: 520 } },
           overviewSectionTitle("扣款日分布"),
           overviewPanel(overviewDueChartNode(report.currentMonthDue), {
-            height: 132,
+            height: 148,
           }),
-          h("div", { style: { height: 30 } }),
+          h("div", { style: { height: 16 } }),
           overviewSectionTitle("年度月度趋势"),
           overviewPanel(overviewYearChartNode(report.yearlyProjection), {
-            height: 96,
+            height: 136,
           }),
         ),
       ),
@@ -132,9 +132,9 @@ export function buildReportOverviewSvg(
           style: {
             display: "flex",
             flexDirection: "column",
-            gap: 6,
+            gap: 4,
             marginTop: "auto",
-            fontSize: 17,
+            fontSize: 15,
             color: COLORS.muted,
           },
         },
@@ -447,25 +447,25 @@ function overviewMetricCard(
         {
           style: {
             color: COLORS.muted,
-            fontSize: 17,
+            fontSize: 15,
             fontWeight: 400,
-            letterSpacing: 0.5,
+            letterSpacing: 0,
           },
         },
         title,
       ),
       h(
         "div",
-        { style: { marginTop: 18, fontSize: 42, fontWeight: 400 } },
+        { style: { marginTop: 6, fontSize: 36, fontWeight: 400 } },
         value,
       ),
       h(
         "div",
-        { style: { marginTop: 8, color: COLORS.muted, fontSize: 17 } },
+        { style: { marginTop: 2, color: COLORS.muted, fontSize: 14 } },
         note,
       ),
     ),
-    { width: 330, height: 144 },
+    { width: 354, height: 124 },
   );
 }
 
@@ -475,8 +475,8 @@ function overviewSectionTitle(title: string): SatoriElement {
     {
       style: {
         display: "flex",
-        marginBottom: 12,
-        fontSize: 24,
+        marginBottom: 8,
+        fontSize: 22,
         fontWeight: 400,
       },
     },
@@ -499,7 +499,7 @@ function overviewPanel(
         borderRadius: 10,
         display: "flex",
         flexDirection: "column",
-        padding: 24,
+        padding: 18,
       },
     },
     child,
@@ -510,7 +510,7 @@ function overviewUpcomingRows(
   items: TextReportSubscriptionItem[],
   baseCurrency: string,
 ): SatoriElement[] {
-  const topUpcoming = items.slice(0, 5);
+  const topUpcoming = items.slice(0, 8);
   if (topUpcoming.length === 0) {
     return [
       h(
@@ -524,17 +524,43 @@ function overviewUpcomingRows(
   return topUpcoming.map((item) => {
     const converted =
       item.convertedAmount !== undefined && item.currency !== baseCurrency
-        ? ` · ${formatMoney(item.convertedAmount, baseCurrency)}`
+        ? ` / ${formatMoney(item.convertedAmount, baseCurrency)}`
         : "";
     const date = item.billingDate ?? "日期未定";
-    const name = truncateText(item.name, 18);
+    const name = truncateText(item.name, 15);
 
     return h(
       "div",
-      { style: { display: "flex", flexDirection: "column" } },
+      {
+        style: {
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          minHeight: 34,
+        },
+      },
       h(
         "div",
-        { style: { display: "flex", fontSize: 21, fontWeight: 400 } },
+        {
+          style: {
+            display: "flex",
+            width: 104,
+            color: COLORS.muted,
+            fontSize: 15,
+          },
+        },
+        date,
+      ),
+      h(
+        "div",
+        {
+          style: {
+            display: "flex",
+            width: 208,
+            fontSize: 17,
+            fontWeight: 400,
+          },
+        },
         name,
       ),
       h(
@@ -542,12 +568,13 @@ function overviewUpcomingRows(
         {
           style: {
             display: "flex",
-            marginTop: 3,
+            marginLeft: "auto",
             color: COLORS.muted,
-            fontSize: 18,
+            fontSize: 15,
+            textAlign: "right",
           },
         },
-        `${date} · ${formatMoney(item.amount, item.currency)}${converted}`,
+        `${formatMoney(item.amount, item.currency)}${converted}`,
       ),
     );
   });
@@ -564,14 +591,14 @@ function overviewDueChartNode(report: ReportData): SatoriElement {
   }
 
   const chartWidth = 464;
-  const chartHeight = 84;
+  const chartHeight = 96;
   const max = Math.max(...data.map((item) => item.actualTotal), 1);
   const step = Math.floor(chartWidth / data.length);
   const barWidth = Math.min(34, Math.max(12, step - 8));
 
   return h(
     "div",
-    { style: { display: "flex", alignItems: "flex-end", gap: 8, height: 84 } },
+    { style: { display: "flex", alignItems: "flex-end", gap: 8, height: 110 } },
     ...data.map((item) => {
       const height = Math.max(3, (item.actualTotal / max) * chartHeight);
       return h(
@@ -633,14 +660,14 @@ function overviewYearChartNode(report: ReportData): SatoriElement {
   }
 
   const chartWidth = 464;
-  const chartHeight = 48;
+  const chartHeight = 72;
   const max = Math.max(...data.map((item) => item.actualTotal), 1);
   const step = Math.floor(chartWidth / Math.max(data.length, 1));
   const barWidth = Math.min(26, Math.max(8, step - 7));
 
   return h(
     "div",
-    { style: { display: "flex", alignItems: "flex-end", gap: 7, height: 48 } },
+    { style: { display: "flex", alignItems: "flex-end", gap: 7, height: 92 } },
     ...data.map((item, index) => {
       const height =
         item.actualTotal > 0

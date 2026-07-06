@@ -32,6 +32,20 @@ vi.mock("../src/utils/reportFonts.js", async () => {
     { data: readFont("noto-sans-sc-118-400-normal.woff"), weight: 400 },
     { data: readFont("noto-sans-sc-119-400-normal.woff"), weight: 400 },
   ] as const;
+  const resvgFontSources = [
+    readFont("noto-sans-sc-latin-400-normal.woff2"),
+    readFont("noto-sans-sc-106-400-normal.woff2"),
+    readFont("noto-sans-sc-109-400-normal.woff2"),
+    readFont("noto-sans-sc-110-400-normal.woff2"),
+    readFont("noto-sans-sc-112-400-normal.woff2"),
+    readFont("noto-sans-sc-113-400-normal.woff2"),
+    readFont("noto-sans-sc-114-400-normal.woff2"),
+    readFont("noto-sans-sc-115-400-normal.woff2"),
+    readFont("noto-sans-sc-116-400-normal.woff2"),
+    readFont("noto-sans-sc-117-400-normal.woff2"),
+    readFont("noto-sans-sc-118-400-normal.woff2"),
+    readFont("noto-sans-sc-119-400-normal.woff2"),
+  ] as const;
 
   return {
     REPORT_FONT_FAMILY,
@@ -41,8 +55,8 @@ vi.mock("../src/utils/reportFonts.js", async () => {
       weight: font.weight,
       style: "normal",
     })),
-    REPORT_RESVG_FONT_BUFFERS: fontSources.map(
-      (font) => new Uint8Array(font.data),
+    REPORT_RESVG_FONT_BUFFERS: resvgFontSources.map(
+      (font) => new Uint8Array(font),
     ),
   };
 });
@@ -105,7 +119,7 @@ describe("buildReportOverviewSvg with real Satori", () => {
     ]);
 
     expect(svg).toContain("<svg");
-    expect(svg).toContain('viewBox="0 0 1200 820"');
+    expect(svg).toContain('viewBox="0 0 1200 720"');
     expect(svg).toContain('font-family="noto sans sc"');
     expect(svg).toContain(">订</text>");
     expect(svg).toContain(">览</text>");
