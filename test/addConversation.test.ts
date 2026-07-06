@@ -2,13 +2,15 @@ import { describe, it, expect } from "vitest";
 import {
   validateAddName,
   validateAddPrice,
-  validateAddCurrency,
-  validateAddDate,
   buildBillingDatePreview,
-  dateKeyboard,
   formatBillingDatePreview,
   resolveAddCurrencyForPrice,
 } from "../src/bot/conversations/addConversation.js";
+import {
+  dateKeyboard,
+  validateDateInput,
+} from "../src/bot/conversations/dateInput.js";
+import { validateCurrencyInput } from "../src/utils/currency.js";
 
 describe("addConversation validators", () => {
   describe("validateAddName", () => {
@@ -50,21 +52,21 @@ describe("addConversation validators", () => {
 
   describe("validateAddCurrency", () => {
     it("accepts skip when no price", () => {
-      const result = validateAddCurrency("skip", false);
+      const result = validateCurrencyInput("skip", false);
       expect(result.currency).toBeUndefined();
       expect(result.error).toBeUndefined();
     });
     it("requires currency when price exists", () => {
-      const result = validateAddCurrency("skip", true);
+      const result = validateCurrencyInput("skip", true);
       expect(result.error).toBe("已填写价格时必须选择币种。");
     });
     it("accepts valid 3-letter codes", () => {
-      const result = validateAddCurrency("EUR", true);
+      const result = validateCurrencyInput("EUR", true);
       expect(result.currency).toBe("EUR");
       expect(result.error).toBeUndefined();
     });
     it("rejects invalid codes", () => {
-      const result = validateAddCurrency("EURO", true);
+      const result = validateCurrencyInput("EURO", true);
       expect(result.error).toBe("请输入 3 位币种代码，例如 CNY 或 USD。");
     });
   });
@@ -101,29 +103,29 @@ describe("addConversation validators", () => {
 
   describe("validateAddDate", () => {
     it("accepts valid YYYY-MM-DD", () => {
-      const result = validateAddDate("2026-06-01");
+      const result = validateDateInput("2026-06-01");
       expect(result.date).toBe("2026-06-01");
       expect(result.error).toBeUndefined();
     });
     it("rejects invalid format", () => {
-      const result = validateAddDate("not a date");
+      const result = validateDateInput("not a date");
       expect(result.error).toBeDefined();
     });
     it("rejects invalid date", () => {
-      const result = validateAddDate("2026-13-01");
+      const result = validateDateInput("2026-13-01");
       expect(result.error).toBeDefined();
     });
     it("rejects impossible calendar dates", () => {
-      const result = validateAddDate("2026-02-31");
+      const result = validateDateInput("2026-02-31");
       expect(result.error).toBeDefined();
     });
     it("accepts Chinese date format", () => {
-      const result = validateAddDate("2026年6月1日");
+      const result = validateDateInput("2026年6月1日");
       expect(result.date).toBe("2026-06-01");
       expect(result.error).toBeUndefined();
     });
     it("accepts slash format", () => {
-      const result = validateAddDate("2026/06/01");
+      const result = validateDateInput("2026/06/01");
       expect(result.date).toBe("2026-06-01");
       expect(result.error).toBeUndefined();
     });

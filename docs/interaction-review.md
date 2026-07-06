@@ -150,7 +150,7 @@ All callbacks use `parse*CallbackData` helpers. If parsing fails:
 - No further action is taken.
 
 ### Expired conversation buttons
-Buttons specific to active conversations (`cycle:`, `editcycle:`, `cycleint:`, `addprice:`, `addcurrency:`, `adddate:`, `addpreview:`, `addtrial:`, `addrenew:`, `add:confirm`, `add:cancel`) have **fallback handlers** registered after the conversation handlers. If a conversation has ended (session expired, user cancelled, or abandoned), these fallback handlers:
+Buttons specific to active conversations (`cycle:`, `editcycle:`, `cycleint:`, `addprice:`, `addcurrency:`, `adddate:`, `add:confirm`, `add:cancel`) have **fallback handlers** registered after the conversation handlers. If a conversation has ended (session expired, user cancelled, or abandoned), these fallback handlers:
 - Answer the callback query with "This selection has expired..."
 - Prevent the Telegram loading spinner from spinning indefinitely.
 

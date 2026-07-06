@@ -5,7 +5,6 @@ import {
   parseEditCallbackData,
   parseCycleCallbackData,
   parseAddConfirmCallbackData,
-  parseAddPreviewCallbackData,
   parseAddPriceCallbackData,
   parseAddCurrencyCallbackData,
   parseCycleIntervalCallbackData,
@@ -168,27 +167,6 @@ describe("parseAddConfirmCallbackData", () => {
   });
   it("returns null for invalid prefix", () => {
     expect(parseAddConfirmCallbackData("delete:confirm")).toBeNull();
-  });
-});
-
-describe("parseAddPreviewCallbackData", () => {
-  it("parses confirm", () => {
-    const result = parseAddPreviewCallbackData("addpreview:confirm");
-    expect(result).toEqual({ action: "confirm" });
-  });
-  it("parses change", () => {
-    const result = parseAddPreviewCallbackData("addpreview:change");
-    expect(result).toEqual({ action: "change" });
-  });
-  it("parses cancel", () => {
-    const result = parseAddPreviewCallbackData("addpreview:cancel");
-    expect(result).toEqual({ action: "cancel" });
-  });
-  it("returns null for unknown action", () => {
-    expect(parseAddPreviewCallbackData("addpreview:other")).toBeNull();
-  });
-  it("returns null for invalid prefix", () => {
-    expect(parseAddPreviewCallbackData("add:confirm")).toBeNull();
   });
 });
 

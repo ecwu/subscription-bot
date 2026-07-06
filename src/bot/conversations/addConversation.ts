@@ -15,16 +15,12 @@ import { InlineKeyboard } from "grammy";
 import {
   parseAddConfirmCallbackData,
   parseAddPriceCallbackData,
+  parseCycleCallbackData,
 } from "../../utils/callbackParser.js";
 import { formatBillingCycle } from "../../utils/labels.js";
 import { getBillingAnchorDay, getNextBillingDate } from "../../utils/date.js";
-import { validateCurrencyInput } from "../../utils/currency.js";
 import { isCancelInput } from "../../utils/conversationInput.js";
-import {
-  collectDateInput,
-  dateKeyboard,
-  validateDateInput,
-} from "./dateInput.js";
+import { collectDateInput } from "./dateInput.js";
 import { collectCurrencyInput } from "./currencyInput.js";
 import { collectCycleInput, CycleSelection } from "./cycleInput.js";
 import { binaryActionKeyboard } from "../keyboards/confirmationKeyboard.js";
@@ -40,8 +36,6 @@ import {
 // inactivity, which implicitly ends conversations. For MVP this is
 // acceptable; a future enhancement could track conversation start
 // timestamps and auto-exit stale ones.
-
-export const validateAddCurrency = validateCurrencyInput;
 
 export function validateAddName(name: string): string | null {
   const trimmed = name.trim();
@@ -63,15 +57,6 @@ export function validateAddPrice(priceStr: string): {
   }
   return { price };
 }
-
-export function validateAddDate(dateStr: string): {
-  date?: string;
-  error?: string;
-} {
-  return validateDateInput(dateStr);
-}
-
-export { dateKeyboard };
 
 function confirmKeyboard(): InlineKeyboard {
   return binaryActionKeyboard({
@@ -327,7 +312,8 @@ async function collectCycle(
   return collectCycleInput(conversation, ctx, {
     callbackPattern: /^cycle:/,
     callbackData: (cycle) => `cycle:${cycle}`,
-    parseCycle: (callbackData) => callbackData.replace("cycle:", ""),
+    parseCycle: (callbackData) =>
+      parseCycleCallbackData(callbackData)?.cycle ?? null,
     invalidSelectionMessage: "请点击按钮选择扣款周期。\n请发送 /add 重新开始。",
     restartHint: "\n请发送 /add 重新开始。",
   });

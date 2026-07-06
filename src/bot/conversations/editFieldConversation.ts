@@ -4,11 +4,7 @@ import { createSubscriptionService } from "../../services/subscriptionService.js
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createLogger } from "../../utils/logger.js";
-import {
-  BillingCycle,
-  BillingInterval,
-  Subscription,
-} from "../../models/subscription.js";
+import { BillingInterval, Subscription } from "../../models/subscription.js";
 import { formatBillingCycle } from "../../utils/labels.js";
 import { getBillingAnchorDay } from "../../utils/date.js";
 import { isCancelInput } from "../../utils/conversationInput.js";
@@ -16,8 +12,8 @@ import {
   buildDetailKeyboard,
   formatDetailText,
 } from "../keyboards/listManagerKeyboard.js";
-import { validateCurrencyCode } from "../../utils/currency.js";
-import { collectDateInput, validateDateInput } from "./dateInput.js";
+import { parseEditCycleCallbackData } from "../../utils/callbackParser.js";
+import { collectDateInput } from "./dateInput.js";
 import { collectCurrencyInput } from "./currencyInput.js";
 import { collectCycleInput } from "./cycleInput.js";
 
@@ -68,15 +64,6 @@ export function validateEditPrice(priceStr: string): {
     return { price: 0, error: "请输入非负数字。" };
   }
   return { price };
-}
-
-export const validateEditCurrency = validateCurrencyCode;
-
-export function validateEditDate(dateStr: string): {
-  date?: string;
-  error?: string;
-} {
-  return validateDateInput(dateStr);
 }
 
 export async function editFieldConversation(
@@ -257,13 +244,14 @@ export async function editCycleConversation(
     prompt: "请选择新的扣款周期：",
     callbackPattern: /^editcycle:/,
     callbackData: (cycle) => `editcycle:${cycle}:${subId}`,
-    parseCycle: (callbackData) => callbackData.split(":")[1] ?? null,
+    parseCycle: (callbackData) =>
+      parseEditCycleCallbackData(callbackData)?.cycle ?? null,
     invalidSelectionMessage: "请点击按钮选择扣款周期。" + restartHint(options),
     restartHint: restartHint(options),
   });
   if (!cycleSelection) return;
 
-  const cycle = cycleSelection.cycle as BillingCycle;
+  const cycle = cycleSelection.cycle;
   const billingInterval: BillingInterval | undefined =
     cycleSelection.billingInterval;
 

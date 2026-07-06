@@ -21,6 +21,10 @@ const VALID_CYCLES: readonly BillingCycle[] = [
   "interval",
 ];
 
+function isBillingCycle(value: string | null): value is BillingCycle {
+  return value !== null && VALID_CYCLES.includes(value as BillingCycle);
+}
+
 export function cycleKeyboard(
   callbackData: (cycle: BillingCycle) => string,
 ): InlineKeyboard {
@@ -90,10 +94,8 @@ export async function collectCycleInput(
       reply_markup: cycleKeyboard(callbackData),
     });
     const cycleCtx = await conversation.waitForCallbackQuery(callbackPattern);
-    const selectedCycle = parseCycle(
-      cycleCtx.callbackQuery.data,
-    ) as BillingCycle;
-    if (!VALID_CYCLES.includes(selectedCycle)) {
+    const selectedCycle = parseCycle(cycleCtx.callbackQuery.data);
+    if (!isBillingCycle(selectedCycle)) {
       await ctx.reply(invalidSelectionMessage);
       return null;
     }

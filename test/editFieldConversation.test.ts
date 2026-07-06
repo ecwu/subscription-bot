@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   validateEditName,
   validateEditPrice,
-  validateEditCurrency,
-  validateEditDate,
 } from "../src/bot/conversations/editFieldConversation.js";
+import { validateDateInput } from "../src/bot/conversations/dateInput.js";
+import { validateCurrencyCode } from "../src/utils/currency.js";
 
 describe("editFieldConversation validators", () => {
   describe("validateEditName", () => {
@@ -40,45 +40,45 @@ describe("editFieldConversation validators", () => {
 
   describe("validateEditCurrency", () => {
     it("accepts valid 3-letter codes", () => {
-      const result = validateEditCurrency("EUR");
+      const result = validateCurrencyCode("EUR");
       expect(result.currency).toBe("EUR");
       expect(result.error).toBeUndefined();
     });
     it("rejects invalid codes", () => {
-      const result = validateEditCurrency("EURO");
+      const result = validateCurrencyCode("EURO");
       expect(result.error).toBe("请输入 3 位币种代码，例如 CNY 或 USD。");
     });
     it("converts to uppercase", () => {
-      const result = validateEditCurrency("eur");
+      const result = validateCurrencyCode("eur");
       expect(result.currency).toBe("EUR");
     });
   });
 
   describe("validateEditDate", () => {
     it("accepts valid YYYY-MM-DD", () => {
-      const result = validateEditDate("2026-06-01");
+      const result = validateDateInput("2026-06-01");
       expect(result.date).toBe("2026-06-01");
       expect(result.error).toBeUndefined();
     });
     it("rejects invalid format", () => {
-      const result = validateEditDate("not a date");
+      const result = validateDateInput("not a date");
       expect(result.error).toBeDefined();
     });
     it("rejects invalid date", () => {
-      const result = validateEditDate("2026-13-01");
+      const result = validateDateInput("2026-13-01");
       expect(result.error).toBeDefined();
     });
     it("rejects impossible calendar dates", () => {
-      const result = validateEditDate("2026-02-31");
+      const result = validateDateInput("2026-02-31");
       expect(result.error).toBeDefined();
     });
     it("accepts Chinese date format", () => {
-      const result = validateEditDate("2026年6月1日");
+      const result = validateDateInput("2026年6月1日");
       expect(result.date).toBe("2026-06-01");
       expect(result.error).toBeUndefined();
     });
     it("accepts slash format", () => {
-      const result = validateEditDate("2026/06/01");
+      const result = validateDateInput("2026/06/01");
       expect(result.date).toBe("2026-06-01");
       expect(result.error).toBeUndefined();
     });

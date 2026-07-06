@@ -1,28 +1,60 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ReportData, SplitReportData } from "../src/services/reportService.js";
+import type {
+  ReportData,
+  SplitReportData,
+} from "../src/services/reportService.js";
 
-vi.mock("typeface-roboto/files/roboto-latin-400.woff", async () => {
+vi.mock("../src/utils/reportFonts.js", async () => {
   const { readFileSync } = await import("node:fs");
-  const buffer = readFileSync(
-    "node_modules/typeface-roboto/files/roboto-latin-400.woff",
-  );
-  return {
-    default: buffer.buffer.slice(
+
+  const readFont = (fileName: string): ArrayBuffer => {
+    const buffer = readFileSync(
+      `node_modules/@fontsource/noto-sans-sc/files/${fileName}`,
+    );
+    return buffer.buffer.slice(
       buffer.byteOffset,
       buffer.byteOffset + buffer.byteLength,
-    ),
+    );
   };
-});
 
-vi.mock("typeface-roboto/files/roboto-latin-700.woff", async () => {
-  const { readFileSync } = await import("node:fs");
-  const buffer = readFileSync(
-    "node_modules/typeface-roboto/files/roboto-latin-700.woff",
-  );
+  const REPORT_FONT_FAMILY = "Noto Sans SC";
+  const fontSources = [
+    { data: readFont("noto-sans-sc-latin-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-latin-700-normal.woff"), weight: 700 },
+    { data: readFont("noto-sans-sc-106-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-106-700-normal.woff"), weight: 700 },
+    { data: readFont("noto-sans-sc-109-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-109-700-normal.woff"), weight: 700 },
+    { data: readFont("noto-sans-sc-110-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-110-700-normal.woff"), weight: 700 },
+    { data: readFont("noto-sans-sc-112-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-112-700-normal.woff"), weight: 700 },
+    { data: readFont("noto-sans-sc-113-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-113-700-normal.woff"), weight: 700 },
+    { data: readFont("noto-sans-sc-114-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-114-700-normal.woff"), weight: 700 },
+    { data: readFont("noto-sans-sc-115-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-115-700-normal.woff"), weight: 700 },
+    { data: readFont("noto-sans-sc-116-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-116-700-normal.woff"), weight: 700 },
+    { data: readFont("noto-sans-sc-117-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-117-700-normal.woff"), weight: 700 },
+    { data: readFont("noto-sans-sc-118-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-118-700-normal.woff"), weight: 700 },
+    { data: readFont("noto-sans-sc-119-400-normal.woff"), weight: 400 },
+    { data: readFont("noto-sans-sc-119-700-normal.woff"), weight: 700 },
+  ] as const;
+
   return {
-    default: buffer.buffer.slice(
-      buffer.byteOffset,
-      buffer.byteOffset + buffer.byteLength,
+    REPORT_FONT_FAMILY,
+    REPORT_SATORI_FONTS: fontSources.map((font) => ({
+      name: REPORT_FONT_FAMILY,
+      data: font.data,
+      weight: font.weight,
+      style: "normal",
+    })),
+    REPORT_RESVG_FONT_BUFFERS: fontSources.map(
+      (font) => new Uint8Array(font.data),
     ),
   };
 });
@@ -85,7 +117,8 @@ describe("buildReportOverviewSvg with real Satori", () => {
     ]);
 
     expect(svg).toContain("<svg");
-    expect(svg).toContain('font-family="Noto Sans SC"');
+    expect(svg).toContain('viewBox="0 0 1200 820"');
+    expect(svg).toContain('font-family="noto sans sc"');
     expect(svg).toContain(">订</text>");
     expect(svg).toContain(">览</text>");
   });

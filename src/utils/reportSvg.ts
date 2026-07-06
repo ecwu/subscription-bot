@@ -4,12 +4,12 @@ import type {
   TextReportSubscriptionItem,
 } from "../services/reportService.js";
 import { formatMoney } from "./money.js";
+import { REPORT_FONT_FAMILY, REPORT_SATORI_FONTS } from "./reportFonts.js";
 import satori from "satori";
-import robotoBold from "typeface-roboto/files/roboto-latin-700.woff";
-import robotoRegular from "typeface-roboto/files/roboto-latin-400.woff";
 
 const WIDTH = 1200;
 const HEIGHT = 700;
+const OVERVIEW_HEIGHT = 820;
 const CHART_X = 80;
 const CHART_Y = 390;
 const CHART_WIDTH = 1040;
@@ -55,6 +55,7 @@ export function buildReportOverviewSvg(
     h(
       "div",
       {
+        lang: "zh-CN",
         style: {
           width: "100%",
           height: "100%",
@@ -63,10 +64,12 @@ export function buildReportOverviewSvg(
           display: "flex",
           flexDirection: "column",
           padding: 72,
-          fontFamily: "Roboto",
+          fontFamily: REPORT_FONT_FAMILY,
         },
       },
-      h("div", { style: { display: "flex", flexDirection: "column" } },
+      h(
+        "div",
+        { style: { display: "flex", flexDirection: "column" } },
         h("div", { style: { fontSize: 42, fontWeight: 700 } }, "订阅支出总览"),
         h(
           "div",
@@ -113,7 +116,9 @@ export function buildReportOverviewSvg(
           "div",
           { style: { display: "flex", flexDirection: "column", width: 512 } },
           overviewSectionTitle("扣款日分布"),
-          overviewPanel(overviewDueChartNode(report.currentMonthDue), { height: 132 }),
+          overviewPanel(overviewDueChartNode(report.currentMonthDue), {
+            height: 132,
+          }),
           h("div", { style: { height: 30 } }),
           overviewSectionTitle("年度月度趋势"),
           overviewPanel(overviewYearChartNode(report.yearlyProjection), {
@@ -134,13 +139,18 @@ export function buildReportOverviewSvg(
           },
         },
         missingNote
-          ? h("div", { style: { color: COLORS.rose, fontWeight: 700 } }, missingNote)
+          ? h(
+              "div",
+              { style: { color: COLORS.rose, fontWeight: 700 } },
+              missingNote,
+            )
           : null,
         excludedNote
           ? h("div", { style: { display: "flex" } }, excludedNote)
           : null,
       ),
     ),
+    OVERVIEW_HEIGHT,
   );
 }
 
@@ -409,26 +419,18 @@ function h(
   };
 }
 
-async function buildSatoriSvg(element: SatoriElement): Promise<string> {
+async function buildSatoriSvg(
+  element: SatoriElement,
+  height: number,
+): Promise<string> {
   const svg = await satori(element as any, {
     width: WIDTH,
-    height: HEIGHT,
+    height,
     embedFont: false,
-    fonts: [
-      {
-        name: "Roboto",
-        data: robotoRegular,
-        weight: 400,
-      },
-      {
-        name: "Roboto",
-        data: robotoBold,
-        weight: 700,
-      },
-    ],
+    fonts: REPORT_SATORI_FONTS,
   });
 
-  return svg.replace(/font-family="roboto"/g, 'font-family="Noto Sans SC"');
+  return svg;
 }
 
 function overviewMetricCard(
@@ -520,12 +522,12 @@ function overviewUpcomingRows(
   }
 
   return topUpcoming.map((item) => {
-  const converted =
-    item.convertedAmount !== undefined && item.currency !== baseCurrency
-      ? ` · ${formatMoney(item.convertedAmount, baseCurrency)}`
-      : "";
-  const date = item.billingDate ?? "日期未定";
-  const name = truncateText(item.name, 18);
+    const converted =
+      item.convertedAmount !== undefined && item.currency !== baseCurrency
+        ? ` · ${formatMoney(item.convertedAmount, baseCurrency)}`
+        : "";
+    const date = item.billingDate ?? "日期未定";
+    const name = truncateText(item.name, 18);
 
     return h(
       "div",
@@ -687,7 +689,8 @@ function overviewExcludedNote(report: SplitReportData): string {
   if (excluded.nonRenewing > 0) notes.push(`已停续费 ${excluded.nonRenewing}`);
   if (excluded.noPrice > 0) notes.push(`无价格 ${excluded.noPrice}`);
   if (excluded.noCurrency > 0) notes.push(`无币种 ${excluded.noCurrency}`);
-  if (excluded.customCycle > 0) notes.push(`自定义周期 ${excluded.customCycle}`);
+  if (excluded.customCycle > 0)
+    notes.push(`自定义周期 ${excluded.customCycle}`);
   return notes.length > 0 ? `未计入金额：${notes.join("，")}` : "";
 }
 
