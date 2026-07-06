@@ -20,6 +20,8 @@ import notoSansSc118Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-118-7
 import notoSansSc118Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-118-400-normal.woff2";
 import notoSansSc119Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-119-700-normal.woff2";
 import notoSansSc119Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-119-400-normal.woff2";
+import notoSansScChineseSimplifiedBold from "@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-700-normal.woff2";
+import notoSansScChineseSimplifiedRegular from "@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-400-normal.woff2";
 import notoSansScLatinBold from "@fontsource/noto-sans-sc/files/noto-sans-sc-latin-700-normal.woff2";
 import notoSansScLatinRegular from "@fontsource/noto-sans-sc/files/noto-sans-sc-latin-400-normal.woff2";
 
@@ -46,6 +48,8 @@ async function renderSvgPng(svg: string): Promise<Uint8Array> {
       fontBuffers: [
         toFontBuffer(notoSansScLatinRegular),
         toFontBuffer(notoSansScLatinBold),
+        toFontBuffer(notoSansScChineseSimplifiedRegular),
+        toFontBuffer(notoSansScChineseSimplifiedBold),
         toFontBuffer(notoSansSc106Regular),
         toFontBuffer(notoSansSc106Bold),
         toFontBuffer(notoSansSc113Regular),

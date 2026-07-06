@@ -64,7 +64,7 @@ describe("renderReportPng", () => {
     expect(svg).toContain("月均订阅成本");
     expect(options.fitTo).toEqual({ mode: "width", value: 1200 });
     expect(options.font.defaultFontFamily).toBe("Noto Sans SC");
-    expect(options.font.fontBuffers).toHaveLength(18);
+    expect(options.font.fontBuffers).toHaveLength(20);
     expect(resvgMock.renderedFree).toHaveBeenCalledTimes(1);
     expect(resvgMock.resvgFree).toHaveBeenCalledTimes(1);
   });
