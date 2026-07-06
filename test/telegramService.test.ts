@@ -35,6 +35,8 @@ describe("telegramService.sendMessage", () => {
     const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(callBody.chat_id).toBe(123456);
     expect(callBody.text).toBe("Hello");
+    expect(callBody.link_preview_options).toEqual({ is_disabled: true });
+    expect(callBody.disable_web_page_preview).toBeUndefined();
   });
 
   it("passes through inline keyboard markup", async () => {
@@ -65,6 +67,24 @@ describe("telegramService.sendMessage", () => {
       text: "已续费一个周期",
       callback_data: "reminder:renew:sub-1:2026-06-01",
     });
+  });
+
+  it("allows callers to override link preview options", async () => {
+    const env = createMockEnv();
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    await sendMessage(env, 123456, "Hello", {
+      link_preview_options: { is_disabled: false },
+    });
+
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.link_preview_options).toEqual({ is_disabled: false });
   });
 
   it("returns failure with status and description on error", async () => {

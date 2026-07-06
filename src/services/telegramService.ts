@@ -10,7 +10,12 @@ export interface TelegramInlineKeyboardMarkup {
   inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
 }
 
+export interface TelegramLinkPreviewOptions {
+  is_disabled?: boolean;
+}
+
 export interface TelegramSendOptions {
+  link_preview_options?: TelegramLinkPreviewOptions;
   reply_markup?: TelegramInlineKeyboardMarkup;
 }
 
@@ -32,7 +37,7 @@ export async function sendMessage(
     body: JSON.stringify({
       chat_id: chatId,
       text,
-      disable_web_page_preview: true,
+      link_preview_options: { is_disabled: true },
       ...options,
     }),
   });
