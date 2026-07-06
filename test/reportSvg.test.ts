@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import type { ReportData } from "../src/services/reportService.js";
-import { buildReportSvg } from "../src/utils/reportSvg.js";
+import type { ReportData, SplitReportData } from "../src/services/reportService.js";
+import { buildReportOverviewSvg, buildReportSvg } from "../src/utils/reportSvg.js";
 
 function report(overrides: Partial<ReportData> = {}): ReportData {
   return {
-    title: "未来30天摊平支出",
-    totalLabel: "未来30天摊平支出",
-    chartTitle: "未来30天摊平分布",
-    chartSubtitle: "按未来30天日期汇总的月度摊平支出",
+    title: "月均订阅成本",
+    totalLabel: "月均订阅成本",
+    chartTitle: "每日摊平成本",
+    chartSubtitle: "活跃自动续费订阅折算为月均后按 30 天摊平",
     generatedAt: "2026-06-17T00:00:00.000Z",
     baseCurrency: "EUR",
     subscriptionCount: 1,
@@ -81,5 +81,52 @@ describe("buildReportSvg", () => {
 
     expect(svg).toContain(">20</text>");
     expect(svg.match(/x="320" y="(418\.0|496\.0|574\.0)"/g)).toHaveLength(3);
+  });
+
+  it("renders an overview report with key metrics and upcoming items", () => {
+    const splitReport: SplitReportData = {
+      generatedAt: "2026-06-17T00:00:00.000Z",
+      baseCurrency: "CNY",
+      subscriptionCount: 2,
+      currentMonthly: report({
+        title: "月均订阅成本",
+        totalBase: 120,
+        baseCurrency: "CNY",
+      }),
+      currentMonthDue: report({
+        title: "未来30天支出",
+        totalBase: 80,
+        baseCurrency: "CNY",
+        dayDistribution: [
+          { day: 3, actualTotal: 80, monthlyEquivalentTotal: 0, actualCount: 1 },
+        ],
+      }),
+      yearlyProjection: report({
+        title: "年度预期支出",
+        totalBase: 1440,
+        baseCurrency: "CNY",
+        monthDistribution: [
+          { monthKey: "2026-06", actualTotal: 80 },
+          { monthKey: "2026-07", actualTotal: 120 },
+        ],
+      }),
+    };
+
+    const svg = buildReportOverviewSvg(splitReport, [
+      {
+        name: "Private Service",
+        amount: 10,
+        currency: "USD",
+        convertedAmount: 72,
+        billingDate: "2026-06-20",
+      },
+    ]);
+
+    expect(svg).toContain("订阅支出总览");
+    expect(svg).toContain("未来 30 天扣款");
+    expect(svg).toContain("月均订阅成本");
+    expect(svg).toContain("未来 12 个月预期");
+    expect(svg).toContain("Private Service");
+    expect(svg).toContain("T+3");
   });
 });

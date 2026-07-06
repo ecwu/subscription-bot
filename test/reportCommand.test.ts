@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { KVNamespace } from "@cloudflare/workers-types";
+import { InputFile } from "grammy";
 import { reportCommand } from "../src/bot/commands/report.js";
-import { renderReportPng } from "../src/utils/reportPng.js";
+import { renderReportOverviewPng } from "../src/utils/reportPng.js";
 import { createSubscriptionService } from "../src/services/subscriptionService.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
@@ -11,7 +12,7 @@ import type { BotContext } from "../src/types/context.js";
 import type { Subscription } from "../src/models/subscription.js";
 
 vi.mock("../src/utils/reportPng.js", () => ({
-  renderReportPng: vi.fn(),
+  renderReportOverviewPng: vi.fn(),
 }));
 
 const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
@@ -109,11 +110,11 @@ async function seedSettings(
 }
 
 describe("reportCommand", () => {
-  const renderReportPngMock = vi.mocked(renderReportPng);
+  const renderReportOverviewPngMock = vi.mocked(renderReportOverviewPng);
 
   beforeEach(() => {
     vi.clearAllMocks();
-    renderReportPngMock.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    renderReportOverviewPngMock.mockResolvedValue(new Uint8Array([1, 2, 3]));
   });
 
   it("returns a friendly message when the user has no subscriptions", async () => {
@@ -125,7 +126,7 @@ describe("reportCommand", () => {
     expect(ctx.reply).toHaveBeenCalledWith(
       "你还没有添加任何订阅。\n发送 /add 添加第一个订阅。",
     );
-    expect(renderReportPngMock).not.toHaveBeenCalled();
+    expect(renderReportOverviewPngMock).not.toHaveBeenCalled();
     expect(ctx.replyWithPhoto).not.toHaveBeenCalled();
   });
 
@@ -137,8 +138,11 @@ describe("reportCommand", () => {
 
     await reportCommand(ctx);
 
-    expect(renderReportPngMock).toHaveBeenCalledTimes(3);
-    expect(ctx.replyWithPhoto).toHaveBeenCalledTimes(3);
+    expect(renderReportOverviewPngMock).toHaveBeenCalledTimes(1);
+    expect(ctx.replyWithPhoto).toHaveBeenCalledTimes(1);
+    expect(ctx.replyWithPhoto).toHaveBeenCalledWith(expect.any(InputFile), {
+      caption: "订阅支出总览。发送 /report_text 查看完整明细。",
+    });
     expect(ctx.reply).not.toHaveBeenCalled();
   });
 
@@ -151,17 +155,17 @@ describe("reportCommand", () => {
 
     await reportCommand(ctx);
 
-    expect(renderReportPngMock).toHaveBeenCalledTimes(3);
-    const currentMonthly = renderReportPngMock.mock.calls[0][0];
-    expect(currentMonthly.baseCurrency).toBe("EUR");
-    expect(currentMonthly.totalBase).toBeCloseTo(8.75);
+    expect(renderReportOverviewPngMock).toHaveBeenCalledTimes(1);
+    const overview = renderReportOverviewPngMock.mock.calls[0][0];
+    expect(overview.baseCurrency).toBe("EUR");
+    expect(overview.currentMonthly.totalBase).toBeCloseTo(8.75);
   });
 
   it("falls back to text when PNG rendering fails", async () => {
     const kv = createMockKV();
     await seedRates(kv);
     await seedSubscription(kv, createSub({ name: "Very Private Name" }));
-    renderReportPngMock.mockRejectedValue(new Error("render failed"));
+    renderReportOverviewPngMock.mockRejectedValue(new Error("render failed"));
     const ctx = createMockContext(kv);
 
     await reportCommand(ctx);
@@ -170,7 +174,7 @@ describe("reportCommand", () => {
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(text).toContain("订阅支出报告");
-    expect(text).toContain("未来30天摊平支出");
+    expect(text).toContain("月均订阅成本");
     expect(text).toContain("未来30天支出");
     expect(text).toContain("年度预期支出");
     expect(text).not.toContain("Very Private Name");
@@ -186,7 +190,7 @@ describe("reportCommand", () => {
 
     await reportCommand(ctx);
 
-    expect(renderReportPngMock).toHaveBeenCalledTimes(3);
+    expect(renderReportOverviewPngMock).toHaveBeenCalledTimes(1);
     expect(ctx.replyWithPhoto).toHaveBeenCalledTimes(1);
     expect(ctx.reply).toHaveBeenCalledTimes(1);
     expect((ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0]).toContain(
@@ -201,6 +205,6 @@ describe("reportCommand", () => {
     await reportCommand(ctx);
 
     expect(ctx.reply).toHaveBeenCalledWith("无法识别用户，请稍后再试。");
-    expect(renderReportPngMock).not.toHaveBeenCalled();
+    expect(renderReportOverviewPngMock).not.toHaveBeenCalled();
   });
 });

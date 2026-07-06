@@ -36,7 +36,7 @@ src/
 - Track fixed cycles (`weekly`, `monthly`, `quarterly`, `yearly`), manual `custom` cycles, and interval cycles such as `30d`, `4w`, `6m`, `2y`, `every 30 days`, and `每30天`.
 - Mark subscriptions as trial or non-auto-renewing so reports and reminder wording match the real billing state.
 - Pause and resume subscriptions from the inline list manager. Paused subscriptions are excluded from reminders, date advancement, and spending reports.
-- View compact lists, paginated inline list management, subscription details, JSON export, PNG reports, and text reports.
+- View compact lists, paginated inline list management, subscription details, JSON export, a PNG spending overview, and text reports.
 - Send scheduled renewal reminders through Cloudflare Cron Triggers.
 
 ## Development
@@ -97,7 +97,7 @@ wrangler secret put XCURRENCY_API_KEY
 
 ## Report Exchange Rates
 
-`/report` generates PNG reports for monthly-equivalent spending, current-month due spending, and future 12-month projected spending. `/report_text` generates a Telegram text version with current-month line items and 12-month projected line items.
+`/report` generates one PNG overview with upcoming 30-day due spending, monthly subscription run rate, future 12-month projected spending, upcoming line items, and distribution charts. `/report_text` generates a Telegram text version with upcoming 30-day line items and 12-month projected line items.
 
 Known currencies are converted to the user's default report currency from `/settings` using exchange rates stored in KV. Exchange rates are maintained with USD as the base (`1 USD = N currency`), then converted from the source currency to USD and from USD to the selected default currency.
 

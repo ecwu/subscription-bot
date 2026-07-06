@@ -32,7 +32,7 @@ The Subscription Bot is a Cloudflare Worker that receives Telegram updates via w
 Business logic layer:
 - `subscriptionService.ts`: Encrypts/decrypts subscription payloads, manages CRUD, resolves IDs (short/prefix/UUID), pauses/resumes subscriptions, advances eligible past-due dates, and coordinates reminder index updates.
 - `reminderService.ts`: Processes daily reminders: loads entries, skips stale/paused records, decrypts subscriptions, sends Telegram messages via `telegramService`, and marks reminders as sent.
-- `reportService.ts`: Builds report data (upcoming 30-day monthly-equivalent spending, upcoming 30-day due spending, future 12-month projected spending, per-currency totals, day/month distributions) and formats text fallback/detail reports.
+- `reportService.ts`: Builds report data (monthly subscription run rate, upcoming 30-day due spending, future 12-month projected spending, per-currency totals, day/month distributions) and formats text fallback/detail reports.
 - `exportService.ts`: Aggregates user data for export.
 - `privacyService.ts`: Handles data export and full deletion.
 - `telegramService.ts`: Low-level Telegram Bot API client for sending messages.
@@ -136,7 +136,7 @@ KV config: config:exchange-rates:xcurrency:v1, then config:exchange-rates:v1
         ↓
 reportService build data
         ↓
-PNG reports via reportSvg/reportPng or Telegram text chunks
+PNG overview via reportSvg/reportPng or Telegram text chunks
 ```
 
 Spending totals exclude paused, trial, non-auto-renewing, custom-cycle, and incomplete price/currency subscriptions. Exchange rates are maintained with USD as the base (`1 USD = N currency`), then converted to the user's default report currency via USD. Reports prefer XCurrency rates stored at `config:exchange-rates:xcurrency:v1` and fall back to manual rates stored at `config:exchange-rates:v1`. Missing exchange rates keep a currency visible where possible but exclude it from converted default-currency totals.

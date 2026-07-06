@@ -17,10 +17,10 @@ import { renderReportPng } from "../src/utils/reportPng.js";
 
 function report(overrides: Partial<ReportData> = {}): ReportData {
   return {
-    title: "未来30天摊平支出",
-    totalLabel: "未来30天摊平支出",
-    chartTitle: "未来30天摊平分布",
-    chartSubtitle: "按未来30天日期汇总的月度摊平支出",
+    title: "月均订阅成本",
+    totalLabel: "月均订阅成本",
+    chartTitle: "每日摊平成本",
+    chartSubtitle: "活跃自动续费订阅折算为月均后按 30 天摊平",
     generatedAt: "2026-06-17T00:00:00.000Z",
     baseCurrency: "CNY",
     subscriptionCount: 1,
@@ -61,7 +61,7 @@ describe("renderReportPng", () => {
     expect(Array.from(png)).toEqual([1, 2, 3]);
     expect(resvgMock.async).toHaveBeenCalledTimes(1);
     const [svg, options] = resvgMock.async.mock.calls[0];
-    expect(svg).toContain("未来30天摊平支出");
+    expect(svg).toContain("月均订阅成本");
     expect(options.fitTo).toEqual({ mode: "width", value: 1200 });
     expect(options.font.defaultFontFamily).toBe("Noto Sans SC");
     expect(options.font.fontBuffers).toHaveLength(18);

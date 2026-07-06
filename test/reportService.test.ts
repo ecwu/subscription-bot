@@ -80,7 +80,7 @@ describe("buildReportData", () => {
     rates: { USD: 1, CNY: 7, EUR: 0.875 },
   };
 
-  it("normalizes supported billing cycles due in the next 30 days to monthly run-rate", () => {
+  it("normalizes supported billing cycles to monthly run-rate", () => {
     const report = buildReportData(
       [
         sub({
@@ -123,7 +123,7 @@ describe("buildReportData", () => {
     expect(report.currentMonthly.byCurrency[0].total).toBeCloseTo(82);
   });
 
-  it("normalizes interval cycles due in the next 30 days", () => {
+  it("normalizes interval cycles to monthly run-rate", () => {
     const report = buildReportData(
       [
         sub({
@@ -152,13 +152,13 @@ describe("buildReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(report.currentMonthly.includedCount).toBe(2);
+    expect(report.currentMonthly.includedCount).toBe(3);
     expect(report.currentMonthly.byCurrency[0].total).toBeCloseTo(
-      (12 * 52) / 4 / 12 + (12 * 52) / 4 / 12,
+      (12 * 365) / 30 / 12 + (12 * 52) / 4 / 12 + (12 * 52) / 4 / 12,
     );
   });
 
-  it("excludes subscriptions not due in the next 30 days from monthly run-rate", () => {
+  it("includes active subscriptions outside the next 30 days in monthly run-rate", () => {
     const report = buildReportData(
       [
         sub({
@@ -178,8 +178,8 @@ describe("buildReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(report.currentMonthly.includedCount).toBe(0);
-    expect(report.currentMonthly.totalBase).toBe(0);
+    expect(report.currentMonthly.includedCount).toBe(2);
+    expect(report.currentMonthly.totalBase).toBeCloseTo(140);
   });
 
   it("excludes custom cycle and subscriptions without price or currency", () => {
@@ -337,17 +337,10 @@ describe("buildReportData", () => {
     expect(report.currentMonthDue.dayDistribution).toHaveLength(30);
     expect(report.currentMonthDue.dayLabelPrefix).toBe("T+");
 
-    const offset15Monthly = report.currentMonthly.dayDistribution.find(
-      (item) => item.day === 15,
-    )!;
-    expect(offset15Monthly.monthlyEquivalentTotal).toBeCloseTo(210);
-    expect(offset15Monthly.actualTotal).toBe(0);
-
-    const offset29Monthly = report.currentMonthly.dayDistribution.find(
-      (item) => item.day === 29,
-    )!;
-    expect(offset29Monthly.monthlyEquivalentTotal).toBeCloseTo(40);
-    expect(offset29Monthly.actualTotal).toBe(0);
+    for (const day of report.currentMonthly.dayDistribution) {
+      expect(day.monthlyEquivalentTotal).toBeCloseTo(250 / 30);
+      expect(day.actualTotal).toBe(0);
+    }
 
     const offset15 = report.currentMonthDue.dayDistribution.find(
       (item) => item.day === 15,
@@ -365,7 +358,7 @@ describe("buildReportData", () => {
     const day10 = report.currentMonthly.dayDistribution.find(
       (item) => item.day === 10,
     )!;
-    expect(day10.monthlyEquivalentTotal).toBe(0);
+    expect(day10.monthlyEquivalentTotal).toBeCloseTo(250 / 30);
     expect(day10.actualTotal).toBe(0);
   });
 
@@ -388,7 +381,7 @@ describe("buildReportData", () => {
     const day20 = report.currentMonthly.dayDistribution.find(
       (item) => item.day === 5,
     )!;
-    expect(day20.monthlyEquivalentTotal).toBeCloseTo(70);
+    expect(day20.monthlyEquivalentTotal).toBeCloseTo(70 / 30);
   });
 
   it("keeps run-rate and upcoming actual totals in separate day windows", () => {
@@ -579,7 +572,7 @@ describe("buildReportData", () => {
 
     const text = formatReportText(report);
     expect(text).toContain("订阅支出报告");
-    expect(text).toContain("未来30天摊平支出");
+    expect(text).toContain("月均订阅成本");
     expect(text).toContain("未来30天支出");
     expect(text).toContain("年度预期支出");
     expect(text).not.toContain("Private Service");
@@ -616,13 +609,17 @@ describe("buildReportData", () => {
 
     expect(report.yearlyProjection.includedCount).toBe(1);
     expect(report.yearlyProjection.totalBase).toBeCloseTo(840); // 12 * 10 * 7
-    expect(report.yearlyProjection.monthDistribution).toHaveLength(12);
+    expect(report.yearlyProjection.monthDistribution).toHaveLength(13);
     for (const item of report.yearlyProjection.monthDistribution!) {
-      expect(item.actualTotal).toBeCloseTo(70); // 10 * 7 per month
+      if (item.monthKey === "2027-05") {
+        expect(item.actualTotal).toBe(0);
+      } else {
+        expect(item.actualTotal).toBeCloseTo(70); // 10 * 7 per month
+      }
     }
   });
 
-  it("lookback includes current-month already-paid subscription", () => {
+  it("does not look back to current-month already-paid subscription", () => {
     const report = buildReportData(
       [
         sub({
@@ -645,7 +642,7 @@ describe("buildReportData", () => {
     const jun = report.yearlyProjection.monthDistribution!.find(
       (item) => item.monthKey === "2026-06",
     )!;
-    expect(may.actualTotal).toBeCloseTo(70); // lookback
+    expect(may.actualTotal).toBe(0);
     expect(jun.actualTotal).toBeCloseTo(70);
   });
 
@@ -819,7 +816,7 @@ describe("buildTextReportData", () => {
       new Date("2026-05-17T00:00:00.000Z"),
     );
 
-    expect(data.yearMonthItems).toHaveLength(12);
+    expect(data.yearMonthItems).toHaveLength(13);
     const nonEmpty = data.yearMonthItems.filter((m) => m.items.length > 0);
     expect(nonEmpty).toHaveLength(12);
     for (const month of nonEmpty) {
@@ -935,7 +932,7 @@ describe("buildTextReportData", () => {
           price: 100,
           currency: "CNY",
           billingCycle: "monthly",
-          nextBillingDate: "2026-05-15",
+          nextBillingDate: "2026-05-20",
         }),
       ],
       rates,

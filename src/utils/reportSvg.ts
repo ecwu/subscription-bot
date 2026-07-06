@@ -1,4 +1,8 @@
-import type { ReportData } from "../services/reportService.js";
+import type {
+  ReportData,
+  SplitReportData,
+  TextReportSubscriptionItem,
+} from "../services/reportService.js";
 import { formatMoney } from "./money.js";
 
 const WIDTH = 1200;
@@ -27,8 +31,110 @@ const COLORS = {
   roseLight: "#f7e1dd",
 };
 
+export function buildReportOverviewSvg(
+  report: SplitReportData,
+  upcomingItems: TextReportSubscriptionItem[] = [],
+): string {
+  const missingCurrencies = Array.from(
+    new Set([
+      ...report.currentMonthly.missingRateCurrencies,
+      ...report.currentMonthDue.missingRateCurrencies,
+      ...report.yearlyProjection.missingRateCurrencies,
+    ]),
+  ).sort();
+  const excludedNote = overviewExcludedNote(report);
+  const missingNote =
+    missingCurrencies.length > 0
+      ? `总额未计入缺失汇率：${missingCurrencies.join("、")}`
+      : "";
+
+  const topUpcoming = upcomingItems.slice(0, 5);
+  const upcomingRows =
+    topUpcoming.length > 0
+      ? topUpcoming
+          .map((item, index) => overviewUpcomingRow(item, index, report.baseCurrency))
+          .join("")
+      : `<text x="96" y="552" class="row-muted">未来 30 天暂无扣款</text>`;
+  const dueChart = overviewDueChart(report.currentMonthDue);
+  const yearChart = overviewYearChart(report.yearlyProjection);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
+  <style>
+    text { font-family: "Noto Sans SC", sans-serif; }
+    .bg { fill: ${COLORS.bg}; }
+    .panel { fill: ${COLORS.panel}; stroke: ${COLORS.line}; stroke-width: 1; }
+    .title { font-size: 42px; font-weight: 700; fill: ${COLORS.ink}; }
+    .subtitle { font-size: 20px; font-weight: 400; fill: ${COLORS.muted}; }
+    .metric { font-size: 42px; font-weight: 700; fill: ${COLORS.ink}; }
+    .small-metric { font-size: 32px; font-weight: 700; fill: ${COLORS.ink}; }
+    .label { font-size: 17px; font-weight: 700; fill: ${COLORS.muted}; letter-spacing: 0.5px; }
+    .section { font-size: 24px; font-weight: 700; fill: ${COLORS.ink}; }
+    .row-text { font-size: 21px; font-weight: 700; fill: ${COLORS.ink}; }
+    .row-muted { font-size: 18px; font-weight: 400; fill: ${COLORS.muted}; }
+    .axis { font-size: 13px; font-weight: 400; fill: ${COLORS.muted}; }
+    .bar-label { font-size: 13px; font-weight: 700; fill: ${COLORS.ink}; }
+    .note { font-size: 17px; font-weight: 400; fill: ${COLORS.muted}; }
+    .warning { font-size: 17px; font-weight: 700; fill: ${COLORS.rose}; }
+  </style>
+  <rect class="bg" x="0" y="0" width="${WIDTH}" height="${HEIGHT}"/>
+  <text x="72" y="72" class="title">订阅支出总览</text>
+  <text x="74" y="108" class="subtitle">生成于 ${escapeXml(
+    report.generatedAt.slice(0, 10),
+  )} · 基准货币 ${escapeXml(report.baseCurrency)} · 当前订阅 ${
+    report.subscriptionCount
+  } 个</text>
+
+  <rect class="panel" x="72" y="136" width="330" height="144" rx="10"/>
+  <text x="96" y="178" class="label">未来 30 天扣款</text>
+  <text x="96" y="232" class="metric">${escapeXml(
+    formatMoney(report.currentMonthDue.totalBase, report.baseCurrency),
+  )}</text>
+  <text x="96" y="260" class="note">${
+    report.currentMonthDue.convertedCount
+  } 个订阅已换算</text>
+
+  <rect class="panel" x="436" y="136" width="330" height="144" rx="10"/>
+  <text x="460" y="178" class="label">月均订阅成本</text>
+  <text x="460" y="232" class="metric">${escapeXml(
+    formatMoney(report.currentMonthly.totalBase, report.baseCurrency),
+  )}</text>
+  <text x="460" y="260" class="note">活跃自动续费订阅折算</text>
+
+  <rect class="panel" x="800" y="136" width="328" height="144" rx="10"/>
+  <text x="824" y="178" class="label">未来 12 个月预期</text>
+  <text x="824" y="232" class="metric">${escapeXml(
+    formatMoney(report.yearlyProjection.totalBase, report.baseCurrency),
+  )}</text>
+  <text x="824" y="260" class="note">按真实扣款日期预测</text>
+
+  <text x="72" y="318" class="section">未来 30 天扣款明细</text>
+  <rect class="panel" x="72" y="340" width="512" height="288" rx="10"/>
+  ${upcomingRows}
+
+  <text x="628" y="318" class="section">扣款日分布</text>
+  <rect class="panel" x="616" y="340" width="512" height="132" rx="10"/>
+  ${dueChart}
+
+  <text x="628" y="510" class="section">年度月度趋势</text>
+  <rect class="panel" x="616" y="532" width="512" height="96" rx="10"/>
+  ${yearChart}
+
+  ${
+    missingNote
+      ? `<text x="72" y="664" class="warning">${escapeXml(missingNote)}</text>`
+      : ""
+  }
+  ${
+    excludedNote
+      ? `<text x="72" y="690" class="note">${escapeXml(excludedNote)}</text>`
+      : ""
+  }
+</svg>`;
+}
+
 export function buildReportSvg(report: ReportData): string {
-  const isMonthlyView = report.title.includes("摊平");
+  const isMonthlyView =
+    report.title.includes("摊平") || report.title.includes("月均");
   const isYearView = report.monthDistribution !== undefined;
 
   let bars: string;
@@ -257,6 +363,116 @@ function actualBarBlocks(
     const blockY = y + index * (blockHeight + STACK_BLOCK_GAP);
     return `<rect x="${x}" y="${blockY.toFixed(1)}" width="${width}" height="${blockHeight.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>`;
   }).join("");
+}
+
+function overviewUpcomingRow(
+  item: TextReportSubscriptionItem,
+  index: number,
+  baseCurrency: string,
+): string {
+  const y = 388 + index * 46;
+  const converted =
+    item.convertedAmount !== undefined && item.currency !== baseCurrency
+      ? ` · ${formatMoney(item.convertedAmount, baseCurrency)}`
+      : "";
+  const date = item.billingDate ?? "日期未定";
+  const name = truncateText(item.name, 18);
+
+  return `<text x="96" y="${y}" class="row-text">${escapeXml(name)}</text>
+  <text x="96" y="${y + 25}" class="row-muted">${escapeXml(
+    `${date} · ${formatMoney(item.amount, item.currency)}${converted}`,
+  )}</text>`;
+}
+
+function overviewDueChart(report: ReportData): string {
+  const data = report.dayDistribution.filter((item) => item.actualTotal > 0);
+  if (data.length === 0) {
+    return '<text x="640" y="410" class="row-muted">未来 30 天暂无扣款</text>';
+  }
+
+  const chartX = 640;
+  const chartY = 375;
+  const chartWidth = 464;
+  const chartHeight = 64;
+  const max = Math.max(...data.map((item) => item.actualTotal), 1);
+  const step = chartWidth / data.length;
+  const barWidth = Math.min(34, Math.max(12, step - 8));
+
+  return data
+    .map((item, index) => {
+      const height = Math.max(3, (item.actualTotal / max) * chartHeight);
+      const x = chartX + index * step + (step - barWidth) / 2;
+      const y = chartY + chartHeight - height;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(
+        1,
+      )}" height="${height.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>
+      <text x="${(x + barWidth / 2).toFixed(1)}" y="${Math.max(
+        y - 7,
+        356,
+      ).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(
+        compactAmount(item.actualTotal),
+      )}</text>
+      <text x="${(x + barWidth / 2).toFixed(1)}" y="456" text-anchor="middle" class="axis">T+${
+        item.day
+      }</text>`;
+    })
+    .join("");
+}
+
+function overviewYearChart(report: ReportData): string {
+  const data = report.monthDistribution ?? [];
+  if (data.every((item) => item.actualTotal === 0)) {
+    return '<text x="640" y="590" class="row-muted">暂无年度预期扣款</text>';
+  }
+
+  const chartX = 640;
+  const chartY = 552;
+  const chartWidth = 464;
+  const chartHeight = 48;
+  const max = Math.max(...data.map((item) => item.actualTotal), 1);
+  const step = chartWidth / Math.max(data.length, 1);
+  const barWidth = Math.min(26, Math.max(8, step - 7));
+
+  return data
+    .map((item, index) => {
+      const height =
+        item.actualTotal > 0
+          ? Math.max(2, (item.actualTotal / max) * chartHeight)
+          : 0;
+      const x = chartX + index * step + (step - barWidth) / 2;
+      const y = chartY + chartHeight - height;
+      const showLabel = index === 0 || index === data.length - 1;
+      return `${
+        height > 0
+          ? `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(
+              1,
+            )}" height="${height.toFixed(1)}" rx="3" fill="${COLORS.teal}"/>`
+          : ""
+      }
+      ${
+        showLabel
+          ? `<text x="${(x + barWidth / 2).toFixed(1)}" y="618" text-anchor="middle" class="axis">${escapeXml(
+              monthNameFromKey(item.monthKey),
+            )}</text>`
+          : ""
+      }`;
+    })
+    .join("");
+}
+
+function overviewExcludedNote(report: SplitReportData): string {
+  const excluded = report.currentMonthly.excluded;
+  const notes: string[] = [];
+  if (excluded.trial > 0) notes.push(`体验 ${excluded.trial}`);
+  if (excluded.nonRenewing > 0) notes.push(`已停续费 ${excluded.nonRenewing}`);
+  if (excluded.noPrice > 0) notes.push(`无价格 ${excluded.noPrice}`);
+  if (excluded.noCurrency > 0) notes.push(`无币种 ${excluded.noCurrency}`);
+  if (excluded.customCycle > 0) notes.push(`自定义周期 ${excluded.customCycle}`);
+  return notes.length > 0 ? `未计入金额：${notes.join("，")}` : "";
+}
+
+function truncateText(value: string, maxLength: number): string {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
 
 function compactAmount(amount: number): string {

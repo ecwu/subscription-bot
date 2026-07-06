@@ -10,7 +10,7 @@
 | `/list`     | List all your subscriptions in compact text      | Implemented   |
 | `/list_full`| List subscriptions with inline action buttons    | Implemented   |
 | `/export`   | Export your subscription data as JSON            | Implemented   |
-| `/report`   | Generate subscription spending PNG reports       | Implemented   |
+| `/report`   | Generate subscription spending PNG overview      | Implemented   |
 | `/report_text` | Generate text spending detail report         | Implemented   |
 | `/reminders`| Show upcoming renewals within reminder window    | Implemented   |
 | `/settings` | Configure reminder and report defaults           | Implemented   |
@@ -103,11 +103,11 @@ The export does **not** include `userKey`, raw Telegram ID, `chat_id`, or encryp
 
 ### `/report`
 
-Generates PNG image reports from the current subscription list:
-- 未来 30 天摊平支出：monthly-equivalent run rate for subscriptions with an actual payment due from today through the next 30 days.
-- 未来 30 天支出：actual payment amounts due from today through the next 30 days.
-- 年度预期支出：projected actual charges over the next 12 months.
-- Per-currency totals and date/month distribution for each report.
+Generates a PNG overview report from the current subscription list:
+- 未来 30 天扣款：actual payment amounts due from today through the next 30 days.
+- 月均订阅成本：active auto-renewing subscriptions converted to a monthly run rate.
+- 未来 12 个月预期：projected actual charges over the next 12 months.
+- Upcoming line items, 30-day due-date distribution, and yearly month trend.
 
 Subscriptions without price or currency, and subscriptions with `custom` billing cycle, are excluded from the calculated total but counted in the report. Trial subscriptions and subscriptions with auto-renewal disabled are also excluded from spending totals and surfaced as excluded counts.
 
@@ -121,7 +121,7 @@ Rates are maintained with USD as the exchange-rate base (`1 USD = N currency`). 
 
 Admins can refresh the XCurrency key with `/admin_sync_exchange_rates` when `XCURRENCY_API_KEY` is configured. The XCurrency API returns USD-quoted values (`1 currency = N USD`), and the bot stores their inverse to keep the internal format unchanged.
 
-If PNG generation fails, the bot falls back to a plain-text report.
+If PNG generation fails, the bot falls back to a plain-text summary. Use `/report_text` for full Telegram text details.
 
 ### `/report_text`
 

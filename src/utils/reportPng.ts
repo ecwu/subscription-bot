@@ -1,5 +1,9 @@
-import type { ReportData } from "../services/reportService.js";
-import { buildReportSvg } from "./reportSvg.js";
+import type {
+  ReportData,
+  SplitReportData,
+  TextReportSubscriptionItem,
+} from "../services/reportService.js";
+import { buildReportOverviewSvg, buildReportSvg } from "./reportSvg.js";
 import notoSansSc106Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-106-700-normal.woff2";
 import notoSansSc106Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-106-400-normal.woff2";
 import notoSansSc113Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-113-700-normal.woff2";
@@ -20,8 +24,18 @@ import notoSansScLatinBold from "@fontsource/noto-sans-sc/files/noto-sans-sc-lat
 import notoSansScLatinRegular from "@fontsource/noto-sans-sc/files/noto-sans-sc-latin-400-normal.woff2";
 
 export async function renderReportPng(report: ReportData): Promise<Uint8Array> {
+  return renderSvgPng(buildReportSvg(report));
+}
+
+export async function renderReportOverviewPng(
+  report: SplitReportData,
+  upcomingItems: TextReportSubscriptionItem[],
+): Promise<Uint8Array> {
+  return renderSvgPng(buildReportOverviewSvg(report, upcomingItems));
+}
+
+async function renderSvgPng(svg: string): Promise<Uint8Array> {
   const { Resvg } = await import("@cf-wasm/resvg/workerd");
-  const svg = buildReportSvg(report);
   const resvg = await Resvg.async(svg, {
     background: "#f8f7f2",
     fitTo: {

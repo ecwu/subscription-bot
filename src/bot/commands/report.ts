@@ -3,13 +3,14 @@ import type { BotContext } from "../../types/context.js";
 import { createSubscriptionService } from "../../services/subscriptionService.js";
 import {
   buildReportData,
+  buildTextReportData,
   formatReportText,
 } from "../../services/reportService.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../../repositories/reminderRepository.js";
 import { createUserRepository } from "../../repositories/userRepository.js";
 import { createReportConfigRepository } from "../../repositories/reportConfigRepository.js";
-import { renderReportPng } from "../../utils/reportPng.js";
+import { renderReportOverviewPng } from "../../utils/reportPng.js";
 import { createLogger } from "../../utils/logger.js";
 
 export async function reportCommand(ctx: BotContext): Promise<void> {
@@ -50,31 +51,24 @@ export async function reportCommand(ctx: BotContext): Promise<void> {
     timezone,
     settings.defaultCurrency,
   );
+  const textReport = buildTextReportData(
+    subscriptions,
+    exchangeRates,
+    timezone,
+    settings.defaultCurrency,
+  );
   const fallbackText = formatReportText(report);
 
   try {
-    const currentMonthlyPng = await renderReportPng(report.currentMonthly);
-    const upcomingDuePng = await renderReportPng(report.currentMonthDue);
-    const yearlyProjectionPng = await renderReportPng(report.yearlyProjection);
-
-    await ctx.replyWithPhoto(
-      new InputFile(currentMonthlyPng, "upcoming-30-days-monthly-report.png"),
-      {
-        caption: "未来30天摊平支出",
-      },
+    const overviewPng = await renderReportOverviewPng(
+      report,
+      textReport.currentMonthItems,
     );
 
     await ctx.replyWithPhoto(
-      new InputFile(upcomingDuePng, "upcoming-30-days-report.png"),
+      new InputFile(overviewPng, "subscription-spending-overview.png"),
       {
-        caption: "未来30天支出",
-      },
-    );
-
-    await ctx.replyWithPhoto(
-      new InputFile(yearlyProjectionPng, "yearly-projection-report.png"),
-      {
-        caption: "年度预期支出",
+        caption: "订阅支出总览。发送 /report_text 查看完整明细。",
       },
     );
     logger.info("Report generated", {
