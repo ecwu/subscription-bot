@@ -20,29 +20,17 @@ vi.mock("../src/utils/reportFonts.js", async () => {
   const REPORT_FONT_FAMILY = "Noto Sans SC";
   const fontSources = [
     { data: readFont("noto-sans-sc-latin-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-latin-700-normal.woff"), weight: 700 },
     { data: readFont("noto-sans-sc-106-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-106-700-normal.woff"), weight: 700 },
     { data: readFont("noto-sans-sc-109-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-109-700-normal.woff"), weight: 700 },
     { data: readFont("noto-sans-sc-110-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-110-700-normal.woff"), weight: 700 },
     { data: readFont("noto-sans-sc-112-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-112-700-normal.woff"), weight: 700 },
     { data: readFont("noto-sans-sc-113-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-113-700-normal.woff"), weight: 700 },
     { data: readFont("noto-sans-sc-114-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-114-700-normal.woff"), weight: 700 },
     { data: readFont("noto-sans-sc-115-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-115-700-normal.woff"), weight: 700 },
     { data: readFont("noto-sans-sc-116-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-116-700-normal.woff"), weight: 700 },
     { data: readFont("noto-sans-sc-117-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-117-700-normal.woff"), weight: 700 },
     { data: readFont("noto-sans-sc-118-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-118-700-normal.woff"), weight: 700 },
     { data: readFont("noto-sans-sc-119-400-normal.woff"), weight: 400 },
-    { data: readFont("noto-sans-sc-119-700-normal.woff"), weight: 700 },
   ] as const;
 
   return {

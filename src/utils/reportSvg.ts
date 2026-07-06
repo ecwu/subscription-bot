@@ -70,7 +70,7 @@ export function buildReportOverviewSvg(
       h(
         "div",
         { style: { display: "flex", flexDirection: "column" } },
-        h("div", { style: { fontSize: 42, fontWeight: 700 } }, "订阅支出总览"),
+        h("div", { style: { fontSize: 42, fontWeight: 400 } }, "订阅支出总览"),
         h(
           "div",
           { style: { marginTop: 8, fontSize: 20, color: COLORS.muted } },
@@ -141,7 +141,7 @@ export function buildReportOverviewSvg(
         missingNote
           ? h(
               "div",
-              { style: { color: COLORS.rose, fontWeight: 700 } },
+              { style: { color: COLORS.rose, fontWeight: 400 } },
               missingNote,
             )
           : null,
@@ -296,21 +296,21 @@ export function buildReportSvg(report: ReportData): string {
     .soft-teal { fill: ${COLORS.tealLight}; }
     .soft-gold { fill: ${COLORS.goldLight}; }
     .soft-rose { fill: ${COLORS.roseLight}; }
-    .title { font-size: 44px; font-weight: 700; fill: ${COLORS.ink}; }
+    .title { font-size: 44px; font-weight: 400; fill: ${COLORS.ink}; }
     .subtitle { font-size: 21px; font-weight: 400; fill: ${COLORS.muted}; }
-    .metric { font-size: 66px; font-weight: 700; fill: ${COLORS.ink}; }
-    .stat { font-size: 34px; font-weight: 700; fill: ${COLORS.ink}; }
-    .label { font-size: 18px; font-weight: 700; fill: ${COLORS.muted}; letter-spacing: 0.6px; }
-    .section { font-size: 25px; font-weight: 700; fill: ${COLORS.ink}; }
-    .row-currency { font-size: 23px; font-weight: 700; fill: ${COLORS.ink}; }
-    .row-text { font-size: 22px; font-weight: 700; fill: ${COLORS.ink}; }
+    .metric { font-size: 66px; font-weight: 400; fill: ${COLORS.ink}; }
+    .stat { font-size: 34px; font-weight: 400; fill: ${COLORS.ink}; }
+    .label { font-size: 18px; font-weight: 400; fill: ${COLORS.muted}; letter-spacing: 0.6px; }
+    .section { font-size: 25px; font-weight: 400; fill: ${COLORS.ink}; }
+    .row-currency { font-size: 23px; font-weight: 400; fill: ${COLORS.ink}; }
+    .row-text { font-size: 22px; font-weight: 400; fill: ${COLORS.ink}; }
     .row-muted { font-size: 20px; font-weight: 400; fill: ${COLORS.muted}; }
     .row-small { font-size: 17px; font-weight: 400; fill: ${COLORS.faint}; }
     .axis { font-size: 14px; font-weight: 400; fill: ${COLORS.muted}; }
-    .bar-label { font-size: 14px; font-weight: 700; fill: ${COLORS.ink}; }
-    .bar-label-monthly { font-size: 14px; font-weight: 700; fill: ${COLORS.teal}; opacity: 0.65; }
+    .bar-label { font-size: 14px; font-weight: 400; fill: ${COLORS.ink}; }
+    .bar-label-monthly { font-size: 14px; font-weight: 400; fill: ${COLORS.teal}; opacity: 0.65; }
     .note { font-size: 19px; font-weight: 400; fill: ${COLORS.muted}; }
-    .legend { font-size: 16px; font-weight: 700; fill: ${COLORS.muted}; }
+    .legend { font-size: 16px; font-weight: 400; fill: ${COLORS.muted}; }
   </style>
   <rect class="bg" x="0" y="0" width="${WIDTH}" height="${HEIGHT}"/>
   <text x="80" y="86" class="title">${escapeXml(report.title)}</text>
@@ -448,7 +448,7 @@ function overviewMetricCard(
           style: {
             color: COLORS.muted,
             fontSize: 17,
-            fontWeight: 700,
+            fontWeight: 400,
             letterSpacing: 0.5,
           },
         },
@@ -456,7 +456,7 @@ function overviewMetricCard(
       ),
       h(
         "div",
-        { style: { marginTop: 18, fontSize: 42, fontWeight: 700 } },
+        { style: { marginTop: 18, fontSize: 42, fontWeight: 400 } },
         value,
       ),
       h(
@@ -477,7 +477,7 @@ function overviewSectionTitle(title: string): SatoriElement {
         display: "flex",
         marginBottom: 12,
         fontSize: 24,
-        fontWeight: 700,
+        fontWeight: 400,
       },
     },
     title,
@@ -534,7 +534,7 @@ function overviewUpcomingRows(
       { style: { display: "flex", flexDirection: "column" } },
       h(
         "div",
-        { style: { display: "flex", fontSize: 21, fontWeight: 700 } },
+        { style: { display: "flex", fontSize: 21, fontWeight: 400 } },
         name,
       ),
       h(
@@ -591,7 +591,7 @@ function overviewDueChartNode(report: ReportData): SatoriElement {
               display: "flex",
               color: COLORS.ink,
               fontSize: 13,
-              fontWeight: 700,
+              fontWeight: 400,
             },
           },
           compactAmount(item.actualTotal),
