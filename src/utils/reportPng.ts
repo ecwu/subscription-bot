@@ -6,6 +6,12 @@ import type {
 import { buildReportOverviewSvg, buildReportSvg } from "./reportSvg.js";
 import notoSansSc106Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-106-700-normal.woff2";
 import notoSansSc106Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-106-400-normal.woff2";
+import notoSansSc109Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-109-700-normal.woff2";
+import notoSansSc109Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-109-400-normal.woff2";
+import notoSansSc110Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-110-700-normal.woff2";
+import notoSansSc110Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-110-400-normal.woff2";
+import notoSansSc112Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-112-700-normal.woff2";
+import notoSansSc112Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-112-400-normal.woff2";
 import notoSansSc113Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-113-700-normal.woff2";
 import notoSansSc113Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-113-400-normal.woff2";
 import notoSansSc114Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-114-700-normal.woff2";
@@ -20,8 +26,6 @@ import notoSansSc118Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-118-7
 import notoSansSc118Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-118-400-normal.woff2";
 import notoSansSc119Bold from "@fontsource/noto-sans-sc/files/noto-sans-sc-119-700-normal.woff2";
 import notoSansSc119Regular from "@fontsource/noto-sans-sc/files/noto-sans-sc-119-400-normal.woff2";
-import notoSansScChineseSimplifiedBold from "@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-700-normal.woff2";
-import notoSansScChineseSimplifiedRegular from "@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-400-normal.woff2";
 import notoSansScLatinBold from "@fontsource/noto-sans-sc/files/noto-sans-sc-latin-700-normal.woff2";
 import notoSansScLatinRegular from "@fontsource/noto-sans-sc/files/noto-sans-sc-latin-400-normal.woff2";
 
@@ -33,7 +37,7 @@ export async function renderReportOverviewPng(
   report: SplitReportData,
   upcomingItems: TextReportSubscriptionItem[],
 ): Promise<Uint8Array> {
-  return renderSvgPng(buildReportOverviewSvg(report, upcomingItems));
+  return renderSvgPng(await buildReportOverviewSvg(report, upcomingItems));
 }
 
 async function renderSvgPng(svg: string): Promise<Uint8Array> {
@@ -48,10 +52,14 @@ async function renderSvgPng(svg: string): Promise<Uint8Array> {
       fontBuffers: [
         toFontBuffer(notoSansScLatinRegular),
         toFontBuffer(notoSansScLatinBold),
-        toFontBuffer(notoSansScChineseSimplifiedRegular),
-        toFontBuffer(notoSansScChineseSimplifiedBold),
         toFontBuffer(notoSansSc106Regular),
         toFontBuffer(notoSansSc106Bold),
+        toFontBuffer(notoSansSc109Regular),
+        toFontBuffer(notoSansSc109Bold),
+        toFontBuffer(notoSansSc110Regular),
+        toFontBuffer(notoSansSc110Bold),
+        toFontBuffer(notoSansSc112Regular),
+        toFontBuffer(notoSansSc112Bold),
         toFontBuffer(notoSansSc113Regular),
         toFontBuffer(notoSansSc113Bold),
         toFontBuffer(notoSansSc114Regular),

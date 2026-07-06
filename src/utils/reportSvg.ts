@@ -4,6 +4,7 @@ import type {
   TextReportSubscriptionItem,
 } from "../services/reportService.js";
 import { formatMoney } from "./money.js";
+import satori from "satori";
 
 const WIDTH = 1200;
 const HEIGHT = 700;
@@ -15,6 +16,10 @@ const BAR_LABEL_TOP_PADDING = 28;
 const BAR_MAX_HEIGHT = CHART_HEIGHT - BAR_LABEL_TOP_PADDING;
 const MONTHLY_FILL_OPACITY = "0.35";
 const STACK_BLOCK_GAP = 2;
+const ROBOTO_REGULAR_URL =
+  "https://cdn.jsdelivr.net/npm/typeface-roboto@1.1.13/files/roboto-latin-400.woff";
+const ROBOTO_BOLD_URL =
+  "https://cdn.jsdelivr.net/npm/typeface-roboto@1.1.13/files/roboto-latin-700.woff";
 
 const COLORS = {
   ink: "#162326",
@@ -34,7 +39,7 @@ const COLORS = {
 export function buildReportOverviewSvg(
   report: SplitReportData,
   upcomingItems: TextReportSubscriptionItem[] = [],
-): string {
+): Promise<string> {
   const missingCurrencies = Array.from(
     new Set([
       ...report.currentMonthly.missingRateCurrencies,
@@ -48,88 +53,95 @@ export function buildReportOverviewSvg(
       ? `总额未计入缺失汇率：${missingCurrencies.join("、")}`
       : "";
 
-  const topUpcoming = upcomingItems.slice(0, 5);
-  const upcomingRows =
-    topUpcoming.length > 0
-      ? topUpcoming
-          .map((item, index) => overviewUpcomingRow(item, index, report.baseCurrency))
-          .join("")
-      : `<text x="96" y="552" class="row-muted">未来 30 天暂无扣款</text>`;
-  const dueChart = overviewDueChart(report.currentMonthDue);
-  const yearChart = overviewYearChart(report.yearlyProjection);
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
-  <style>
-    text { font-family: "Noto Sans SC", sans-serif; }
-    .bg { fill: ${COLORS.bg}; }
-    .panel { fill: ${COLORS.panel}; stroke: ${COLORS.line}; stroke-width: 1; }
-    .title { font-size: 42px; font-weight: 700; fill: ${COLORS.ink}; }
-    .subtitle { font-size: 20px; font-weight: 400; fill: ${COLORS.muted}; }
-    .metric { font-size: 42px; font-weight: 700; fill: ${COLORS.ink}; }
-    .small-metric { font-size: 32px; font-weight: 700; fill: ${COLORS.ink}; }
-    .label { font-size: 17px; font-weight: 700; fill: ${COLORS.muted}; letter-spacing: 0.5px; }
-    .section { font-size: 24px; font-weight: 700; fill: ${COLORS.ink}; }
-    .row-text { font-size: 21px; font-weight: 700; fill: ${COLORS.ink}; }
-    .row-muted { font-size: 18px; font-weight: 400; fill: ${COLORS.muted}; }
-    .axis { font-size: 13px; font-weight: 400; fill: ${COLORS.muted}; }
-    .bar-label { font-size: 13px; font-weight: 700; fill: ${COLORS.ink}; }
-    .note { font-size: 17px; font-weight: 400; fill: ${COLORS.muted}; }
-    .warning { font-size: 17px; font-weight: 700; fill: ${COLORS.rose}; }
-  </style>
-  <rect class="bg" x="0" y="0" width="${WIDTH}" height="${HEIGHT}"/>
-  <text x="72" y="72" class="title">订阅支出总览</text>
-  <text x="74" y="108" class="subtitle">生成于 ${escapeXml(
-    report.generatedAt.slice(0, 10),
-  )} · 基准货币 ${escapeXml(report.baseCurrency)} · 当前订阅 ${
-    report.subscriptionCount
-  } 个</text>
-
-  <rect class="panel" x="72" y="136" width="330" height="144" rx="10"/>
-  <text x="96" y="178" class="label">未来 30 天扣款</text>
-  <text x="96" y="232" class="metric">${escapeXml(
-    formatMoney(report.currentMonthDue.totalBase, report.baseCurrency),
-  )}</text>
-  <text x="96" y="260" class="note">${
-    report.currentMonthDue.convertedCount
-  } 个订阅已换算</text>
-
-  <rect class="panel" x="436" y="136" width="330" height="144" rx="10"/>
-  <text x="460" y="178" class="label">月均订阅成本</text>
-  <text x="460" y="232" class="metric">${escapeXml(
-    formatMoney(report.currentMonthly.totalBase, report.baseCurrency),
-  )}</text>
-  <text x="460" y="260" class="note">活跃自动续费订阅折算</text>
-
-  <rect class="panel" x="800" y="136" width="328" height="144" rx="10"/>
-  <text x="824" y="178" class="label">未来 12 个月预期</text>
-  <text x="824" y="232" class="metric">${escapeXml(
-    formatMoney(report.yearlyProjection.totalBase, report.baseCurrency),
-  )}</text>
-  <text x="824" y="260" class="note">按真实扣款日期预测</text>
-
-  <text x="72" y="318" class="section">未来 30 天扣款明细</text>
-  <rect class="panel" x="72" y="340" width="512" height="288" rx="10"/>
-  ${upcomingRows}
-
-  <text x="628" y="318" class="section">扣款日分布</text>
-  <rect class="panel" x="616" y="340" width="512" height="132" rx="10"/>
-  ${dueChart}
-
-  <text x="628" y="510" class="section">年度月度趋势</text>
-  <rect class="panel" x="616" y="532" width="512" height="96" rx="10"/>
-  ${yearChart}
-
-  ${
-    missingNote
-      ? `<text x="72" y="664" class="warning">${escapeXml(missingNote)}</text>`
-      : ""
-  }
-  ${
-    excludedNote
-      ? `<text x="72" y="690" class="note">${escapeXml(excludedNote)}</text>`
-      : ""
-  }
-</svg>`;
+  return buildSatoriSvg(
+    h(
+      "div",
+      {
+        style: {
+          width: "100%",
+          height: "100%",
+          backgroundColor: COLORS.bg,
+          color: COLORS.ink,
+          display: "flex",
+          flexDirection: "column",
+          padding: 72,
+          fontFamily: "Roboto",
+        },
+      },
+      h("div", { style: { display: "flex", flexDirection: "column" } },
+        h("div", { style: { fontSize: 42, fontWeight: 700 } }, "订阅支出总览"),
+        h(
+          "div",
+          { style: { marginTop: 8, fontSize: 20, color: COLORS.muted } },
+          `生成于 ${report.generatedAt.slice(0, 10)} · 基准货币 ${report.baseCurrency} · 当前订阅 ${report.subscriptionCount} 个`,
+        ),
+      ),
+      h(
+        "div",
+        { style: { display: "flex", gap: 34, marginTop: 28 } },
+        overviewMetricCard(
+          "未来 30 天扣款",
+          formatMoney(report.currentMonthDue.totalBase, report.baseCurrency),
+          `${report.currentMonthDue.convertedCount} 个订阅已换算`,
+        ),
+        overviewMetricCard(
+          "月均订阅成本",
+          formatMoney(report.currentMonthly.totalBase, report.baseCurrency),
+          "活跃自动续费订阅折算",
+        ),
+        overviewMetricCard(
+          "未来 12 个月预期",
+          formatMoney(report.yearlyProjection.totalBase, report.baseCurrency),
+          "按真实扣款日期预测",
+        ),
+      ),
+      h(
+        "div",
+        { style: { display: "flex", gap: 32, marginTop: 34 } },
+        h(
+          "div",
+          { style: { display: "flex", flexDirection: "column", width: 512 } },
+          overviewSectionTitle("未来 30 天扣款明细"),
+          overviewPanel(
+            h(
+              "div",
+              { style: { display: "flex", flexDirection: "column", gap: 12 } },
+              ...overviewUpcomingRows(upcomingItems, report.baseCurrency),
+            ),
+            { height: 288 },
+          ),
+        ),
+        h(
+          "div",
+          { style: { display: "flex", flexDirection: "column", width: 512 } },
+          overviewSectionTitle("扣款日分布"),
+          overviewPanel(overviewDueChartNode(report.currentMonthDue), { height: 132 }),
+          h("div", { style: { height: 30 } }),
+          overviewSectionTitle("年度月度趋势"),
+          overviewPanel(overviewYearChartNode(report.yearlyProjection), {
+            height: 96,
+          }),
+        ),
+      ),
+      h(
+        "div",
+        {
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            marginTop: "auto",
+            fontSize: 17,
+            color: COLORS.muted,
+          },
+        },
+        missingNote
+          ? h("div", { style: { color: COLORS.rose, fontWeight: 700 } }, missingNote)
+          : null,
+        excludedNote ? h("div", null, excludedNote) : null,
+      ),
+    ),
+  );
 }
 
 export function buildReportSvg(report: ReportData): string {
@@ -365,12 +377,156 @@ function actualBarBlocks(
   }).join("");
 }
 
-function overviewUpcomingRow(
-  item: TextReportSubscriptionItem,
-  index: number,
+type SatoriElement = {
+  type: string;
+  props: {
+    style?: Record<string, unknown>;
+    children?: SatoriChild | SatoriChild[];
+    [key: string]: unknown;
+  };
+};
+
+type SatoriChild = SatoriElement | string | number | null;
+
+function h(
+  type: string,
+  props: Record<string, unknown> | null,
+  ...children: SatoriChild[]
+): SatoriElement {
+  return {
+    type,
+    props: {
+      ...(props ?? {}),
+      children: children.length === 1 ? children[0] : children,
+    },
+  };
+}
+
+async function buildSatoriSvg(element: SatoriElement): Promise<string> {
+  const [robotoRegular, robotoBold] = await Promise.all([
+    loadSatoriFont(ROBOTO_REGULAR_URL),
+    loadSatoriFont(ROBOTO_BOLD_URL),
+  ]);
+
+  const svg = await satori(element as any, {
+    width: WIDTH,
+    height: HEIGHT,
+    embedFont: false,
+    fonts: [
+      {
+        name: "Roboto",
+        data: robotoRegular,
+        weight: 400,
+      },
+      {
+        name: "Roboto",
+        data: robotoBold,
+        weight: 700,
+      },
+    ],
+  });
+
+  return svg.replace(/font-family="roboto"/g, 'font-family="Noto Sans SC"');
+}
+
+const satoriFontCache = new Map<string, Promise<ArrayBuffer>>();
+
+function loadSatoriFont(url: string): Promise<ArrayBuffer> {
+  const cached = satoriFontCache.get(url);
+  if (cached) return cached;
+
+  const loaded = fetch(url).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`Failed to load report layout font: ${response.status}`);
+    }
+    return response.arrayBuffer();
+  });
+  satoriFontCache.set(url, loaded);
+  return loaded;
+}
+
+function overviewMetricCard(
+  title: string,
+  value: string,
+  note: string,
+): SatoriElement {
+  return overviewPanel(
+    h(
+      "div",
+      { style: { display: "flex", flexDirection: "column" } },
+      h(
+        "div",
+        {
+          style: {
+            color: COLORS.muted,
+            fontSize: 17,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+          },
+        },
+        title,
+      ),
+      h(
+        "div",
+        { style: { marginTop: 18, fontSize: 42, fontWeight: 700 } },
+        value,
+      ),
+      h(
+        "div",
+        { style: { marginTop: 8, color: COLORS.muted, fontSize: 17 } },
+        note,
+      ),
+    ),
+    { width: 330, height: 144 },
+  );
+}
+
+function overviewSectionTitle(title: string): SatoriElement {
+  return h(
+    "div",
+    { style: { marginBottom: 12, fontSize: 24, fontWeight: 700 } },
+    title,
+  );
+}
+
+function overviewPanel(
+  child: SatoriChild,
+  size: { width?: number; height: number },
+): SatoriElement {
+  return h(
+    "div",
+    {
+      style: {
+        width: size.width ?? "100%",
+        height: size.height,
+        backgroundColor: COLORS.panel,
+        border: `1px solid ${COLORS.line}`,
+        borderRadius: 10,
+        display: "flex",
+        flexDirection: "column",
+        padding: 24,
+      },
+    },
+    child,
+  );
+}
+
+function overviewUpcomingRows(
+  items: TextReportSubscriptionItem[],
   baseCurrency: string,
-): string {
-  const y = 388 + index * 46;
+): SatoriElement[] {
+  const topUpcoming = items.slice(0, 5);
+  if (topUpcoming.length === 0) {
+    return [
+      h(
+        "div",
+        { style: { color: COLORS.muted, fontSize: 18 } },
+        "未来 30 天暂无扣款",
+      ),
+    ];
+  }
+
+  return topUpcoming.map((item) => {
   const converted =
     item.convertedAmount !== undefined && item.currency !== baseCurrency
       ? ` · ${formatMoney(item.convertedAmount, baseCurrency)}`
@@ -378,86 +534,125 @@ function overviewUpcomingRow(
   const date = item.billingDate ?? "日期未定";
   const name = truncateText(item.name, 18);
 
-  return `<text x="96" y="${y}" class="row-text">${escapeXml(name)}</text>
-  <text x="96" y="${y + 25}" class="row-muted">${escapeXml(
-    `${date} · ${formatMoney(item.amount, item.currency)}${converted}`,
-  )}</text>`;
+    return h(
+      "div",
+      { style: { display: "flex", flexDirection: "column" } },
+      h("div", { style: { fontSize: 21, fontWeight: 700 } }, name),
+      h(
+        "div",
+        { style: { marginTop: 3, color: COLORS.muted, fontSize: 18 } },
+        `${date} · ${formatMoney(item.amount, item.currency)}${converted}`,
+      ),
+    );
+  });
 }
 
-function overviewDueChart(report: ReportData): string {
+function overviewDueChartNode(report: ReportData): SatoriElement {
   const data = report.dayDistribution.filter((item) => item.actualTotal > 0);
   if (data.length === 0) {
-    return '<text x="640" y="410" class="row-muted">未来 30 天暂无扣款</text>';
+    return h(
+      "div",
+      { style: { color: COLORS.muted, fontSize: 18 } },
+      "未来 30 天暂无扣款",
+    );
   }
 
-  const chartX = 640;
-  const chartY = 375;
   const chartWidth = 464;
-  const chartHeight = 64;
+  const chartHeight = 84;
   const max = Math.max(...data.map((item) => item.actualTotal), 1);
-  const step = chartWidth / data.length;
+  const step = Math.floor(chartWidth / data.length);
   const barWidth = Math.min(34, Math.max(12, step - 8));
 
-  return data
-    .map((item, index) => {
+  return h(
+    "div",
+    { style: { display: "flex", alignItems: "flex-end", gap: 8, height: 84 } },
+    ...data.map((item) => {
       const height = Math.max(3, (item.actualTotal / max) * chartHeight);
-      const x = chartX + index * step + (step - barWidth) / 2;
-      const y = chartY + chartHeight - height;
-      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(
-        1,
-      )}" height="${height.toFixed(1)}" rx="3" fill="${COLORS.gold}"/>
-      <text x="${(x + barWidth / 2).toFixed(1)}" y="${Math.max(
-        y - 7,
-        356,
-      ).toFixed(1)}" text-anchor="middle" class="bar-label">${escapeXml(
-        compactAmount(item.actualTotal),
-      )}</text>
-      <text x="${(x + barWidth / 2).toFixed(1)}" y="456" text-anchor="middle" class="axis">T+${
-        item.day
-      }</text>`;
-    })
-    .join("");
+      return h(
+        "div",
+        {
+          style: {
+            width: barWidth,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          },
+        },
+        h(
+          "div",
+          { style: { color: COLORS.ink, fontSize: 13, fontWeight: 700 } },
+          compactAmount(item.actualTotal),
+        ),
+        h("div", {
+          style: {
+            width: barWidth,
+            height,
+            backgroundColor: COLORS.gold,
+            borderRadius: 3,
+            marginTop: 4,
+          },
+        }),
+        h(
+          "div",
+          { style: { marginTop: 5, color: COLORS.muted, fontSize: 13 } },
+          `T+${item.day}`,
+        ),
+      );
+    }),
+  );
 }
 
-function overviewYearChart(report: ReportData): string {
+function overviewYearChartNode(report: ReportData): SatoriElement {
   const data = report.monthDistribution ?? [];
   if (data.every((item) => item.actualTotal === 0)) {
-    return '<text x="640" y="590" class="row-muted">暂无年度预期扣款</text>';
+    return h(
+      "div",
+      { style: { color: COLORS.muted, fontSize: 18 } },
+      "暂无年度预期扣款",
+    );
   }
 
-  const chartX = 640;
-  const chartY = 552;
   const chartWidth = 464;
   const chartHeight = 48;
   const max = Math.max(...data.map((item) => item.actualTotal), 1);
-  const step = chartWidth / Math.max(data.length, 1);
+  const step = Math.floor(chartWidth / Math.max(data.length, 1));
   const barWidth = Math.min(26, Math.max(8, step - 7));
 
-  return data
-    .map((item, index) => {
+  return h(
+    "div",
+    { style: { display: "flex", alignItems: "flex-end", gap: 7, height: 48 } },
+    ...data.map((item, index) => {
       const height =
         item.actualTotal > 0
           ? Math.max(2, (item.actualTotal / max) * chartHeight)
           : 0;
-      const x = chartX + index * step + (step - barWidth) / 2;
-      const y = chartY + chartHeight - height;
       const showLabel = index === 0 || index === data.length - 1;
-      return `${
-        height > 0
-          ? `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(
-              1,
-            )}" height="${height.toFixed(1)}" rx="3" fill="${COLORS.teal}"/>`
-          : ""
-      }
-      ${
-        showLabel
-          ? `<text x="${(x + barWidth / 2).toFixed(1)}" y="618" text-anchor="middle" class="axis">${escapeXml(
-              monthNameFromKey(item.monthKey),
-            )}</text>`
-          : ""
-      }`;
-    })
-    .join("");
+      return h(
+        "div",
+        {
+          style: {
+            width: barWidth,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          },
+        },
+        h("div", {
+          style: {
+            width: barWidth,
+            height: Math.max(height, 1),
+            backgroundColor: height > 0 ? COLORS.teal : "transparent",
+            borderRadius: 3,
+          },
+        }),
+        h(
+          "div",
+          { style: { marginTop: 5, color: COLORS.muted, fontSize: 13 } },
+          showLabel ? monthNameFromKey(item.monthKey) : "",
+        ),
+      );
+    }),
+  );
 }
 
 function overviewExcludedNote(report: SplitReportData): string {

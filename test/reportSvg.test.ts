@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ReportData, SplitReportData } from "../src/services/reportService.js";
+
+vi.mock("satori", () => ({
+  default: vi.fn(async (element) => JSON.stringify(element)),
+}));
+
 import { buildReportOverviewSvg, buildReportSvg } from "../src/utils/reportSvg.js";
 
 function report(overrides: Partial<ReportData> = {}): ReportData {
@@ -83,7 +88,7 @@ describe("buildReportSvg", () => {
     expect(svg.match(/x="320" y="(418\.0|496\.0|574\.0)"/g)).toHaveLength(3);
   });
 
-  it("renders an overview report with key metrics and upcoming items", () => {
+  it("renders an overview report with key metrics and upcoming items", async () => {
     const splitReport: SplitReportData = {
       generatedAt: "2026-06-17T00:00:00.000Z",
       baseCurrency: "CNY",
@@ -112,7 +117,7 @@ describe("buildReportSvg", () => {
       }),
     };
 
-    const svg = buildReportOverviewSvg(splitReport, [
+    const svg = await buildReportOverviewSvg(splitReport, [
       {
         name: "Private Service",
         amount: 10,
