@@ -1,6 +1,6 @@
 name = "subscription-bot"
 main = "src/index.ts"
-compatibility_date = "2026-05-18"
+compatibility_date = "2026-07-06"
 compatibility_flags = ["nodejs_compat"]
 
 rules = [
@@ -22,6 +22,16 @@ preview_id = "6401a8087afa4916be481c9d71a8266c"
 
 [triggers]
 crons = ["*/30 * * * *"]
+
+[observability]
+enabled = true
+
+  [observability.logs]
+  head_sampling_rate = 1
+
+  [observability.traces]
+  enabled = true
+  head_sampling_rate = 0.01
 
 # Secrets (set via `wrangler secret put`):
 # BOT_TOKEN

@@ -4,6 +4,8 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2022,
     sourceType: "module",
+    project: ["./tsconfig.eslint.json"],
+    tsconfigRootDir: __dirname,
   },
   plugins: ["@typescript-eslint"],
   extends: [
@@ -16,6 +18,7 @@ module.exports = {
   },
   rules: {
     "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-floating-promises": "error",
     "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
   },
   ignorePatterns: ["dist/", "node_modules/", "*.config.*"],

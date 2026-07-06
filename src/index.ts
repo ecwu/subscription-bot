@@ -5,7 +5,11 @@ import { handleHealth } from "./handlers/health.js";
 import { log } from "./utils/logger.js";
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    _ctx: ExecutionContext,
+  ): Promise<Response> {
     const url = new URL(request.url);
     const requestId = crypto.randomUUID();
 
@@ -40,4 +44,4 @@ export default {
   ): Promise<void> {
     await handleScheduled(controller, env);
   },
-};
+} satisfies ExportedHandler<Env>;

@@ -31,6 +31,10 @@ logs/
 *.swo
 *~
 
+# Local agent tooling
+.agents/
+skills-lock.json
+
 # Testing
 coverage/
 .vite/vitest/results.json

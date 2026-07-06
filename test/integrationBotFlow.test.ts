@@ -56,7 +56,9 @@ function messageUpdate(updateId: number, userId: number, text: string) {
       chat: { id: userId, type: "private" as const },
       from: { id: userId, is_bot: false, first_name: "Test" },
       text,
-      entities: [{ type: "bot_command" as const, offset: 0, length: command.length }],
+      entities: [
+        { type: "bot_command" as const, offset: 0, length: command.length },
+      ],
     },
   };
 }
@@ -126,20 +128,20 @@ describe("bot command integration", () => {
       nextBillingDate: "2026-06-03",
     });
     expect(kv.keys().some((key) => key.includes(String(userId)))).toBe(false);
-    expect(sentMessages.some((msg) => String(msg.text).includes("订阅已添加"))).toBe(
-      true,
-    );
+    expect(
+      sentMessages.some((msg) => String(msg.text).includes("订阅已添加")),
+    ).toBe(true);
 
     await bot.handleUpdate(messageUpdate(2, userId, "/reminders"));
 
     expect(
       sentMessages.some((msg) => String(msg.text).includes("近期扣款订阅")),
     ).toBe(true);
-    expect(sentMessages.some((msg) => String(msg.text).includes("Netflix"))).toBe(
-      true,
-    );
-    expect(sentMessages.some((msg) => String(msg.text).includes("123456789"))).toBe(
-      false,
-    );
+    expect(
+      sentMessages.some((msg) => String(msg.text).includes("Netflix")),
+    ).toBe(true);
+    expect(
+      sentMessages.some((msg) => String(msg.text).includes("123456789")),
+    ).toBe(false);
   });
 });

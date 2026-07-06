@@ -205,8 +205,12 @@ describe("addCommand", () => {
       nextBillingDate: "2026-06-01",
       status: "active",
     });
-    expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining("订阅已添加"));
-    expect(ctx.reply).toHaveBeenCalledWith(expect.stringContaining("/settings"));
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining("订阅已添加"),
+    );
+    expect(ctx.reply).toHaveBeenCalledWith(
+      expect.stringContaining("/settings"),
+    );
   });
 });
 

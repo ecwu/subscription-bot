@@ -46,7 +46,7 @@ function authorizedRequest(): Request {
 }
 
 describe("handleWebhook success path", () => {
-  it("creates one bot per isolate and delegates to grammY webhook callback", async () => {
+  it("creates a bot per request and delegates to grammY webhook callback", async () => {
     grammyMock.webhookCallback.mockReturnValue(grammyMock.webhookHandler);
     const env = createEnv();
 
@@ -56,7 +56,7 @@ describe("handleWebhook success path", () => {
     expect(first.status).toBe(200);
     expect(await first.text()).toBe("ok");
     expect(second.status).toBe(200);
-    expect(createBot).toHaveBeenCalledTimes(1);
+    expect(createBot).toHaveBeenCalledTimes(2);
     expect(webhookCallback).toHaveBeenCalledTimes(2);
     expect(webhookCallback).toHaveBeenCalledWith(
       botMock.createBot.mock.results[0].value,
