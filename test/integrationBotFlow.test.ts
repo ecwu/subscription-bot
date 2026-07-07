@@ -48,6 +48,10 @@ function createEnv(kv: KVNamespace): Env {
 
 function messageUpdate(updateId: number, userId: number, text: string) {
   const command = text.split(/\s+/, 1)[0] ?? "";
+  const entities = text.startsWith("/")
+    ? [{ type: "bot_command" as const, offset: 0, length: command.length }]
+    : undefined;
+
   return {
     update_id: updateId,
     message: {
@@ -56,9 +60,7 @@ function messageUpdate(updateId: number, userId: number, text: string) {
       chat: { id: userId, type: "private" as const },
       from: { id: userId, is_bot: false, first_name: "Test" },
       text,
-      entities: [
-        { type: "bot_command" as const, offset: 0, length: command.length },
-      ],
+      entities,
     },
   };
 }
@@ -143,5 +145,49 @@ describe("bot command integration", () => {
     expect(
       sentMessages.some((msg) => String(msg.text).includes("123456789")),
     ).toBe(false);
+  });
+
+  it("continues the interactive add conversation after the name reply", async () => {
+    vi.useRealTimers();
+    const sentMessages: TelegramPayload[] = [];
+    const kv = createMockKV();
+    const env = createEnv(kv);
+    const bot = createBot(env, {
+      fetch: vi.fn(
+        async (_input: string | URL | Request, init?: RequestInit) => {
+          const payload = JSON.parse(
+            String(init?.body ?? "{}"),
+          ) as TelegramPayload;
+          sentMessages.push(payload);
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              result: {
+                message_id: sentMessages.length,
+                date: 0,
+                chat: { id: payload.chat_id, type: "private" },
+                text: String(payload.text ?? ""),
+              },
+            }),
+            { headers: { "content-type": "application/json" } },
+          );
+        },
+      ),
+    });
+    (bot as any).botInfo = {
+      id: 1,
+      is_bot: true,
+      first_name: "TestBot",
+      username: "testbot",
+    };
+    const userId = 123456789;
+
+    await bot.handleUpdate(messageUpdate(1, userId, "/add"));
+    await bot.handleUpdate(messageUpdate(2, userId, "Netflix"));
+
+    expect(sentMessages.map((msg) => msg.text)).toContain("订阅名称是什么？");
+    expect(
+      sentMessages.some((msg) => String(msg.text).includes("价格是多少？")),
+    ).toBe(true);
   });
 });

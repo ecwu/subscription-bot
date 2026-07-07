@@ -1,10 +1,13 @@
 import { Context, SessionFlavor } from "grammy";
-import { ConversationFlavor } from "@grammyjs/conversations";
+import {
+  ConversationFlavor,
+  type ConversationData,
+  type VersionedState,
+} from "@grammyjs/conversations";
 import { Env } from "./env.js";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface SessionData {
-  // intentionally empty for now
+  conversations?: VersionedState<ConversationData>;
 }
 
 // Base context with custom properties (without conversation flavor)

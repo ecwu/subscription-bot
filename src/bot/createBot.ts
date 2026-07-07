@@ -1,4 +1,4 @@
-import { Bot, Context, session } from "grammy";
+import { Bot, Context, session, type ApiClientOptions } from "grammy";
 import { conversations, createConversation } from "@grammyjs/conversations";
 import { BotContext, BaseBotContext, SessionData } from "../types/context.js";
 import { Env } from "../types/env.js";
@@ -77,8 +77,11 @@ function createGetSessionKey(env: Env) {
   };
 }
 
-export function createBot(env: Env): Bot<BotContext> {
-  const bot = new Bot<BotContext>(env.BOT_TOKEN);
+export function createBot(
+  env: Env,
+  client?: ApiClientOptions,
+): Bot<BotContext> {
+  const bot = new Bot<BotContext>(env.BOT_TOKEN, { client });
 
   const getSessionKey = createGetSessionKey(env);
 
@@ -109,7 +112,27 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.use(auth);
   bot.use(rateLimiter());
   bot.use(errorHandler);
-  bot.use(conversations());
+  bot.use(
+    conversations<BotContext, BaseBotContext>({
+      storage: {
+        type: "context",
+        adapter: {
+          read: (ctx) => {
+            if (!ctx.from?.id) return undefined;
+            return ctx.session.conversations;
+          },
+          write: (ctx, state) => {
+            if (!ctx.from?.id) return;
+            ctx.session.conversations = state;
+          },
+          delete: (ctx) => {
+            if (!ctx.from?.id) return;
+            delete ctx.session.conversations;
+          },
+        },
+      },
+    }),
+  );
 
   // Register conversations
   bot.use(
