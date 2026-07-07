@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BotContext } from "../src/types/context.js";
 import { MAIN_MENU_BUTTON_LABELS } from "../src/bot/keyboards/mainMenuKeyboard.js";
 
+vi.mock("../src/bot/commands/add.js", () => ({
+  addCommand: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../src/bot/commands/help.js", () => ({
   helpCommand: vi.fn().mockResolvedValue(undefined),
 }));
@@ -18,6 +21,7 @@ vi.mock("../src/bot/commands/settings.js", () => ({
   settingsCommand: vi.fn().mockResolvedValue(undefined),
 }));
 
+import { addCommand } from "../src/bot/commands/add.js";
 import { helpCommand } from "../src/bot/commands/help.js";
 import { listFullCommand } from "../src/bot/commands/list.js";
 import { remindersCommand } from "../src/bot/commands/reminders.js";
@@ -52,7 +56,11 @@ describe("main menu actions", () => {
     await dispatchMainMenuAction(ctx, "settings");
     await dispatchMainMenuAction(ctx, "help");
 
-    expect(ctx.conversation.enter).toHaveBeenCalledWith("add");
+    expect(addCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        msg: expect.objectContaining({ text: "/add" }),
+      }),
+    );
     expect(listFullCommand).toHaveBeenCalledWith(ctx);
     expect(reportCommand).toHaveBeenCalledWith(ctx);
     expect(remindersCommand).toHaveBeenCalledWith(ctx);
@@ -75,8 +83,7 @@ describe("main menu actions", () => {
     await mainMenuText(unrelatedCtx);
     await mainMenuText(emptyCtx);
 
-    expect(unrelatedCtx.conversation.enter).not.toHaveBeenCalled();
-    expect(emptyCtx.conversation.enter).not.toHaveBeenCalled();
+    expect(addCommand).not.toHaveBeenCalled();
     expect(helpCommand).not.toHaveBeenCalled();
     expect(listFullCommand).not.toHaveBeenCalled();
     expect(remindersCommand).not.toHaveBeenCalled();
