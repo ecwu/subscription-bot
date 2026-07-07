@@ -1,5 +1,4 @@
 import type { BotContext } from "../types/context.js";
-import { addCommand } from "./commands/add.js";
 import { helpCommand } from "./commands/help.js";
 import { listFullCommand } from "./commands/list.js";
 import { remindersCommand } from "./commands/reminders.js";
@@ -16,7 +15,7 @@ export async function dispatchMainMenuAction(
 ): Promise<void> {
   switch (action) {
     case "add":
-      await addCommand(ctx);
+      await ctx.conversation.enter("add");
       return;
     case "list":
       await listFullCommand(ctx);

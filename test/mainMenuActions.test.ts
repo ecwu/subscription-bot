@@ -2,9 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BotContext } from "../src/types/context.js";
 import { MAIN_MENU_BUTTON_LABELS } from "../src/bot/keyboards/mainMenuKeyboard.js";
 
-vi.mock("../src/bot/commands/add.js", () => ({
-  addCommand: vi.fn().mockResolvedValue(undefined),
-}));
 vi.mock("../src/bot/commands/help.js", () => ({
   helpCommand: vi.fn().mockResolvedValue(undefined),
 }));
@@ -21,7 +18,6 @@ vi.mock("../src/bot/commands/settings.js", () => ({
   settingsCommand: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { addCommand } from "../src/bot/commands/add.js";
 import { helpCommand } from "../src/bot/commands/help.js";
 import { listFullCommand } from "../src/bot/commands/list.js";
 import { remindersCommand } from "../src/bot/commands/reminders.js";
@@ -35,6 +31,9 @@ import {
 function createContext(text?: string): BotContext {
   return {
     msg: text ? { text } : undefined,
+    conversation: {
+      enter: vi.fn().mockResolvedValue(undefined),
+    },
   } as unknown as BotContext;
 }
 
@@ -53,7 +52,7 @@ describe("main menu actions", () => {
     await dispatchMainMenuAction(ctx, "settings");
     await dispatchMainMenuAction(ctx, "help");
 
-    expect(addCommand).toHaveBeenCalledWith(ctx);
+    expect(ctx.conversation.enter).toHaveBeenCalledWith("add");
     expect(listFullCommand).toHaveBeenCalledWith(ctx);
     expect(reportCommand).toHaveBeenCalledWith(ctx);
     expect(remindersCommand).toHaveBeenCalledWith(ctx);
@@ -70,10 +69,14 @@ describe("main menu actions", () => {
   });
 
   it("ignores unrelated text", async () => {
-    await mainMenuText(createContext("hello"));
-    await mainMenuText(createContext());
+    const unrelatedCtx = createContext("hello");
+    const emptyCtx = createContext();
 
-    expect(addCommand).not.toHaveBeenCalled();
+    await mainMenuText(unrelatedCtx);
+    await mainMenuText(emptyCtx);
+
+    expect(unrelatedCtx.conversation.enter).not.toHaveBeenCalled();
+    expect(emptyCtx.conversation.enter).not.toHaveBeenCalled();
     expect(helpCommand).not.toHaveBeenCalled();
     expect(listFullCommand).not.toHaveBeenCalled();
     expect(remindersCommand).not.toHaveBeenCalled();
