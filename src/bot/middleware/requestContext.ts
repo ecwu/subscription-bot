@@ -42,11 +42,22 @@ export function requestContext(env: Env): Middleware<BotContext> {
     });
 
     const userRepo = createUserRepository(env.SUBSCRIPTION_KV);
-    const deleted = ctx.userKey
-      ? await userRepo.isUserDeleted(ctx.userKey)
-      : false;
+    const startCommand = isStartCommand(ctx);
+    let deleted = false;
+    let deletionCheckFailed = false;
 
-    if (deleted && !isStartCommand(ctx)) {
+    if (ctx.userKey) {
+      try {
+        deleted = await userRepo.isUserDeleted(ctx.userKey);
+      } catch (err) {
+        deletionCheckFailed = true;
+        logger.warn("Failed to check deleted user marker", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    if ((deleted || deletionCheckFailed) && !startCommand) {
       ctx.userKey = undefined;
     }
 
@@ -54,7 +65,7 @@ export function requestContext(env: Env): Middleware<BotContext> {
     // rewriting encrypted profile data on every update.
     // Do not break updates without chat id (e.g., channel posts, inline queries).
     // Deleted users must explicitly reactivate with /start before profiles are recreated.
-    if (ctx.userKey && ctx.chat?.id && !deleted) {
+    if (ctx.userKey && ctx.chat?.id && !deleted && !deletionCheckFailed) {
       try {
         const profile = await userRepo.getUserProfile(
           ctx.userKey,

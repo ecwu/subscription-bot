@@ -168,7 +168,7 @@ interface PendingReminder {
 
 export async function processReminderEntry(
   env: Env,
-  _reminderRepo: ReminderRepository,
+  reminderRepo: ReminderRepository,
   subRepo: SubscriptionRepository,
   userRepo: UserRepository,
   subscriptionService: SubscriptionService,
@@ -290,6 +290,10 @@ export async function processReminderEntry(
     }
 
     // 8. Send in this user's single daily dispatch slot.
+    if (await reminderRepo.hasSent(entry.userKey, entry.subscriptionId, date)) {
+      return result;
+    }
+
     const message = formatReminderMessage(sub);
     const sendResult = await sendMessage(env, userProfile.chatId, message, {
       reply_markup: reminderRenewKeyboard([sub]),
@@ -304,6 +308,7 @@ export async function processReminderEntry(
       });
       // Continue to advancement below even if send failed
     } else {
+      await reminderRepo.markSent(entry.userKey, entry.subscriptionId, date);
       result.sent = true;
       log("info", "Reminder sent successfully", {
         date,
@@ -353,6 +358,7 @@ export async function processReminderEntry(
 
 async function collectPendingReminder(
   env: Env,
+  reminderRepo: ReminderRepository,
   subRepo: SubscriptionRepository,
   userRepo: UserRepository,
   subscriptionService: SubscriptionService,
@@ -468,6 +474,10 @@ async function collectPendingReminder(
       return result;
     }
 
+    if (await reminderRepo.hasSent(entry.userKey, entry.subscriptionId, date)) {
+      return result;
+    }
+
     result.pending = {
       entry,
       date,
@@ -490,7 +500,7 @@ async function collectPendingReminder(
 
 export async function processReminderEntries(
   env: Env,
-  _reminderRepo: ReminderRepository,
+  reminderRepo: ReminderRepository,
   subRepo: SubscriptionRepository,
   userRepo: UserRepository,
   subscriptionService: SubscriptionService,
@@ -503,6 +513,7 @@ export async function processReminderEntries(
   for (const { entry, date } of inputs) {
     const { pending, advanced } = await collectPendingReminder(
       env,
+      reminderRepo,
       subRepo,
       userRepo,
       subscriptionService,
@@ -544,6 +555,13 @@ export async function processReminderEntries(
         });
       }
     } else {
+      for (const reminder of reminders) {
+        await reminderRepo.markSent(
+          reminder.entry.userKey,
+          reminder.entry.subscriptionId,
+          reminder.date,
+        );
+      }
       result.sent += reminders.length;
       result.messages++;
       for (const reminder of reminders) {

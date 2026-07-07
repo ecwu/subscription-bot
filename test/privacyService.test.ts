@@ -3,7 +3,11 @@ import { createSubscriptionService } from "../src/services/subscriptionService.j
 import { createPrivacyService } from "../src/services/privacyService.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
-import { createUserRepository } from "../src/repositories/userRepository.js";
+import {
+  createUserRepository,
+  USER_DELETION_TOMBSTONE_TTL_SECONDS,
+} from "../src/repositories/userRepository.js";
+import { userDeleted } from "../src/utils/kvKeys.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
 // A valid base64url-encoded 32-byte master key
@@ -11,13 +15,17 @@ const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
   "base64url",
 );
 
-function createMockKV(): KVNamespace {
+function createMockKV(): KVNamespace & {
+  putOptionsFor(key: string): { expirationTtl?: number } | undefined;
+} {
   const store = new Map<string, string>();
+  const putOptions = new Map<string, { expirationTtl?: number }>();
 
   return {
     get: async (key: string) => store.get(key) ?? null,
-    put: async (key: string, value: string) => {
+    put: async (key: string, value: string, options?: { expirationTtl?: number }) => {
       store.set(key, value);
+      putOptions.set(key, options ?? {});
     },
     delete: async (key: string) => {
       store.delete(key);
@@ -33,7 +41,10 @@ function createMockKV(): KVNamespace {
         .map((name) => ({ name }));
       return { keys, list_complete: true, cursor: "" };
     },
-  } as unknown as KVNamespace;
+    putOptionsFor: (key: string) => putOptions.get(key),
+  } as unknown as KVNamespace & {
+    putOptionsFor(key: string): { expirationTtl?: number } | undefined;
+  };
 }
 
 describe("privacyService", () => {
@@ -252,6 +263,9 @@ describe("privacyService", () => {
     await privacyService.deleteUserData(userKey);
 
     expect(await userRepo.isUserDeleted(userKey)).toBe(true);
+    expect(kv.putOptionsFor(userDeleted(userKey))?.expirationTtl).toBe(
+      USER_DELETION_TOMBSTONE_TTL_SECONDS,
+    );
   });
 
   it("deleteUserData removes reminder index entries for the user", async () => {

@@ -35,6 +35,8 @@ export interface UserRepository {
   clearUserDeleted(userKey: string): Promise<void>;
 }
 
+export const USER_DELETION_TOMBSTONE_TTL_SECONDS = 180 * 24 * 60 * 60;
+
 export function createUserRepository(kv: KVNamespace): UserRepository {
   async function readProfile(
     userKey: string,
@@ -63,7 +65,6 @@ export function createUserRepository(kv: KVNamespace): UserRepository {
     const derivedKey = await deriveUserKey(encryptionKey, userKey);
     const encrypted = await encrypt(JSON.stringify(profile), derivedKey);
     const stored: StoredUserProfile = {
-      userKey,
       encryptedPayload: serializeEncryptedPayload(encrypted),
       createdAt: firstSeenAt,
       updatedAt: now,
@@ -105,7 +106,6 @@ export function createUserRepository(kv: KVNamespace): UserRepository {
       const derivedKey = await deriveUserKey(encryptionKey, userKey);
       const encrypted = await encrypt(JSON.stringify(payload), derivedKey);
       const stored: StoredUserProfile = {
-        userKey,
         encryptedPayload: serializeEncryptedPayload(encrypted),
         createdAt: firstSeenAt,
         updatedAt: now,
@@ -164,7 +164,9 @@ export function createUserRepository(kv: KVNamespace): UserRepository {
     },
 
     async markUserDeleted(userKey: string): Promise<void> {
-      await kv.put(userDeleted(userKey), new Date().toISOString());
+      await kv.put(userDeleted(userKey), new Date().toISOString(), {
+        expirationTtl: USER_DELETION_TOMBSTONE_TTL_SECONDS,
+      });
     },
 
     async isUserDeleted(userKey: string): Promise<boolean> {

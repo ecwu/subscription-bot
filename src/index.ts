@@ -3,6 +3,7 @@ import { handleWebhook } from "./handlers/webhook.js";
 import { handleScheduled } from "./handlers/scheduled.js";
 import { handleHealth } from "./handlers/health.js";
 import { log } from "./utils/logger.js";
+import { validateEnv } from "./schemas/envSchema.js";
 
 export default {
   async fetch(
@@ -10,21 +11,23 @@ export default {
     env: Env,
     _ctx: ExecutionContext,
   ): Promise<Response> {
-    const url = new URL(request.url);
     const requestId = crypto.randomUUID();
 
-    log("info", "Incoming request", {
-      requestId,
-      method: request.method,
-      path: url.pathname,
-    });
-
     try {
+      const validatedEnv = validateEnv(env);
+      const url = new URL(request.url);
+
+      log("info", "Incoming request", {
+        requestId,
+        method: request.method,
+        path: url.pathname,
+      });
+
       switch (url.pathname) {
         case "/health":
           return handleHealth();
         case "/telegram/webhook":
-          return handleWebhook(request, env);
+          return handleWebhook(request, validatedEnv);
         default:
           return new Response("Not Found", { status: 404 });
       }
@@ -42,6 +45,7 @@ export default {
     env: Env,
     _ctx: ExecutionContext,
   ): Promise<void> {
-    await handleScheduled(controller, env);
+    const validatedEnv = validateEnv(env);
+    await handleScheduled(controller, validatedEnv);
   },
 } satisfies ExportedHandler<Env>;

@@ -35,6 +35,41 @@ function createMockKV(): KVNamespace {
   } as unknown as KVNamespace;
 }
 
+function createFailingKV(
+  fail: (operation: "get" | "put", key: string) => boolean,
+): KVNamespace {
+  const store = new Map<string, string>();
+
+  return {
+    get: async (key: string) => {
+      if (fail("get", key)) {
+        throw new Error("KV get failed");
+      }
+      return store.get(key) ?? null;
+    },
+    put: async (key: string, value: string) => {
+      if (fail("put", key)) {
+        throw new Error("KV put failed");
+      }
+      store.set(key, value);
+    },
+    delete: async (key: string) => {
+      store.delete(key);
+    },
+    list: async (options?: {
+      prefix?: string;
+      limit?: number;
+      cursor?: string;
+    }) => {
+      const prefix = options?.prefix ?? "";
+      const keys = Array.from(store.keys())
+        .filter((k) => k.startsWith(prefix))
+        .map((name) => ({ name }));
+      return { keys, list_complete: true, cursor: "" };
+    },
+  } as unknown as KVNamespace;
+}
+
 function createMockEnv(overrides: Partial<Env> = {}): Env {
   return {
     BOT_TOKEN: "test-token",
@@ -268,6 +303,100 @@ describe("requestContext", () => {
     expect(
       await userRepo.getUserProfile(markerCtx.userKey!, VALID_KEY),
     ).toBeNull();
+  });
+
+  it("hides userKey outside /start when deleted marker lookup fails", async () => {
+    const env = createMockEnv({
+      SUBSCRIPTION_KV: createFailingKV(
+        (operation, key) => operation === "get" && key.endsWith(":deleted"),
+      ),
+    });
+    const ctx = createMockContext({
+      from: { id: 12345, is_bot: false, first_name: "Test" },
+      chat: { id: 987654321, type: "private" },
+      message: { text: "/add" },
+    });
+
+    const middleware = requestContext(env);
+    let nextCalled = false;
+    await expect(
+      middleware(ctx, async () => {
+        nextCalled = true;
+      }),
+    ).resolves.not.toThrow();
+
+    expect(nextCalled).toBe(true);
+    expect(ctx.userKey).toBeUndefined();
+  });
+
+  it("keeps userKey on /start when deleted marker lookup fails", async () => {
+    const env = createMockEnv({
+      SUBSCRIPTION_KV: createFailingKV(
+        (operation, key) => operation === "get" && key.endsWith(":deleted"),
+      ),
+    });
+    const ctx = createMockContext({
+      from: { id: 12345, is_bot: false, first_name: "Test" },
+      chat: { id: 987654321, type: "private" },
+      message: { text: "/start" },
+    });
+
+    const middleware = requestContext(env);
+    let nextCalled = false;
+    await expect(
+      middleware(ctx, async () => {
+        nextCalled = true;
+      }),
+    ).resolves.not.toThrow();
+
+    expect(nextCalled).toBe(true);
+    expect(ctx.userKey).toBeDefined();
+  });
+
+  it("continues when user profile read fails", async () => {
+    const env = createMockEnv({
+      SUBSCRIPTION_KV: createFailingKV(
+        (operation, key) => operation === "get" && key.endsWith(":profile"),
+      ),
+    });
+    const ctx = createMockContext({
+      from: { id: 12345, is_bot: false, first_name: "Test" },
+      chat: { id: 987654321, type: "private" },
+    });
+
+    const middleware = requestContext(env);
+    let nextCalled = false;
+    await expect(
+      middleware(ctx, async () => {
+        nextCalled = true;
+      }),
+    ).resolves.not.toThrow();
+
+    expect(nextCalled).toBe(true);
+    expect(ctx.userKey).toBeDefined();
+  });
+
+  it("continues when user profile upsert fails", async () => {
+    const env = createMockEnv({
+      SUBSCRIPTION_KV: createFailingKV(
+        (operation, key) => operation === "put" && key.endsWith(":profile"),
+      ),
+    });
+    const ctx = createMockContext({
+      from: { id: 12345, is_bot: false, first_name: "Test" },
+      chat: { id: 987654321, type: "private" },
+    });
+
+    const middleware = requestContext(env);
+    let nextCalled = false;
+    await expect(
+      middleware(ctx, async () => {
+        nextCalled = true;
+      }),
+    ).resolves.not.toThrow();
+
+    expect(nextCalled).toBe(true);
+    expect(ctx.userKey).toBeDefined();
   });
 
   it("upserts user profile when lastSeenAt is older than 24 hours", async () => {

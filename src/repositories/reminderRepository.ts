@@ -6,6 +6,8 @@ import {
   reminderSent,
 } from "../utils/kvKeys.js";
 
+const SENT_MARKER_TTL_SECONDS = 60 * 60 * 24 * 45;
+
 export interface ReminderEntry {
   userKey: string;
   subscriptionId: string;
@@ -110,7 +112,7 @@ export function createReminderRepository(kv: KVNamespace): ReminderRepository {
       billingDate: string,
     ): Promise<void> {
       const key = reminderSent(userKey, subscriptionId, billingDate);
-      await kv.put(key, "1");
+      await kv.put(key, "1", { expirationTtl: SENT_MARKER_TTL_SECONDS });
     },
   };
 }

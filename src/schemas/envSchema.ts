@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseMasterKey } from "../crypto/masterKey.js";
+import type { Env } from "../types/env.js";
 
 export const envSchema = z.object({
   BOT_TOKEN: z.string().min(1),
@@ -40,3 +41,18 @@ export const envSchema = z.object({
     ),
   XCURRENCY_API_KEY: z.string().optional(),
 });
+
+export function validateEnv(env: unknown): Env {
+  const result = envSchema.safeParse(env);
+
+  if (!result.success) {
+    const fields = Array.from(
+      new Set(
+        result.error.issues.map((issue) => issue.path.join(".") || "env"),
+      ),
+    ).sort();
+    throw new Error(`Invalid environment configuration: ${fields.join(", ")}`);
+  }
+
+  return result.data as Env;
+}

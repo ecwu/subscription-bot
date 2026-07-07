@@ -2,13 +2,24 @@ import { describe, it, expect } from "vitest";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
-function createMockKV(): KVNamespace {
+interface MockKV extends KVNamespace {
+  putOptions: Map<string, { expirationTtl?: number }>;
+}
+
+function createMockKV(): MockKV {
   const store = new Map<string, string>();
+  const putOptions = new Map<string, { expirationTtl?: number }>();
 
   return {
+    putOptions,
     get: async (key: string) => store.get(key) ?? null,
-    put: async (key: string, value: string) => {
+    put: async (
+      key: string,
+      value: string,
+      options?: { expirationTtl?: number },
+    ) => {
       store.set(key, value);
+      if (options) putOptions.set(key, options);
     },
     delete: async (key: string) => {
       store.delete(key);
@@ -24,7 +35,7 @@ function createMockKV(): KVNamespace {
         .map((name) => ({ name }));
       return { keys, list_complete: true, cursor: "" };
     },
-  } as unknown as KVNamespace;
+  } as unknown as MockKV;
 }
 
 describe("reminderRepository", () => {
@@ -118,6 +129,17 @@ describe("reminderRepository", () => {
 
     const nowSent = await repo.hasSent("user-1", "sub-1", "2026-06-01");
     expect(nowSent).toBe(true);
+  });
+
+  it("sets a TTL on sent markers", async () => {
+    const kv = createMockKV();
+    const repo = createReminderRepository(kv);
+
+    await repo.markSent("user-1", "sub-1", "2026-06-01");
+
+    expect(
+      kv.putOptions.get("reminder:sent:user-1:sub-1:2026-06-01"),
+    ).toEqual({ expirationTtl: 60 * 60 * 24 * 45 });
   });
 
   it("sent markers are keyed by userKey, subscriptionId, and date", async () => {

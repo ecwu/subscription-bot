@@ -317,7 +317,7 @@ describe("processReminderEntry", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("sends a reminder in the dispatch slot without persisting sent state", async () => {
+  it("sends a reminder in the dispatch slot and persists sent state", async () => {
     vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
 
     const kv = createMockKV();
@@ -376,7 +376,7 @@ describe("processReminderEntry", () => {
     );
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(await reminderRepo.hasSent(userKey, subId, date)).toBe(false);
+    expect(await reminderRepo.hasSent(userKey, subId, date)).toBe(true);
   });
 
   it("uses trial reminder wording for trial subscriptions", async () => {
@@ -617,7 +617,7 @@ describe("processReminderEntry", () => {
     expect(await reminderRepo.hasSent(userKey, subId, indexDate)).toBe(false);
   });
 
-  it("uses the dispatch slot instead of historical sent markers", async () => {
+  it("skips reminders that already have sent markers", async () => {
     vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
 
     const kv = createMockKV();
@@ -676,7 +676,7 @@ describe("processReminderEntry", () => {
       date,
     );
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it("returns unsent when Telegram send fails", async () => {
@@ -1048,6 +1048,8 @@ describe("processReminderEntry", () => {
     expect(result.messages).toBe(1);
     expect(result.advanced).toBe(0);
     expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(await reminderRepo.hasSent(userKey, "sub-1", date)).toBe(true);
+    expect(await reminderRepo.hasSent(userKey, "sub-2", date)).toBe(true);
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.text).toContain("以下 2 个项目需要关注");
@@ -1071,6 +1073,78 @@ describe("processReminderEntry", () => {
     expect(first?.status).toBe("paused");
     expect(second?.status).toBe("paused");
     expect(await reminderRepo.listEntries(date)).toEqual([]);
+  });
+
+  it("excludes already sent reminders from combined batch sends", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
+    const env = createMockEnv();
+    env.SUBSCRIPTION_KV = kv;
+
+    const userKey = "user-1";
+    const date = "2026-06-01";
+
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+    await subscriptionService.create(
+      userKey,
+      {
+        id: "sub-1",
+        name: "Already Sent",
+        billingCycle: "monthly",
+        nextBillingDate: date,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+    await subscriptionService.create(
+      userKey,
+      {
+        id: "sub-2",
+        name: "Unsent",
+        billingCycle: "monthly",
+        nextBillingDate: date,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+    await reminderRepo.markSent(userKey, "sub-1", date);
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    const result = await processReminderEntries(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      [
+        { entry: { userKey, subscriptionId: "sub-1" }, date },
+        { entry: { userKey, subscriptionId: "sub-2" }, date },
+      ],
+    );
+
+    expect(result.sent).toBe(1);
+    expect(result.messages).toBe(1);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.text).toContain("Unsent");
+    expect(body.text).not.toContain("Already Sent");
+    expect(await reminderRepo.hasSent(userKey, "sub-2", date)).toBe(true);
   });
 
   it("advances past-due on the billing date after sending", async () => {

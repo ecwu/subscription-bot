@@ -1,19 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { createUserRepository } from "../src/repositories/userRepository.js";
+import {
+  createUserRepository,
+  USER_DELETION_TOMBSTONE_TTL_SECONDS,
+} from "../src/repositories/userRepository.js";
 import { shouldShowSettingsOnboarding } from "../src/bot/onboarding/settingsOnboarding.js";
+import { userProfile } from "../src/utils/kvKeys.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
 const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
   "base64url",
 );
 
-function createMockKV(): KVNamespace {
+function createMockKV(): KVNamespace & {
+  putOptionsFor(key: string): { expirationTtl?: number } | undefined;
+} {
   const store = new Map<string, string>();
+  const putOptions = new Map<string, { expirationTtl?: number }>();
 
   return {
     get: async (key: string) => store.get(key) ?? null,
-    put: async (key: string, value: string) => {
+    put: async (key: string, value: string, options?: { expirationTtl?: number }) => {
       store.set(key, value);
+      putOptions.set(key, options ?? {});
     },
     delete: async (key: string) => {
       store.delete(key);
@@ -29,7 +37,10 @@ function createMockKV(): KVNamespace {
         .map((name) => ({ name }));
       return { keys, list_complete: true, cursor: "" };
     },
-  } as unknown as KVNamespace;
+    putOptionsFor: (key: string) => putOptions.get(key),
+  } as unknown as KVNamespace & {
+    putOptionsFor(key: string): { expirationTtl?: number } | undefined;
+  };
 }
 
 describe("userRepository", () => {
@@ -44,6 +55,34 @@ describe("userRepository", () => {
     expect(profile?.chatId).toBe(123456);
     expect(typeof profile?.firstSeenAt).toBe("string");
     expect(typeof profile?.lastSeenAt).toBe("string");
+  });
+
+  it("does not store userKey in the profile value", async () => {
+    const kv = createMockKV();
+    const repo = createUserRepository(kv);
+
+    await repo.upsertUserProfile("user-1", 123456, VALID_KEY);
+
+    const stored = await kv.get(userProfile("user-1"));
+    expect(stored).not.toBeNull();
+    expect(JSON.parse(stored!)).not.toHaveProperty("userKey");
+  });
+
+  it("reads legacy profile values that include userKey", async () => {
+    const kv = createMockKV();
+    const repo = createUserRepository(kv);
+
+    await repo.upsertUserProfile("user-1", 123456, VALID_KEY);
+    const stored = await kv.get(userProfile("user-1"));
+    expect(stored).not.toBeNull();
+
+    await kv.put(
+      userProfile("user-1"),
+      JSON.stringify({ ...JSON.parse(stored!), userKey: "user-1" }),
+    );
+
+    const profile = await repo.getUserProfile("user-1", VALID_KEY);
+    expect(profile?.chatId).toBe(123456);
   });
 
   it("preserves firstSeenAt and updates lastSeenAt on subsequent upserts", async () => {
@@ -81,6 +120,9 @@ describe("userRepository", () => {
     expect(await repo.isUserDeleted("user-1")).toBe(false);
     await repo.markUserDeleted("user-1");
     expect(await repo.isUserDeleted("user-1")).toBe(true);
+    expect(kv.putOptionsFor("user:user-1:deleted")?.expirationTtl).toBe(
+      USER_DELETION_TOMBSTONE_TTL_SECONDS,
+    );
     await repo.clearUserDeleted("user-1");
     expect(await repo.isUserDeleted("user-1")).toBe(false);
   });

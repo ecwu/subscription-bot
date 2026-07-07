@@ -13,6 +13,7 @@ import { deriveUserKey } from "../../crypto/keyDerivation.js";
 import {
   parseReminderDateEntryKey,
   reminderDateEntry,
+  userSubscriptionsIndex,
   userProfile,
 } from "../../utils/kvKeys.js";
 import { createLogger } from "../../utils/logger.js";
@@ -21,6 +22,8 @@ interface MigrationResult {
   profilesMigrated: number;
   subscriptionsMigrated: number;
   reminderEntriesMigrated: number;
+  subscriptionIndexesRebuilt: number;
+  reminderEntriesRebuilt: number;
   legacyReminderKeysDeleted: number;
   skipped: number;
 }
@@ -72,6 +75,78 @@ async function migrateEncryptedPayload(
   }
 }
 
+async function rebuildIndexesFromSubscriptions(
+  kv: KVNamespace,
+): Promise<
+  Pick<
+    MigrationResult,
+    "subscriptionIndexesRebuilt" | "reminderEntriesRebuilt" | "skipped"
+  >
+> {
+  const result = {
+    subscriptionIndexesRebuilt: 0,
+    reminderEntriesRebuilt: 0,
+    skipped: 0,
+  };
+  const idsByUser = new Map<string, string[]>();
+  const subKeys = await listAllKeys(kv, "user:");
+
+  for (const key of subKeys) {
+    const subParts = getSubscriptionParts(key);
+    if (!subParts) continue;
+
+    const data = await kv.get(key);
+    if (!data) continue;
+
+    try {
+      const stored = JSON.parse(data) as StoredSubscription;
+      const ids = idsByUser.get(subParts.userKey) ?? [];
+      if (!ids.includes(subParts.subId)) ids.push(subParts.subId);
+      idsByUser.set(subParts.userKey, ids);
+
+      if ((stored.status ?? "active") !== "active") continue;
+
+      const reminderKey = reminderDateEntry(
+        stored.nextBillingDate,
+        subParts.userKey,
+        subParts.subId,
+      );
+      if (await kv.get(reminderKey)) continue;
+
+      await kv.put(reminderKey, "1");
+      result.reminderEntriesRebuilt += 1;
+    } catch {
+      result.skipped += 1;
+    }
+  }
+
+  for (const [userKey, ids] of idsByUser.entries()) {
+    const sortedIds = [...ids].sort();
+    const indexKey = userSubscriptionsIndex(userKey);
+    const existing = await kv.get(indexKey);
+    let existingIds: string[] = [];
+    let needsRebuild = !existing;
+
+    if (existing) {
+      try {
+        existingIds = JSON.parse(existing) as string[];
+      } catch {
+        needsRebuild = true;
+      }
+    }
+
+    if (
+      needsRebuild ||
+      JSON.stringify([...existingIds].sort()) !== JSON.stringify(sortedIds)
+    ) {
+      await kv.put(indexKey, JSON.stringify(sortedIds));
+      result.subscriptionIndexesRebuilt += 1;
+    }
+  }
+
+  return result;
+}
+
 export async function migrateHistoricalData(
   kv: KVNamespace,
   encryptionKey: string,
@@ -80,6 +155,8 @@ export async function migrateHistoricalData(
     profilesMigrated: 0,
     subscriptionsMigrated: 0,
     reminderEntriesMigrated: 0,
+    subscriptionIndexesRebuilt: 0,
+    reminderEntriesRebuilt: 0,
     legacyReminderKeysDeleted: 0,
     skipped: 0,
   };
@@ -101,12 +178,16 @@ export async function migrateHistoricalData(
           encryptionKey,
           profileUserKey,
         );
-        if (!migratedPayload) continue;
+        if (!migratedPayload && stored.userKey === undefined) continue;
 
+        const storedWithoutUserKey: StoredUserProfile = {
+          encryptedPayload: stored.encryptedPayload,
+          createdAt: stored.createdAt,
+          updatedAt: stored.updatedAt,
+        };
         const migrated: StoredUserProfile = {
-          ...stored,
-          userKey: profileUserKey,
-          encryptedPayload: migratedPayload,
+          ...storedWithoutUserKey,
+          encryptedPayload: migratedPayload ?? stored.encryptedPayload,
           updatedAt: new Date().toISOString(),
         };
         await kv.put(userProfile(profileUserKey), JSON.stringify(migrated));
@@ -162,6 +243,11 @@ export async function migrateHistoricalData(
     }
   }
 
+  const rebuildResult = await rebuildIndexesFromSubscriptions(kv);
+  result.subscriptionIndexesRebuilt = rebuildResult.subscriptionIndexesRebuilt;
+  result.reminderEntriesRebuilt = rebuildResult.reminderEntriesRebuilt;
+  result.skipped += rebuildResult.skipped;
+
   return result;
 }
 
@@ -185,6 +271,8 @@ export async function adminMigrateDataCommand(ctx: BotContext): Promise<void> {
       `用户资料：${result.profilesMigrated}`,
       `订阅：${result.subscriptionsMigrated}`,
       `提醒条目：${result.reminderEntriesMigrated}`,
+      `订阅索引修复：${result.subscriptionIndexesRebuilt}`,
+      `提醒索引修复：${result.reminderEntriesRebuilt}`,
       `旧提醒键删除：${result.legacyReminderKeysDeleted}`,
       `跳过：${result.skipped}`,
     ].join("\n"),
@@ -193,6 +281,8 @@ export async function adminMigrateDataCommand(ctx: BotContext): Promise<void> {
     profilesMigrated: result.profilesMigrated,
     subscriptionsMigrated: result.subscriptionsMigrated,
     reminderEntriesMigrated: result.reminderEntriesMigrated,
+    subscriptionIndexesRebuilt: result.subscriptionIndexesRebuilt,
+    reminderEntriesRebuilt: result.reminderEntriesRebuilt,
     legacyReminderKeysDeleted: result.legacyReminderKeysDeleted,
     skipped: result.skipped,
   });

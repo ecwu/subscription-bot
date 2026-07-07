@@ -8,8 +8,15 @@ import { createReminderRepository } from "../../../src/repositories/reminderRepo
 import { createSubscriptionRepository } from "../../../src/repositories/subscriptionRepository.js";
 import { createUserRepository } from "../../../src/repositories/userRepository.js";
 import { createSubscriptionService } from "../../../src/services/subscriptionService.js";
-import { encrypt, serializeEncryptedPayload } from "../../../src/crypto/encryption.js";
-import { userProfile } from "../../../src/utils/kvKeys.js";
+import {
+  encrypt,
+  serializeEncryptedPayload,
+} from "../../../src/crypto/encryption.js";
+import {
+  reminderDateEntry,
+  userProfile,
+  userSubscriptionsIndex,
+} from "../../../src/utils/kvKeys.js";
 import type { BotContext } from "../../../src/types/context.js";
 import type { Env } from "../../../src/types/env.js";
 
@@ -28,7 +35,11 @@ function createMockKV(): KVNamespace {
       store.delete(key);
     }),
     list: vi.fn(
-      async (options?: { prefix?: string; limit?: number; cursor?: string }) => {
+      async (options?: {
+        prefix?: string;
+        limit?: number;
+        cursor?: string;
+      }) => {
         const prefix = options?.prefix ?? "";
         const keys = Array.from(store.keys())
           .filter((key) => key.startsWith(prefix))
@@ -149,13 +160,69 @@ describe("adminMigrateDataCommand", () => {
     const reminderRepo = createReminderRepository(kv);
     const subRepo = createSubscriptionRepository(kv);
     const service = createSubscriptionService(subRepo, reminderRepo);
-    await expect(service.get(userKey, subscription.id, VALID_KEY)).resolves.toMatchObject({
+    await expect(
+      service.get(userKey, subscription.id, VALID_KEY),
+    ).resolves.toMatchObject({
       name: "Legacy Netflix",
     });
     await expect(reminderRepo.listEntries("2026-06-01")).resolves.toEqual([
       { userKey, subscriptionId: subscription.id },
     ]);
     await expect(kv.get("reminders:date:2026-06-01")).resolves.toBeNull();
+  });
+
+  it("repairs subscription and reminder indexes from stored subscription records", async () => {
+    const kv = createMockKV();
+    const userKey = "user-1";
+    const subRepo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(subRepo, reminderRepo);
+    const now = new Date().toISOString();
+
+    await service.create(
+      userKey,
+      {
+        id: "sub-1",
+        name: "Netflix",
+        price: 9,
+        currency: "USD",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-06-01",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      },
+      VALID_KEY,
+    );
+    await service.create(
+      userKey,
+      {
+        id: "sub-2",
+        name: "Paused",
+        billingCycle: "monthly",
+        nextBillingDate: "2026-07-01",
+        status: "paused",
+        createdAt: now,
+        updatedAt: now,
+      },
+      VALID_KEY,
+    );
+    await kv.put(userSubscriptionsIndex(userKey), JSON.stringify(["missing"]));
+    await kv.delete(reminderDateEntry("2026-06-01", userKey, "sub-1"));
+    await kv.delete(reminderDateEntry("2026-07-01", userKey, "sub-2"));
+
+    const result = await migrateHistoricalData(kv, VALID_KEY);
+
+    expect(result).toMatchObject({
+      subscriptionIndexesRebuilt: 1,
+      reminderEntriesRebuilt: 1,
+      skipped: 0,
+    });
+    await expect(subRepo.listIds(userKey)).resolves.toEqual(["sub-1", "sub-2"]);
+    await expect(reminderRepo.listEntries("2026-06-01")).resolves.toEqual([
+      { userKey, subscriptionId: "sub-1" },
+    ]);
+    await expect(reminderRepo.listEntries("2026-07-01")).resolves.toEqual([]);
   });
 
   it("replies with migration counts", async () => {
@@ -167,6 +234,8 @@ describe("adminMigrateDataCommand", () => {
     const text = (ctx.reply as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(text).toContain("历史数据迁移完成");
     expect(text).toContain("用户资料：0");
+    expect(text).toContain("订阅索引修复：0");
+    expect(text).toContain("提醒索引修复：0");
     expect(text).toContain("跳过：0");
   });
 });
