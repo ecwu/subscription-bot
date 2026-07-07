@@ -79,14 +79,9 @@ describe("adminRemindersCommand", () => {
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
     const d = `${tomorrow.getUTCFullYear()}-${String(tomorrow.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrow.getUTCDate()).padStart(2, "0")}`;
 
-    store.set(
-      `reminders:date:${d}`,
-      JSON.stringify([
-        { userKey: "user-a", subscriptionId: "sub-1" },
-        { userKey: "user-b", subscriptionId: "sub-2" },
-        { userKey: "user-c", subscriptionId: "sub-3" },
-      ]),
-    );
+    store.set(`reminders:date:${d}:user-a:sub-1`, "1");
+    store.set(`reminders:date:${d}:user-b:sub-2`, "1");
+    store.set(`reminders:date:${d}:user-c:sub-3`, "1");
 
     const repo = createUserRepository(createMockKV(store));
 

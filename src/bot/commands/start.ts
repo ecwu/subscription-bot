@@ -1,5 +1,6 @@
 import { BotContext } from "../../types/context.js";
 import { createSubscriptionRepository } from "../../repositories/subscriptionRepository.js";
+import { createUserRepository } from "../../repositories/userRepository.js";
 import { createLogger } from "../../utils/logger.js";
 import { mainMenuReplyKeyboard } from "../keyboards/mainMenuKeyboard.js";
 
@@ -15,6 +16,18 @@ export async function startCommand(ctx: BotContext): Promise<void> {
     );
     logger.info("Start command without userKey");
     return;
+  }
+
+  const userRepo = createUserRepository(ctx.env.SUBSCRIPTION_KV);
+  if (await userRepo.isUserDeleted(ctx.userKey)) {
+    await userRepo.clearUserDeleted(ctx.userKey);
+    if (ctx.chat?.id) {
+      await userRepo.upsertUserProfile(
+        ctx.userKey,
+        ctx.chat.id,
+        ctx.env.ENCRYPTION_KEY,
+      );
+    }
   }
 
   const repo = createSubscriptionRepository(ctx.env.SUBSCRIPTION_KV);

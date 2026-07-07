@@ -90,6 +90,23 @@ describe("reminderRepository", () => {
     expect(entries2[0].subscriptionId).toBe("sub-2");
   });
 
+  it("lists unique well-formed dates through maxDate", async () => {
+    const kv = createMockKV();
+    const repo = createReminderRepository(kv);
+
+    await repo.addEntry("2026-06-01", "user-1", "sub-1");
+    await repo.addEntry("2026-06-01", "user-2", "sub-2");
+    await repo.addEntry("2026-06-02", "user-1", "sub-3");
+    await repo.addEntry("2026-06-03", "user-1", "sub-4");
+    await kv.put("reminders:date:2026-06-01", "[]");
+    await kv.put("reminders:date:not-a-date:user:sub", "1");
+
+    await expect(repo.listDatesThrough("2026-06-02")).resolves.toEqual([
+      "2026-06-01",
+      "2026-06-02",
+    ]);
+  });
+
   it("marks and checks sent status", async () => {
     const kv = createMockKV();
     const repo = createReminderRepository(kv);

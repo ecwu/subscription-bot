@@ -11,10 +11,12 @@ import {
   serializeEncryptedPayload,
   parseEncryptedPayload,
 } from "../crypto/encryption.js";
+import { deriveUserKey } from "../crypto/keyDerivation.js";
 import { shortId } from "../utils/shortId.js";
 import { getBillingAnchorDay, getNextBillingDate } from "../utils/date.js";
 
 const DEFAULT_STATUS: SubscriptionStatus = "active";
+const LIST_CONCURRENCY = 8;
 
 export type ResolveResult =
   | { kind: "found"; id: string }
@@ -90,6 +92,27 @@ function normalizeStatus(sub: Subscription): Subscription {
   };
 }
 
+async function mapConcurrent<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index]);
+    }
+  }
+
+  const workerCount = Math.min(limit, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
+}
+
 export function createSubscriptionService(
   repo: SubscriptionRepository,
   reminderRepo: ReminderRepository,
@@ -103,11 +126,13 @@ export function createSubscriptionService(
   }
 
   async function decryptStored(
+    userKey: string,
     stored: StoredSubscription,
     encryptionKey: string,
   ): Promise<Subscription> {
     const encrypted = parseEncryptedPayload(stored.encryptedPayload);
-    const decrypted = await decrypt(encrypted, encryptionKey);
+    const derivedKey = await deriveUserKey(encryptionKey, userKey);
+    const decrypted = await decrypt(encrypted, derivedKey);
     const parsed = JSON.parse(decrypted) as Subscription;
     const normalized = normalizeStatus(parsed);
     return withBillingAnchorDay(normalized);
@@ -125,7 +150,8 @@ export function createSubscriptionService(
         getBillingAnchorDay(normalizedSub.nextBillingDate);
       const finalSub = { ...normalizedSub, billingAnchorDay };
       const payload = JSON.stringify(finalSub);
-      const encrypted = await encrypt(payload, encryptionKey);
+      const derivedKey = await deriveUserKey(encryptionKey, userKey);
+      const encrypted = await encrypt(payload, derivedKey);
       const stored: StoredSubscription = {
         id: finalSub.id,
         encryptedPayload: serializeEncryptedPayload(encrypted),
@@ -152,13 +178,12 @@ export function createSubscriptionService(
       encryptionKey: string,
     ): Promise<Subscription[]> {
       const ids = await repo.listIds(userKey);
-      const subs: Subscription[] = [];
-      for (const id of ids) {
+      const subs = await mapConcurrent(ids, LIST_CONCURRENCY, async (id) => {
         const stored = await repo.get(userKey, id);
-        if (!stored) continue;
-        subs.push(await decryptStored(stored, encryptionKey));
-      }
-      return subs;
+        if (!stored) return null;
+        return decryptStored(userKey, stored, encryptionKey);
+      });
+      return subs.filter((sub): sub is Subscription => sub !== null);
     },
 
     async get(
@@ -168,7 +193,7 @@ export function createSubscriptionService(
     ): Promise<Subscription | null> {
       const stored = await repo.get(userKey, subId);
       if (!stored) return null;
-      return decryptStored(stored, encryptionKey);
+      return decryptStored(userKey, stored, encryptionKey);
     },
 
     async update(
@@ -184,7 +209,8 @@ export function createSubscriptionService(
         getBillingAnchorDay(normalizedSub.nextBillingDate);
       const finalSub = { ...normalizedSub, billingAnchorDay };
       const payload = JSON.stringify(finalSub);
-      const encrypted = await encrypt(payload, encryptionKey);
+      const derivedKey = await deriveUserKey(encryptionKey, userKey);
+      const encrypted = await encrypt(payload, derivedKey);
       const stored: StoredSubscription = {
         id: finalSub.id,
         encryptedPayload: serializeEncryptedPayload(encrypted),

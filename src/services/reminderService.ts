@@ -15,6 +15,7 @@ import {
   TelegramInlineKeyboardMarkup,
 } from "./telegramService.js";
 import { decrypt, parseEncryptedPayload } from "../crypto/encryption.js";
+import { deriveUserKey } from "../crypto/keyDerivation.js";
 import { log } from "../utils/logger.js";
 import {
   addDays,
@@ -178,6 +179,10 @@ export async function processReminderEntry(
   const result: ReminderEntryResult = { sent: false, advanced: false };
 
   try {
+    if (await userRepo.isUserDeleted(entry.userKey)) {
+      return result;
+    }
+
     // 1. Load subscription and verify it still exists
     const stored = await subRepo.get(entry.userKey, entry.subscriptionId);
     if (!stored) {
@@ -197,7 +202,11 @@ export async function processReminderEntry(
 
     // 2. Decrypt subscription
     const encryptedSub = parseEncryptedPayload(stored.encryptedPayload);
-    const decryptedSub = await decrypt(encryptedSub, env.ENCRYPTION_KEY);
+    const userEncryptionKey = await deriveUserKey(
+      env.ENCRYPTION_KEY,
+      entry.userKey,
+    );
+    const decryptedSub = await decrypt(encryptedSub, userEncryptionKey);
     const sub: Subscription = JSON.parse(decryptedSub);
     const status = sub.status ?? "active";
 
@@ -357,6 +366,10 @@ async function collectPendingReminder(
   };
 
   try {
+    if (await userRepo.isUserDeleted(entry.userKey)) {
+      return result;
+    }
+
     const stored = await subRepo.get(entry.userKey, entry.subscriptionId);
     if (!stored) {
       log("info", "Skipping stale reminder: subscription missing", {
@@ -374,7 +387,11 @@ async function collectPendingReminder(
     }
 
     const encryptedSub = parseEncryptedPayload(stored.encryptedPayload);
-    const decryptedSub = await decrypt(encryptedSub, env.ENCRYPTION_KEY);
+    const userEncryptionKey = await deriveUserKey(
+      env.ENCRYPTION_KEY,
+      entry.userKey,
+    );
+    const decryptedSub = await decrypt(encryptedSub, userEncryptionKey);
     const sub: Subscription = JSON.parse(decryptedSub);
     const status = sub.status ?? "active";
 

@@ -2,6 +2,13 @@ import { describe, it, expect } from "vitest";
 import { createSubscriptionService } from "../src/services/subscriptionService.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
+import {
+  decrypt,
+  encrypt,
+  parseEncryptedPayload,
+  serializeEncryptedPayload,
+} from "../src/crypto/encryption.js";
+import { deriveUserKey } from "../src/crypto/keyDerivation.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
 // A valid base64url-encoded 32-byte master key
@@ -54,6 +61,12 @@ describe("subscriptionService", () => {
     };
 
     await service.create(userKey, sub, VALID_KEY);
+
+    const stored = await repo.get(userKey, "sub-1");
+    expect(stored).not.toBeNull();
+    await expect(
+      decrypt(parseEncryptedPayload(stored!.encryptedPayload), VALID_KEY),
+    ).rejects.toThrow();
 
     const list = await service.list(userKey, VALID_KEY);
     expect(list).toHaveLength(1);
@@ -243,10 +256,10 @@ describe("subscriptionService", () => {
       updatedAt: new Date().toISOString(),
     };
 
-    const { encrypt, serializeEncryptedPayload } = await import(
-      "../src/crypto/encryption.js"
+    const encrypted = await encrypt(
+      JSON.stringify(sub),
+      await deriveUserKey(VALID_KEY, userKey),
     );
-    const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
     await repo.save(userKey, {
       id: sub.id,
       encryptedPayload: serializeEncryptedPayload(encrypted),

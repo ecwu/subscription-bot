@@ -1,6 +1,7 @@
 import { BotContext } from "../../types/context.js";
 import { createUserRepository } from "../../repositories/userRepository.js";
 import { createLogger } from "../../utils/logger.js";
+import { parseReminderDateEntryKey } from "../../utils/kvKeys.js";
 
 const MAX_FUTURE_DAYS = 30;
 const MAX_DATE_KEYS = 100;
@@ -45,23 +46,12 @@ export async function adminRemindersCommand(ctx: BotContext): Promise<void> {
     cursor = list.list_complete ? undefined : list.cursor;
 
     for (const key of list.keys) {
-      const date = key.name.replace("reminders:date:", "");
-      if (!targetDates.includes(date)) continue;
+      const parsed = parseReminderDateEntryKey(key.name);
+      if (!parsed || !targetDates.includes(parsed.date)) continue;
 
       dateKeysScanned += 1;
       if (dateKeysScanned > MAX_DATE_KEYS) break;
-
-      const raw = await kv.get(key.name);
-      if (!raw) continue;
-
-      try {
-        const entries: { userKey: string }[] = JSON.parse(raw);
-        for (const entry of entries) {
-          if (entry.userKey) seenUserKeys.add(entry.userKey);
-        }
-      } catch {
-        continue;
-      }
+      seenUserKeys.add(parsed.userKey);
     }
 
     if (dateKeysScanned > MAX_DATE_KEYS) break;

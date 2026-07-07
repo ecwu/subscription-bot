@@ -1,13 +1,14 @@
 import { KVNamespace } from "@cloudflare/workers-types";
 import { StoredUserProfile, DecryptedUserProfile } from "../models/user.js";
 import { UserSettings, DEFAULT_USER_SETTINGS } from "../models/userSettings.js";
-import { userProfile } from "../utils/kvKeys.js";
+import { userDeleted, userProfile } from "../utils/kvKeys.js";
 import {
   encrypt,
   decrypt,
   serializeEncryptedPayload,
   parseEncryptedPayload,
 } from "../crypto/encryption.js";
+import { deriveUserKey } from "../crypto/keyDerivation.js";
 
 export interface UserRepository {
   upsertUserProfile(
@@ -29,6 +30,9 @@ export interface UserRepository {
     encryptionKey: string,
   ): Promise<void>;
   deleteUserProfile(userKey: string): Promise<void>;
+  markUserDeleted(userKey: string): Promise<void>;
+  isUserDeleted(userKey: string): Promise<boolean>;
+  clearUserDeleted(userKey: string): Promise<void>;
 }
 
 export function createUserRepository(kv: KVNamespace): UserRepository {
@@ -42,7 +46,8 @@ export function createUserRepository(kv: KVNamespace): UserRepository {
 
     const stored: StoredUserProfile = JSON.parse(data);
     const encrypted = parseEncryptedPayload(stored.encryptedPayload);
-    const decrypted = await decrypt(encrypted, encryptionKey);
+    const derivedKey = await deriveUserKey(encryptionKey, userKey);
+    const decrypted = await decrypt(encrypted, derivedKey);
     return JSON.parse(decrypted) as DecryptedUserProfile;
   }
 
@@ -55,7 +60,8 @@ export function createUserRepository(kv: KVNamespace): UserRepository {
     const key = userProfile(userKey);
     const now = new Date().toISOString();
 
-    const encrypted = await encrypt(JSON.stringify(profile), encryptionKey);
+    const derivedKey = await deriveUserKey(encryptionKey, userKey);
+    const encrypted = await encrypt(JSON.stringify(profile), derivedKey);
     const stored: StoredUserProfile = {
       userKey,
       encryptedPayload: serializeEncryptedPayload(encrypted),
@@ -82,7 +88,8 @@ export function createUserRepository(kv: KVNamespace): UserRepository {
       if (existingData) {
         const stored: StoredUserProfile = JSON.parse(existingData);
         const encrypted = parseEncryptedPayload(stored.encryptedPayload);
-        const decrypted = await decrypt(encrypted, encryptionKey);
+        const derivedKey = await deriveUserKey(encryptionKey, userKey);
+        const decrypted = await decrypt(encrypted, derivedKey);
         const parsed = JSON.parse(decrypted) as DecryptedUserProfile;
         firstSeenAt = parsed.firstSeenAt;
         existingSettings = parsed.settings;
@@ -95,7 +102,8 @@ export function createUserRepository(kv: KVNamespace): UserRepository {
         settings: existingSettings,
       };
 
-      const encrypted = await encrypt(JSON.stringify(payload), encryptionKey);
+      const derivedKey = await deriveUserKey(encryptionKey, userKey);
+      const encrypted = await encrypt(JSON.stringify(payload), derivedKey);
       const stored: StoredUserProfile = {
         userKey,
         encryptedPayload: serializeEncryptedPayload(encrypted),
@@ -153,6 +161,18 @@ export function createUserRepository(kv: KVNamespace): UserRepository {
     async deleteUserProfile(userKey: string): Promise<void> {
       const key = userProfile(userKey);
       await kv.delete(key);
+    },
+
+    async markUserDeleted(userKey: string): Promise<void> {
+      await kv.put(userDeleted(userKey), new Date().toISOString());
+    },
+
+    async isUserDeleted(userKey: string): Promise<boolean> {
+      return (await kv.get(userDeleted(userKey))) !== null;
+    },
+
+    async clearUserDeleted(userKey: string): Promise<void> {
+      await kv.delete(userDeleted(userKey));
     },
   };
 }

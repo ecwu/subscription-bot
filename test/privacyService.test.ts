@@ -236,6 +236,24 @@ describe("privacyService", () => {
     expect(await userRepo.getUserProfile(userKey, VALID_KEY)).toBeNull();
   });
 
+  it("deleteUserData leaves a deletion tombstone", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(repo, reminderRepo);
+    const privacyService = createPrivacyService(
+      subscriptionService,
+      userRepo,
+      reminderRepo,
+    );
+
+    const userKey = "user-key-123";
+    await privacyService.deleteUserData(userKey);
+
+    expect(await userRepo.isUserDeleted(userKey)).toBe(true);
+  });
+
   it("deleteUserData removes reminder index entries for the user", async () => {
     const kv = createMockKV();
     const repo = createSubscriptionRepository(kv);

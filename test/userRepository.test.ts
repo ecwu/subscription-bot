@@ -74,6 +74,17 @@ describe("userRepository", () => {
     expect(await repo.getUserProfile("user-1", VALID_KEY)).toBeNull();
   });
 
+  it("marks, checks, and clears user deletion tombstone", async () => {
+    const kv = createMockKV();
+    const repo = createUserRepository(kv);
+
+    expect(await repo.isUserDeleted("user-1")).toBe(false);
+    await repo.markUserDeleted("user-1");
+    expect(await repo.isUserDeleted("user-1")).toBe(true);
+    await repo.clearUserDeleted("user-1");
+    expect(await repo.isUserDeleted("user-1")).toBe(false);
+  });
+
   it("returns null for a missing profile", async () => {
     const kv = createMockKV();
     const repo = createUserRepository(kv);

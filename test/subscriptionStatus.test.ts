@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createSubscriptionService } from "../src/services/subscriptionService.js";
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
 import { createReminderRepository } from "../src/repositories/reminderRepository.js";
+import { deriveUserKey } from "../src/crypto/keyDerivation.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import type { Subscription } from "../src/models/subscription.js";
 
@@ -253,7 +254,7 @@ describe("subscriptionService status", () => {
     };
     const encrypted = await encrypt(
       JSON.stringify(subWithoutStatus),
-      VALID_KEY,
+      await deriveUserKey(VALID_KEY, "user-1"),
     );
     await repo.save("user-1", {
       id: "sub-1",

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import { startCommand } from "../src/bot/commands/start.js";
 import { MAIN_MENU_BUTTON_LABELS } from "../src/bot/keyboards/mainMenuKeyboard.js";
+import { createUserRepository } from "../src/repositories/userRepository.js";
 import type { BotContext } from "../src/types/context.js";
 
 const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
@@ -42,6 +43,7 @@ function createMockContext(
       APP_ENV: "test",
     },
     userKey: "user-key",
+    chat: { id: 123456, type: "private" },
     requestId: "request-id",
     isAdmin: false,
     reply: vi.fn(),
@@ -105,5 +107,17 @@ describe("startCommand", () => {
     expect(replyOptions.reply_markup.keyboard[0][0].text).toBe(
       MAIN_MENU_BUTTON_LABELS.add,
     );
+  });
+
+  it("clears deletion tombstone on explicit /start", async () => {
+    const kv = createMockKV();
+    const userRepo = createUserRepository(kv);
+    await userRepo.markUserDeleted("user-key");
+
+    const ctx = createMockContext(kv);
+    await startCommand(ctx);
+
+    expect(await userRepo.isUserDeleted("user-key")).toBe(false);
+    expect(await userRepo.getUserProfile("user-key", VALID_KEY)).not.toBeNull();
   });
 });

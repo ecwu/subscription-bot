@@ -1,8 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { requestContext } from "../src/bot/middleware/requestContext.js";
 import type { BotContext } from "../src/types/context.js";
 import type { Env } from "../src/types/env.js";
 import { createUserRepository } from "../src/repositories/userRepository.js";
+import { decrypt, parseEncryptedPayload } from "../src/crypto/encryption.js";
+import { userProfile } from "../src/utils/kvKeys.js";
 
 const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
   "base64url",
@@ -182,6 +184,121 @@ describe("requestContext", () => {
 
     expect(profile).not.toBeNull();
     expect(profile?.chatId).toBe(987654321);
+
+    const stored = await env.SUBSCRIPTION_KV.get(userProfile(ctx.userKey!));
+    expect(stored).not.toBeNull();
+    const encryptedPayload = JSON.parse(stored as string).encryptedPayload;
+    await expect(
+      decrypt(parseEncryptedPayload(encryptedPayload), VALID_KEY),
+    ).rejects.toThrow();
+  });
+
+  it("does not upsert user profile again when profile is fresh and chat.id is unchanged", async () => {
+    const env = createMockEnv();
+    const ctx = createMockContext({
+      from: { id: 12345, is_bot: false, first_name: "Test" },
+      chat: { id: 987654321, type: "private" },
+    });
+
+    const middleware = requestContext(env);
+    await middleware(ctx, async () => {
+      // no-op
+    });
+
+    const userRepo = createUserRepository(env.SUBSCRIPTION_KV);
+    const first = await userRepo.getUserProfile(ctx.userKey!, VALID_KEY);
+
+    await new Promise((r) => setTimeout(r, 10));
+    await middleware(ctx, async () => {
+      // no-op
+    });
+
+    const second = await userRepo.getUserProfile(ctx.userKey!, VALID_KEY);
+    expect(second?.lastSeenAt).toBe(first?.lastSeenAt);
+  });
+
+  it("upserts user profile when chat.id changes", async () => {
+    const env = createMockEnv();
+    const ctx = createMockContext({
+      from: { id: 12345, is_bot: false, first_name: "Test" },
+      chat: { id: 987654321, type: "private" },
+    });
+
+    const middleware = requestContext(env);
+    await middleware(ctx, async () => {
+      // no-op
+    });
+
+    ctx.chat = { id: 123456789, type: "private" } as BotContext["chat"];
+    await middleware(ctx, async () => {
+      // no-op
+    });
+
+    const userRepo = createUserRepository(env.SUBSCRIPTION_KV);
+    const profile = await userRepo.getUserProfile(ctx.userKey!, VALID_KEY);
+    expect(profile?.chatId).toBe(123456789);
+  });
+
+  it("does not upsert deleted users and hides userKey outside /start", async () => {
+    const env = createMockEnv();
+    const userRepo = createUserRepository(env.SUBSCRIPTION_KV);
+    const markerCtx = createMockContext({
+      from: { id: 12345, is_bot: false, first_name: "Test" },
+      chat: { id: 987654321, type: "private" },
+      message: { text: "/noop" },
+    });
+
+    const middleware = requestContext(env);
+    await middleware(markerCtx, async () => {
+      await userRepo.markUserDeleted(markerCtx.userKey!);
+    });
+    await userRepo.deleteUserProfile(markerCtx.userKey!);
+
+    const deletedCtx = createMockContext({
+      from: { id: 12345, is_bot: false, first_name: "Test" },
+      chat: { id: 987654321, type: "private" },
+      message: { text: "/add" },
+    });
+
+    await middleware(deletedCtx, async () => {
+      // no-op
+    });
+
+    expect(deletedCtx.userKey).toBeUndefined();
+    expect(
+      await userRepo.getUserProfile(markerCtx.userKey!, VALID_KEY),
+    ).toBeNull();
+  });
+
+  it("upserts user profile when lastSeenAt is older than 24 hours", async () => {
+    vi.useFakeTimers();
+    try {
+      const env = createMockEnv();
+      const ctx = createMockContext({
+        from: { id: 12345, is_bot: false, first_name: "Test" },
+        chat: { id: 987654321, type: "private" },
+      });
+      const middleware = requestContext(env);
+
+      vi.setSystemTime(new Date("2026-07-01T00:00:00.000Z"));
+      await middleware(ctx, async () => {
+        // no-op
+      });
+
+      const userRepo = createUserRepository(env.SUBSCRIPTION_KV);
+      const first = await userRepo.getUserProfile(ctx.userKey!, VALID_KEY);
+
+      vi.setSystemTime(new Date("2026-07-02T00:00:00.000Z"));
+      await middleware(ctx, async () => {
+        // no-op
+      });
+
+      const second = await userRepo.getUserProfile(ctx.userKey!, VALID_KEY);
+      expect(second?.lastSeenAt).not.toBe(first?.lastSeenAt);
+      expect(second?.lastSeenAt).toBe("2026-07-02T00:00:00.000Z");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not break when chat.id is missing", async () => {

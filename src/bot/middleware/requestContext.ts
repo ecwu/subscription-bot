@@ -5,6 +5,12 @@ import { createLogger } from "../../utils/logger.js";
 import { hashUserId } from "../../crypto/userHash.js";
 import { createUserRepository } from "../../repositories/userRepository.js";
 
+const PROFILE_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+function isStartCommand(ctx: BotContext): boolean {
+  return ctx.message?.text?.split(/\s+/, 1)[0]?.split("@", 1)[0] === "/start";
+}
+
 export function requestContext(env: Env): Middleware<BotContext> {
   return async (ctx, next) => {
     ctx.env = env;
@@ -35,17 +41,40 @@ export function requestContext(env: Env): Middleware<BotContext> {
       hashError,
     });
 
-    // Upsert user profile when we have both userKey and chat id.
+    const userRepo = createUserRepository(env.SUBSCRIPTION_KV);
+    const deleted = ctx.userKey
+      ? await userRepo.isUserDeleted(ctx.userKey)
+      : false;
+
+    if (deleted && !isStartCommand(ctx)) {
+      ctx.userKey = undefined;
+    }
+
+    // Upsert user profile when we have both userKey and chat id, but avoid
+    // rewriting encrypted profile data on every update.
     // Do not break updates without chat id (e.g., channel posts, inline queries).
-    if (ctx.userKey && ctx.chat?.id) {
+    // Deleted users must explicitly reactivate with /start before profiles are recreated.
+    if (ctx.userKey && ctx.chat?.id && !deleted) {
       try {
-        const userRepo = createUserRepository(env.SUBSCRIPTION_KV);
-        await userRepo.upsertUserProfile(
+        const profile = await userRepo.getUserProfile(
           ctx.userKey,
-          ctx.chat.id,
           env.ENCRYPTION_KEY,
         );
-        logger.info("User profile upserted");
+        const lastSeenAt = profile ? Date.parse(profile.lastSeenAt) : NaN;
+        const shouldWriteProfile =
+          !profile ||
+          profile.chatId !== ctx.chat.id ||
+          Number.isNaN(lastSeenAt) ||
+          Date.now() - lastSeenAt >= PROFILE_REFRESH_INTERVAL_MS;
+
+        if (shouldWriteProfile) {
+          await userRepo.upsertUserProfile(
+            ctx.userKey,
+            ctx.chat.id,
+            env.ENCRYPTION_KEY,
+          );
+          logger.info("User profile upserted");
+        }
       } catch (err) {
         logger.warn("Failed to upsert user profile", {
           error: err instanceof Error ? err.message : String(err),

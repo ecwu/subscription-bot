@@ -21,6 +21,7 @@ import { remindersCommand } from "./commands/reminders.js";
 import { settingsCommand } from "./commands/settings.js";
 import { adminRemindersCommand } from "./commands/adminReminders.js";
 import { adminSyncExchangeRatesCommand } from "./commands/adminSyncExchangeRates.js";
+import { adminMigrateDataCommand } from "./commands/adminMigrateData.js";
 import { diagnosisCommand } from "./commands/diagnosis.js";
 import { debugMeCommand } from "./commands/debugMe.js";
 import { addConversation } from "./conversations/addConversation.js";
@@ -153,6 +154,7 @@ export function createBot(env: Env): Bot<BotContext> {
   bot.command("settings", settingsCommand);
   bot.command("admin_reminders", adminRemindersCommand);
   bot.command("admin_sync_exchange_rates", adminSyncExchangeRatesCommand);
+  bot.command("admin_migrate_data", adminMigrateDataCommand);
   bot.command("diagnosis", diagnosisCommand);
 
   // Dev-only commands

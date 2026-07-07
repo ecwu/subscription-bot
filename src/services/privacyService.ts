@@ -37,6 +37,9 @@ export function createPrivacyService(
     },
 
     async deleteUserData(userKey: string): Promise<void> {
+      // Mark first so concurrent requests and scheduled jobs stop processing this user.
+      await userRepo.markUserDeleted(userKey);
+
       // 1. Remove all subscriptions (this also cleans reminder index entries)
       await subscriptionService.removeAll(userKey);
 

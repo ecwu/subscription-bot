@@ -10,6 +10,8 @@ import { createReminderRepository } from "../src/repositories/reminderRepository
 import { createSubscriptionRepository } from "../src/repositories/subscriptionRepository.js";
 import { createUserRepository } from "../src/repositories/userRepository.js";
 import { Env } from "../src/types/env.js";
+import { encrypt, serializeEncryptedPayload } from "../src/crypto/encryption.js";
+import { deriveUserKey } from "../src/crypto/keyDerivation.js";
 import type { KVNamespace } from "@cloudflare/workers-types";
 
 const VALID_KEY = Buffer.from("0123456789abcdef0123456789abcdef").toString(
@@ -50,6 +52,17 @@ function createMockEnv(): Env {
     SUBSCRIPTION_KV: {} as unknown as KVNamespace,
     REMINDER_DAYS_AHEAD: "3",
   };
+}
+
+async function encryptedSubPayload(
+  userKey: string,
+  sub: unknown,
+): Promise<string> {
+  const encrypted = await encrypt(
+    JSON.stringify(sub),
+    await deriveUserKey(VALID_KEY, userKey),
+  );
+  return serializeEncryptedPayload(encrypted);
 }
 
 beforeEach(() => {
@@ -336,13 +349,7 @@ describe("processReminderEntry", () => {
     };
     await subRepo.save(userKey, {
       id: subId,
-      encryptedPayload: await (async () => {
-        const { encrypt, serializeEncryptedPayload } = await import(
-          "../src/crypto/encryption.js"
-        );
-        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
-        return serializeEncryptedPayload(encrypted);
-      })(),
+      encryptedPayload: await encryptedSubPayload(userKey, sub),
       nextBillingDate: date,
       billingCycle: "monthly",
       createdAt: sub.createdAt,
@@ -405,13 +412,7 @@ describe("processReminderEntry", () => {
     };
     await subRepo.save(userKey, {
       id: subId,
-      encryptedPayload: await (async () => {
-        const { encrypt, serializeEncryptedPayload } = await import(
-          "../src/crypto/encryption.js"
-        );
-        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
-        return serializeEncryptedPayload(encrypted);
-      })(),
+      encryptedPayload: await encryptedSubPayload(userKey, sub),
       nextBillingDate: date,
       billingCycle: "monthly",
       isTrial: true,
@@ -475,13 +476,7 @@ describe("processReminderEntry", () => {
     };
     await subRepo.save(userKey, {
       id: subId,
-      encryptedPayload: await (async () => {
-        const { encrypt, serializeEncryptedPayload } = await import(
-          "../src/crypto/encryption.js"
-        );
-        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
-        return serializeEncryptedPayload(encrypted);
-      })(),
+      encryptedPayload: await encryptedSubPayload(userKey, sub),
       nextBillingDate: date,
       billingCycle: "monthly",
       autoRenew: false,
@@ -592,13 +587,7 @@ describe("processReminderEntry", () => {
     };
     await subRepo.save(userKey, {
       id: subId,
-      encryptedPayload: await (async () => {
-        const { encrypt, serializeEncryptedPayload } = await import(
-          "../src/crypto/encryption.js"
-        );
-        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
-        return serializeEncryptedPayload(encrypted);
-      })(),
+      encryptedPayload: await encryptedSubPayload(userKey, sub),
       nextBillingDate: actualDate,
       billingCycle: "monthly",
       createdAt: sub.createdAt,
@@ -660,13 +649,7 @@ describe("processReminderEntry", () => {
     };
     await subRepo.save(userKey, {
       id: subId,
-      encryptedPayload: await (async () => {
-        const { encrypt, serializeEncryptedPayload } = await import(
-          "../src/crypto/encryption.js"
-        );
-        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
-        return serializeEncryptedPayload(encrypted);
-      })(),
+      encryptedPayload: await encryptedSubPayload(userKey, sub),
       nextBillingDate: date,
       billingCycle: "monthly",
       createdAt: sub.createdAt,
@@ -728,13 +711,7 @@ describe("processReminderEntry", () => {
     };
     await subRepo.save(userKey, {
       id: subId,
-      encryptedPayload: await (async () => {
-        const { encrypt, serializeEncryptedPayload } = await import(
-          "../src/crypto/encryption.js"
-        );
-        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
-        return serializeEncryptedPayload(encrypted);
-      })(),
+      encryptedPayload: await encryptedSubPayload(userKey, sub),
       nextBillingDate: date,
       billingCycle: "monthly",
       createdAt: sub.createdAt,
@@ -797,13 +774,7 @@ describe("processReminderEntry", () => {
     };
     await subRepo.save(userKey, {
       id: subId,
-      encryptedPayload: await (async () => {
-        const { encrypt, serializeEncryptedPayload } = await import(
-          "../src/crypto/encryption.js"
-        );
-        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
-        return serializeEncryptedPayload(encrypted);
-      })(),
+      encryptedPayload: await encryptedSubPayload(userKey, sub),
       nextBillingDate: date,
       billingCycle: "monthly",
       createdAt: sub.createdAt,
@@ -831,6 +802,59 @@ describe("processReminderEntry", () => {
 
     expect(mockFetch).not.toHaveBeenCalled();
     expect(await reminderRepo.hasSent(userKey, subId, date)).toBe(false);
+  });
+
+  it("skips deleted users even if stale reminder data remains", async () => {
+    vi.setSystemTime(new Date("2026-06-01T09:00:00Z"));
+
+    const kv = createMockKV();
+    const reminderRepo = createReminderRepository(kv);
+    const subRepo = createSubscriptionRepository(kv);
+    const userRepo = createUserRepository(kv);
+    const subscriptionService = createSubscriptionService(
+      subRepo,
+      reminderRepo,
+    );
+    const env = createMockEnv();
+    env.SUBSCRIPTION_KV = kv;
+
+    const userKey = "user-1";
+    const subId = "sub-1";
+    const date = "2026-06-01";
+
+    await userRepo.upsertUserProfile(userKey, 123456, VALID_KEY);
+    await subscriptionService.create(
+      userKey,
+      {
+        id: subId,
+        name: "Netflix",
+        billingCycle: "monthly",
+        nextBillingDate: date,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      VALID_KEY,
+    );
+    await userRepo.markUserDeleted(userKey);
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200 }),
+      );
+    global.fetch = mockFetch;
+
+    const result = await processReminderEntries(
+      env,
+      reminderRepo,
+      subRepo,
+      userRepo,
+      subscriptionService,
+      [{ entry: { userKey, subscriptionId: subId }, date }],
+    );
+
+    expect(result).toEqual({ sent: 0, messages: 0, advanced: 0 });
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it("skips when reminder hour has not passed", async () => {
@@ -865,13 +889,7 @@ describe("processReminderEntry", () => {
     };
     await subRepo.save(userKey, {
       id: subId,
-      encryptedPayload: await (async () => {
-        const { encrypt, serializeEncryptedPayload } = await import(
-          "../src/crypto/encryption.js"
-        );
-        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
-        return serializeEncryptedPayload(encrypted);
-      })(),
+      encryptedPayload: await encryptedSubPayload(userKey, sub),
       nextBillingDate: date,
       billingCycle: "monthly",
       createdAt: sub.createdAt,
@@ -1087,13 +1105,7 @@ describe("processReminderEntry", () => {
     };
     await subRepo.save(userKey, {
       id: subId,
-      encryptedPayload: await (async () => {
-        const { encrypt, serializeEncryptedPayload } = await import(
-          "../src/crypto/encryption.js"
-        );
-        const encrypted = await encrypt(JSON.stringify(sub), VALID_KEY);
-        return serializeEncryptedPayload(encrypted);
-      })(),
+      encryptedPayload: await encryptedSubPayload(userKey, sub),
       nextBillingDate: date,
       billingCycle: "monthly",
       createdAt: sub.createdAt,
