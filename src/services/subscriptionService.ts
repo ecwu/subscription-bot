@@ -126,16 +126,67 @@ export function createSubscriptionService(
   }
 
   async function decryptStored(
-    userKey: string,
     stored: StoredSubscription,
-    encryptionKey: string,
+    derivedKey: string,
   ): Promise<Subscription> {
     const encrypted = parseEncryptedPayload(stored.encryptedPayload);
-    const derivedKey = await deriveUserKey(encryptionKey, userKey);
     const decrypted = await decrypt(encrypted, derivedKey);
     const parsed = JSON.parse(decrypted) as Subscription;
     const normalized = normalizeStatus(parsed);
     return withBillingAnchorDay(normalized);
+  }
+
+  async function persist(
+    userKey: string,
+    sub: Subscription,
+    encryptionKey: string,
+  ): Promise<Subscription> {
+    const previous = await repo.get(userKey, sub.id);
+    const normalizedSub = normalizeStatus(sub);
+    const billingAnchorDay =
+      normalizedSub.billingAnchorDay ??
+      getBillingAnchorDay(normalizedSub.nextBillingDate);
+    const savedSub = { ...normalizedSub, billingAnchorDay };
+    const derivedKey = await deriveUserKey(encryptionKey, userKey);
+    const encrypted = await encrypt(JSON.stringify(savedSub), derivedKey);
+    const stored: StoredSubscription = {
+      id: savedSub.id,
+      encryptedPayload: serializeEncryptedPayload(encrypted),
+      nextBillingDate: savedSub.nextBillingDate,
+      billingCycle: savedSub.billingCycle,
+      billingInterval: savedSub.billingInterval,
+      billingAnchorDay,
+      status: savedSub.status,
+      isTrial: savedSub.isTrial,
+      autoRenew: savedSub.autoRenew,
+      createdAt: savedSub.createdAt,
+      updatedAt: savedSub.updatedAt,
+    };
+    await repo.save(userKey, stored);
+
+    const shouldHaveReminder = savedSub.status === "active";
+    const previousDate = previous?.nextBillingDate;
+    const reminderDateChanged = previousDate !== savedSub.nextBillingDate;
+
+    if (previous && (!shouldHaveReminder || reminderDateChanged)) {
+      await reminderRepo.removeEntry(
+        previous.nextBillingDate,
+        userKey,
+        savedSub.id,
+      );
+    }
+    if (
+      shouldHaveReminder &&
+      (!previous || previous.status === "paused" || reminderDateChanged)
+    ) {
+      await reminderRepo.addEntry(
+        savedSub.nextBillingDate,
+        userKey,
+        savedSub.id,
+      );
+    }
+
+    return savedSub;
   }
 
   return {
@@ -144,33 +195,7 @@ export function createSubscriptionService(
       sub: Subscription,
       encryptionKey: string,
     ): Promise<void> {
-      const normalizedSub = normalizeStatus(sub);
-      const billingAnchorDay =
-        normalizedSub.billingAnchorDay ??
-        getBillingAnchorDay(normalizedSub.nextBillingDate);
-      const finalSub = { ...normalizedSub, billingAnchorDay };
-      const payload = JSON.stringify(finalSub);
-      const derivedKey = await deriveUserKey(encryptionKey, userKey);
-      const encrypted = await encrypt(payload, derivedKey);
-      const stored: StoredSubscription = {
-        id: finalSub.id,
-        encryptedPayload: serializeEncryptedPayload(encrypted),
-        nextBillingDate: finalSub.nextBillingDate,
-        billingCycle: finalSub.billingCycle,
-        billingInterval: finalSub.billingInterval,
-        billingAnchorDay,
-        status: finalSub.status,
-        isTrial: finalSub.isTrial,
-        autoRenew: finalSub.autoRenew,
-        createdAt: finalSub.createdAt,
-        updatedAt: finalSub.updatedAt,
-      };
-      await repo.save(userKey, stored);
-      await reminderRepo.addEntry(
-        finalSub.nextBillingDate,
-        userKey,
-        finalSub.id,
-      );
+      await persist(userKey, sub, encryptionKey);
     },
 
     async list(
@@ -178,10 +203,13 @@ export function createSubscriptionService(
       encryptionKey: string,
     ): Promise<Subscription[]> {
       const ids = await repo.listIds(userKey);
+      if (ids.length === 0) return [];
+
+      const derivedKey = await deriveUserKey(encryptionKey, userKey);
       const subs = await mapConcurrent(ids, LIST_CONCURRENCY, async (id) => {
         const stored = await repo.get(userKey, id);
         if (!stored) return null;
-        return decryptStored(userKey, stored, encryptionKey);
+        return decryptStored(stored, derivedKey);
       });
       return subs.filter((sub): sub is Subscription => sub !== null);
     },
@@ -193,7 +221,8 @@ export function createSubscriptionService(
     ): Promise<Subscription | null> {
       const stored = await repo.get(userKey, subId);
       if (!stored) return null;
-      return decryptStored(userKey, stored, encryptionKey);
+      const derivedKey = await deriveUserKey(encryptionKey, userKey);
+      return decryptStored(stored, derivedKey);
     },
 
     async update(
@@ -201,45 +230,7 @@ export function createSubscriptionService(
       sub: Subscription,
       encryptionKey: string,
     ): Promise<void> {
-      const oldStored = await repo.get(userKey, sub.id);
-
-      const normalizedSub = normalizeStatus(sub);
-      const billingAnchorDay =
-        normalizedSub.billingAnchorDay ??
-        getBillingAnchorDay(normalizedSub.nextBillingDate);
-      const finalSub = { ...normalizedSub, billingAnchorDay };
-      const payload = JSON.stringify(finalSub);
-      const derivedKey = await deriveUserKey(encryptionKey, userKey);
-      const encrypted = await encrypt(payload, derivedKey);
-      const stored: StoredSubscription = {
-        id: finalSub.id,
-        encryptedPayload: serializeEncryptedPayload(encrypted),
-        nextBillingDate: finalSub.nextBillingDate,
-        billingCycle: finalSub.billingCycle,
-        billingInterval: finalSub.billingInterval,
-        billingAnchorDay,
-        status: finalSub.status,
-        isTrial: finalSub.isTrial,
-        autoRenew: finalSub.autoRenew,
-        createdAt: finalSub.createdAt,
-        updatedAt: finalSub.updatedAt,
-      };
-      await repo.save(userKey, stored);
-
-      if (oldStored && oldStored.nextBillingDate !== finalSub.nextBillingDate) {
-        await reminderRepo.removeEntry(
-          oldStored.nextBillingDate,
-          userKey,
-          finalSub.id,
-        );
-        if (finalSub.status === "active") {
-          await reminderRepo.addEntry(
-            finalSub.nextBillingDate,
-            userKey,
-            finalSub.id,
-          );
-        }
-      }
+      await persist(userKey, sub, encryptionKey);
     },
 
     async pause(
@@ -258,8 +249,6 @@ export function createSubscriptionService(
         updatedAt: now,
       };
       await this.update(userKey, updated, encryptionKey);
-
-      await reminderRepo.removeEntry(sub.nextBillingDate, userKey, subId);
 
       return updated;
     },
@@ -284,8 +273,6 @@ export function createSubscriptionService(
         updatedAt: now,
       };
       await this.update(userKey, updated, encryptionKey);
-
-      await reminderRepo.addEntry(newDate, userKey, subId);
 
       return updated;
     },

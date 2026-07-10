@@ -76,6 +76,7 @@ describe("subscriptionService status", () => {
     const retrieved = await service.get("user-1", "sub-1", VALID_KEY);
     expect(retrieved).not.toBeNull();
     expect(retrieved!.status).toBe("paused");
+    expect(await reminderRepo.listEntries("2026-06-01")).toEqual([]);
   });
 
   it("pauses an active subscription", async () => {
@@ -124,6 +125,23 @@ describe("subscriptionService status", () => {
     await service.pause("user-1", "sub-1", VALID_KEY);
 
     expect(await reminderRepo.listEntries("2026-06-01")).toHaveLength(0);
+  });
+
+  it("reconciles reminder entries when update changes status", async () => {
+    const kv = createMockKV();
+    const repo = createSubscriptionRepository(kv);
+    const reminderRepo = createReminderRepository(kv);
+    const service = createSubscriptionService(repo, reminderRepo);
+
+    const sub = createSub();
+    await service.create("user-1", sub, VALID_KEY);
+    await service.update(
+      "user-1",
+      { ...sub, status: "paused", updatedAt: new Date().toISOString() },
+      VALID_KEY,
+    );
+
+    expect(await reminderRepo.listEntries("2026-06-01")).toEqual([]);
   });
 
   it("resumes a paused subscription with same date", async () => {
@@ -395,9 +413,7 @@ describe("subscriptionService status", () => {
 
     expect(result).not.toBeNull();
     expect(result!.status).toBe("paused");
-    expect(await reminderRepo.listEntries("2026-01-31")).toEqual([
-      { userKey: "user-1", subscriptionId: "sub-1" },
-    ]);
+    expect(await reminderRepo.listEntries("2026-01-31")).toEqual([]);
   });
 
   it("pause returns null for non-existent subscription", async () => {

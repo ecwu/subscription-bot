@@ -12,8 +12,6 @@ export interface SubscriptionRepository {
   listIds(userKey: string): Promise<string[]>;
   delete(userKey: string, subId: string): Promise<void>;
   deleteAll(userKey: string): Promise<void>;
-  rebuildIndex(userKey: string): Promise<void>;
-  cleanupOrphanedEntries(userKey: string): Promise<void>;
 }
 
 export function createSubscriptionRepository(
@@ -21,21 +19,7 @@ export function createSubscriptionRepository(
 ): SubscriptionRepository {
   return {
     async save(userKey: string, sub: StoredSubscription): Promise<void> {
-      const key = subscription(userKey, sub.id);
-      const indexKey = userSubscriptionsIndex(userKey);
-
-      // WARNING: KV does not support multi-key transactions.
-      // If the index update fails after the subscription is stored,
-      // the record becomes orphaned (reachable only by direct key).
-      // Use rebuildIndex() or cleanupOrphanedEntries() to repair.
-      await kv.put(key, JSON.stringify(sub));
-
-      const existing = await kv.get(indexKey);
-      const ids: string[] = existing ? JSON.parse(existing) : [];
-      if (!ids.includes(sub.id)) {
-        ids.push(sub.id);
-        await kv.put(indexKey, JSON.stringify(ids));
-      }
+      await kv.put(subscription(userKey, sub.id), JSON.stringify(sub));
     },
 
     async get(
@@ -48,80 +32,38 @@ export function createSubscriptionRepository(
     },
 
     async listIds(userKey: string): Promise<string[]> {
-      const indexKey = userSubscriptionsIndex(userKey);
-      const data = await kv.get(indexKey);
-      return data ? JSON.parse(data) : [];
+      const prefix = subscription(userKey, "");
+      const ids: string[] = [];
+      let cursor: string | undefined;
+
+      do {
+        const list = await kv.list({ prefix, cursor });
+        for (const key of list.keys) {
+          const id = key.name.slice(prefix.length);
+          if (id) ids.push(id);
+        }
+        cursor = list.list_complete ? undefined : list.cursor;
+      } while (cursor);
+
+      return ids;
     },
 
     async delete(userKey: string, subId: string): Promise<void> {
-      const key = subscription(userKey, subId);
-      const indexKey = userSubscriptionsIndex(userKey);
-
-      // WARNING: Non-atomic. If the index update fails after deletion,
-      // the index will contain a stale entry until cleanupOrphanedEntries() runs.
-      await kv.delete(key);
-
-      const existing = await kv.get(indexKey);
-      const ids: string[] = existing ? JSON.parse(existing) : [];
-      const filtered = ids.filter((id) => id !== subId);
-      await kv.put(indexKey, JSON.stringify(filtered));
+      await kv.delete(subscription(userKey, subId));
     },
 
     async deleteAll(userKey: string): Promise<void> {
       const indexKey = userSubscriptionsIndex(userKey);
       const ids = await this.listIds(userKey);
 
-      // Delete each subscription record.
-      // Non-atomic: if an isolate is evicted mid-loop, some records may remain.
-      // A subsequent /delete_me or cleanup would need to handle orphans.
       for (const subId of ids) {
-        const key = subscription(userKey, subId);
-        await kv.delete(key);
+        await kv.delete(subscription(userKey, subId));
       }
 
-      // Delete the index itself and any profile key.
+      // Remove the legacy index so deployments using the old representation do
+      // not retain stale metadata after a full account deletion.
       await kv.delete(indexKey);
       await kv.delete(userProfile(userKey));
-    },
-
-    /**
-     * Rebuild the subscription index by listing all known subscription keys.
-     * This is a best-effort repair for index inconsistency.
-     */
-    async rebuildIndex(userKey: string): Promise<void> {
-      const indexKey = userSubscriptionsIndex(userKey);
-      const prefix = subscription(userKey, "");
-      const list = await kv.list({ prefix });
-      const ids: string[] = [];
-
-      for (const key of list.keys) {
-        // key.name is like "user:<userKey>:sub:<subId>"
-        const parts = key.name.split(":");
-        const subId = parts[parts.length - 1];
-        if (subId) ids.push(subId);
-      }
-
-      await kv.put(indexKey, JSON.stringify(ids));
-    },
-
-    /**
-     * Remove index entries that no longer have a corresponding subscription record.
-     */
-    async cleanupOrphanedEntries(userKey: string): Promise<void> {
-      const ids = await this.listIds(userKey);
-      const indexKey = userSubscriptionsIndex(userKey);
-      const validIds: string[] = [];
-
-      for (const id of ids) {
-        const exists = await this.get(userKey, id);
-        if (exists) {
-          validIds.push(id);
-        }
-      }
-
-      if (validIds.length !== ids.length) {
-        await kv.put(indexKey, JSON.stringify(validIds));
-      }
     },
   };
 }

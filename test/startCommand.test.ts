@@ -74,7 +74,8 @@ describe("startCommand", () => {
 
   it("welcomes returning users when subscriptions exist", async () => {
     const kv = createMockKV();
-    await kv.put("user:user-key:subs", JSON.stringify(["sub-1", "sub-2"]));
+    await kv.put("user:user-key:sub:sub-1", "{}");
+    await kv.put("user:user-key:sub:sub-2", "{}");
     const ctx = createMockContext(kv);
 
     await startCommand(ctx);
