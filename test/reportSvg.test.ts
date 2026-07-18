@@ -132,6 +132,10 @@ describe("buildReportSvg", () => {
     expect(svg).toContain("月均订阅成本");
     expect(svg).toContain("未来 12 个月预期");
     expect(svg).toContain("Private Service");
-    expect(svg).toContain("T+3");
+    expect(svg).toContain("06/20");
+    expect(svg).toContain("¥80");
+    expect(svg).toContain("26年6月");
+    expect(svg).toContain("¥120");
+    expect(svg).toContain("月均 CN¥720.00");
   });
 });

@@ -119,7 +119,7 @@ describe("buildReportOverviewSvg with real Satori", () => {
     ]);
 
     expect(svg).toContain("<svg");
-    expect(svg).toContain('viewBox="0 0 1200 720"');
+    expect(svg).toContain('viewBox="0 0 1200 780"');
     expect(svg).toContain('font-family="noto sans sc"');
     expect(svg).toContain(">订</text>");
     expect(svg).toContain(">览</text>");

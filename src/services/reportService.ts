@@ -99,6 +99,8 @@ export interface ReportData {
 
 export interface SplitReportData {
   generatedAt: string;
+  /** User-local "today" (YYYY-MM-DD) used as the report reference date. */
+  referenceDate?: string;
   baseCurrency: string;
   subscriptionCount: number;
   currentMonthly: ReportData;
@@ -240,6 +242,7 @@ export function buildReportData(
 
   return {
     generatedAt,
+    referenceDate: today,
     baseCurrency,
     subscriptionCount: subscriptions.length,
     currentMonthly,
